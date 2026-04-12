@@ -1,6 +1,5 @@
 const express = require('express');
 const http = require('http');
-const https = require('https');
 const fs = require('fs');
 const path = require('path');
 const { Server } = require('socket.io');
@@ -8,19 +7,15 @@ const crypto = require('crypto');
 const readline = require('readline');
 const app = express();
 
-// 加载SSL证书（宝塔自动生成的路径，直接用）
-const sslOptions = {
-  key: fs.readFileSync('/www/server/panel/vhost/cert/im6.cc.cd/privkey.pem'),
-  cert: fs.readFileSync('/www/server/panel/vhost/cert/im6.cc.cd/fullchain.pem')
-};
+// ==============================================
+// 🔥 关键修复：Render 环境自动端口，禁用本地SSL证书
+// ==============================================
+const PORT = process.env.PORT || 6500;
+const server = http.createServer(app);
 
-// 创建HTTPS服务，端口仍然是6500
-const server = https.createServer(sslOptions, app);
-
-// 👇 你的原版CORS配置完全不动
 const io = new Server(server, {
   cors: { 
-    origin: "https://im6.cc.cd", 
+    origin: "*", 
     methods: ["GET", "POST"], 
     credentials: true 
   },
@@ -53,7 +48,6 @@ const UNLOGGED_CLEAN_INTERVAL = 30000;
 const REDIS_EXPIRE = 7200;
 let roomMem = new Map();
 let offlineMsgMem = new Map();
-const PORT = 6500;
 let ENABLE_VIRTUAL_USERS = true;
 const VIRTUAL_USERS = ['小甜甜', '小美', '小雅', '静静'];
 const VIRTUAL_USER_ID_PREFIX = 'robot_';
@@ -724,8 +718,8 @@ if (!SERVER_PUBLIC_KEY || !SERVER_PRIVATE_KEY) generateKeys(true);
 startKeepAliveCheck();
 
 server.listen(PORT, '0.0.0.0', () => {
-  console.log('✅ HTTPS 服务启动成功 端口：6500');
-  console.log('✅ 证书已加载');
+  console.log('✅ 服务启动成功 端口：'+PORT);
+  console.log('✅ 已适配 Render 环境');
   console.log('✅ 端到端加密正常');
   console.log('✅ 前端已绑定');
   showMenu();
