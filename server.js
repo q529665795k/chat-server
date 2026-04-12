@@ -8,11 +8,14 @@ const readline = require('readline');
 const app = express();
 
 // ==============================================
-// 🔥 关键修复：Render 环境自动端口，禁用本地SSL证书
+// 🔥 关键修复1：Render 环境自动端口，禁用本地SSL证书
 // ==============================================
 const PORT = process.env.PORT || 6500;
 const server = http.createServer(app);
 
+// ==============================================
+// 🔥 关键修复2：CORS 完全放开，兼容前端任意域名
+// ==============================================
 const io = new Server(server, {
   cors: { 
     origin: "*", 
@@ -26,6 +29,9 @@ const io = new Server(server, {
   allowEIO3: true
 });
 
+// ==============================================
+// 🔥 关键修复3：Render 无宝塔路径，所有文件改为相对路径
+// ==============================================
 const PWD_FILE = path.join(__dirname, 'admin.pwd');
 const PRI_KEY_FILE = path.join(__dirname, 'server.pri');
 const PUB_KEY_FILE = path.join(__dirname, 'server.pub');
@@ -54,19 +60,30 @@ const VIRTUAL_USER_ID_PREFIX = 'robot_';
 const MATCH_TIMEOUT = 30000;
 let userMatchTimer = new Map();
 
+// ==============================================
+// 🔥 关键修复4：文件不存在自动创建，避免启动报错
+// ==============================================
+function initFileIfNotExists(filePath, defaultContent = '') {
+  if (!fs.existsSync(filePath)) {
+    fs.writeFileSync(filePath, defaultContent, 'utf8');
+  }
+}
+
+// 初始化所有必要文件
+initFileIfNotExists(PWD_FILE, '123456');
+initFileIfNotExists(USERS_FILE, '[]');
+initFileIfNotExists(PRI_KEY_FILE, '');
+initFileIfNotExists(PUB_KEY_FILE, '');
+initFileIfNotExists(MODE_FILE, 'auto');
+
 function getVirtualUserId(name) {
   return `${VIRTUAL_USER_ID_PREFIX}${name.toLowerCase()}`;
 }
 
 function loadPwd() {
   try {
-    if (fs.existsSync(PWD_FILE)) {
-      ADMIN_PWD = fs.readFileSync(PWD_FILE, 'utf8').trim();
-      if (!ADMIN_PWD) ADMIN_PWD = '123456';
-    } else {
-      fs.writeFileSync(PWD_FILE, '123456');
-      ADMIN_PWD = '123456';
-    }
+    ADMIN_PWD = fs.readFileSync(PWD_FILE, 'utf8').trim();
+    if (!ADMIN_PWD) ADMIN_PWD = '123456';
   } catch (e) {
     ADMIN_PWD = '123456';
     fs.writeFileSync(PWD_FILE, ADMIN_PWD);
@@ -75,13 +92,9 @@ function loadPwd() {
 
 function loadUsers() {
   try {
-    if (fs.existsSync(USERS_FILE)) {
-      const userData = fs.readFileSync(USERS_FILE, 'utf8').trim();
-      const users = userData ? JSON.parse(userData) : [];
-      users.forEach(u => loginMap.set(u.username, u.password));
-    } else {
-      fs.writeFileSync(USERS_FILE, JSON.stringify([]), 'utf8');
-    }
+    const userData = fs.readFileSync(USERS_FILE, 'utf8').trim();
+    const users = userData ? JSON.parse(userData) : [];
+    users.forEach(u => loginMap.set(u.username, u.password));
   } catch (e) {
     fs.writeFileSync(USERS_FILE, JSON.stringify([]), 'utf8');
     loginMap.clear();
@@ -91,10 +104,8 @@ function loadUsers() {
 function saveUser(username, password) {
   try {
     let users = [];
-    if (fs.existsSync(USERS_FILE)) {
-      const userData = fs.readFileSync(USERS_FILE, 'utf8').trim();
-      users = userData ? JSON.parse(userData) : [];
-    }
+    const userData = fs.readFileSync(USERS_FILE, 'utf8').trim();
+    users = userData ? JSON.parse(userData) : [];
     users.push({ username, password });
     fs.writeFileSync(USERS_FILE, JSON.stringify(users, null, 2), 'utf8');
     loginMap.set(username, password);
@@ -109,10 +120,8 @@ function deleteUser(username, adminPwd) {
     if (adminPwd !== ADMIN_PWD) return { code: 403, msg: '管理员密码错误' };
     if (!loginMap.has(username)) return { code: 404, msg: '用户不存在' };
     let users = [];
-    if (fs.existsSync(USERS_FILE)) {
-      const userData = fs.readFileSync(USERS_FILE, 'utf8').trim();
-      users = userData ? JSON.parse(userData) : [];
-    }
+    const userData = fs.readFileSync(USERS_FILE, 'utf8').trim();
+    users = userData ? JSON.parse(userData) : [];
     const newUsers = users.filter(u => u.username !== username);
     fs.writeFileSync(USERS_FILE, JSON.stringify(newUsers, null, 2), 'utf8');
     loginMap.delete(username);
@@ -717,6 +726,9 @@ loadKeys();
 if (!SERVER_PUBLIC_KEY || !SERVER_PRIVATE_KEY) generateKeys(true);
 startKeepAliveCheck();
 
+// ==============================================
+// 🔥 关键修复5：Render 监听 0.0.0.0，兼容云服务器
+// ==============================================
 server.listen(PORT, '0.0.0.0', () => {
   console.log('✅ 服务启动成功 端口：'+PORT);
   console.log('✅ 已适配 Render 环境');
