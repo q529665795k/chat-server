@@ -118,6 +118,29 @@ app.use((req, res, next) => {
   if (req.method === "OPTIONS") return res.sendStatus(200);
   next();
 });
+// 给根路径加个欢迎页
+app.get('/', (req, res) => {
+  res.send(`
+    <html>
+      <head>
+        <meta charset="UTF-8">
+        <title>Chat Server</title>
+        <style>
+          body { display: flex; justify-content: center; align-items: center; height: 100vh; margin: 0; background: #f0f2f5; font-family: Arial; }
+          .card { background: white; padding: 40px; border-radius: 12px; box-shadow: 0 2px 12px rgba(0,0,0,0.1); text-align: center; }
+          h1 { color: #2196F3; margin-bottom: 16px; }
+          p { color: #666; }
+        </style>
+      </head>
+      <body>
+        <div class="card">
+          <h1>✅ Chat Server is Running</h1>
+          <p>Your chat backend is working normally!</p>
+        </div>
+      </body>
+    </html>
+  `);
+});
 
 const PORT = process.env.PORT || 6500;
 const server = http.createServer(app);
