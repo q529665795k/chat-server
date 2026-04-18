@@ -2,8 +2,13 @@
   "name": "chat-server",
   "version": "1.0.0",
   "main": "server.js",
-  "scripts": {
-    "start": "node server.js"
+  "dependencies": {
+    "express": "^4.19.2",
+    "socket.io": "^4.7.5",
+    "mysql2": "^3.9.7",
+    "crypto-js": "^4.2.0"
   },
-  "dependencies": {}
+  "engines": {
+    "node": ">=18.0.0"
+  }
 }
