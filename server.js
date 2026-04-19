@@ -17,7 +17,6 @@ const PROXY_PWD = "Longge123456";
 
 const fs = require('fs');
 const path = require('path');
-const { Server } = require('socket.io');
 const crypto = require('crypto');
 const readline = require('readline');
 const mysql = require('mysql2/promise');
