@@ -970,8 +970,7 @@ if (!SERVER_PUBLIC_KEY||!SERVER_PRIVATE_KEY) generateKeys(true);
 startKeepAliveCheck();
 // 【5分钟保活】自己请求自己，防止平台休眠，带日志
 setInterval(() => {
- // 【5分钟保活】自己请求自己，防止平台休眠，带日志
-
+ 
   try {
     http.get(`http://127.0.0.1:${PORT}`, (res) => {
       console.log(`[保活成功] ${new Date().toLocaleString()} - 防止服务器休眠`);
@@ -982,7 +981,6 @@ setInterval(() => {
     console.log("[保活异常]", e.message);
   }
 }, 5 * 60 * 1000); // 5分钟一次
-
 
 server.listen()
 
