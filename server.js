@@ -5,6 +5,11 @@ const url = require('url');
 
 const express = require('express');
 const http = require('http');
+const app = express();
+const server = http.createServer(app);
+
+const server = http.createServer(app);
+
 const PROXY_USER = "longge";
 const PROXY_PWD  = "Longge123456";
 
