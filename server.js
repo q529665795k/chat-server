@@ -1058,3 +1058,47 @@ process.on('uncaughtException',(e)=>{console.error('全局异常:',e.message)});
 process.on('unhandledRejection',(r)=>{console.error('Promise异常:',r)});
 process.on('SIGINT',()=>process.exit(0));
 app.use((req,res)=>res.status(404).json({code:404}));
+
+
+// ====================== 私人代理（仅你自己用）======================
+const fetch = (...args) => import('node-fetch').then(mod => mod.default(...args));
+
+
+const PROXY_USER = "longge";
+const PROXY_PWD  = "Qwoaini123456";
+
+app.get("/myproxy", async (req, res) => {
+  try {
+    // 密码验证
+    const auth = req.headers.authorization;
+    if (!auth) {
+      res.setHeader("WWW-Authenticate", "Basic realm=Private");
+      return res.status(401).send("请登录");
+    }
+
+    const [user, pwd] = Buffer.from(auth.split(" ")[1], "base64").toString().split(":");
+    if (user !== PROXY_USER || pwd !== PROXY_PWD) {
+      return res.status(403).send("无权使用");
+    }
+
+    // 目标网址
+    const url = req.query.url;
+    if (!url) return res.send("请传入 url 参数");
+
+    // 转发请求
+    const response = await fetch(url, {
+      headers: {
+        "User-Agent": "Mozilla/5.0",
+        Accept: "*/*"
+      }
+    });
+
+    const body = await response.text();
+    res.send(body);
+  } catch (e) {
+    res.status(500).send("代理错误");
+  }
+});
+// ==================================================================
+
+
