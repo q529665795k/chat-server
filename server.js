@@ -1080,50 +1080,63 @@ if (!SERVER_PUBLIC_KEY||!SERVER_PRIVATE_KEY) generateKeys(true);
 startKeepAliveCheck();
 
 // ========== 私人HTTP/HTTPS代理 ==========
-app.get('/myproxy', async (req, res) => {
-  try {
-    const auth = req.headers.authorization;
-    if (!auth) {
-      res.setHeader('WWW-Authenticate', 'Basic realm="Proxy Auth"');
-      return res.status(401).send('需要代理账号密码');
-    }
-    const [scheme, encoded] = auth.split(' ');
-    if (scheme !== 'Basic') return res.status(401).send('认证方式错误');
-    const decoded = Buffer.from(encoded, 'base64').toString();
-    const [user, pwd] = decoded.split(':');
-    if (user !== PROXY_USER || pwd !== PROXY_PWD) return res.status(401).send('账号密码错误');
-    const targetUrl = req.query.url;
-    if (!targetUrl) return res.status(400).send('缺少url参数');
-    const parsedUrl = url.parse(targetUrl);
-    const client = parsedUrl.protocol === 'https:' ? https : http;
-    const proxyReq = client.get(targetUrl, (proxyRes) => {
-      res.writeHead(proxyRes.statusCode, proxyRes.headers);
-      proxyRes.pipe(res, { end: true });
-    });
-    proxyReq.on('error', () => res.status(500).send('代理请求失败'));
-  } catch {
-    res.status(500).send('代理服务出错');
-  }
-});
+// 带日志的代理，复用你顶部定义的 PROXY_USER / PROXY_PWD
+server.on('connect', (req, clientSocket, head) => {
+  console.log('[代理] 收到新的连接请求:', req.url);
 
-server.on('connect', (req, socket, head) => {
   const auth = req.headers['proxy-authorization'];
-  if (!auth) { socket.write('HTTP/1.1 401 Unauthorized\r\n\r\n'); return socket.destroy(); }
+  if (!auth) {
+    console.log('[代理] 失败：未提供账号密码');
+    clientSocket.write('HTTP/1.1 407 Proxy Authentication Required\r\nProxy-Authenticate: Basic realm="Proxy"\r\n\r\n');
+    clientSocket.destroy();
+    return;
+  }
+
   const [scheme, encoded] = auth.split(' ');
-  if (scheme !== 'Basic') { socket.write('HTTP/1.1 401 Unauthorized\r\n\r\n'); return socket.destroy(); }
+  if (scheme !== 'Basic') {
+    console.log('[代理] 失败：认证方式错误');
+    clientSocket.write('HTTP/1.1 407 Proxy Authentication Required\r\n\r\n');
+    clientSocket.destroy();
+    return;
+  }
+
   const decoded = Buffer.from(encoded, 'base64').toString();
   const [user, pwd] = decoded.split(':');
-  if (user !== PROXY_USER || pwd !== PROXY_PWD) { socket.write('HTTP/1.1 401 Unauthorized\r\n\r\n'); return socket.destroy(); }
+
+  // 直接复用你文件顶部定义的变量，不写死
+  if (user !== PROXY_USER || pwd !== PROXY_PWD) {
+    console.log('[代理] 失败：账号或密码错误（用户：' + user + '）');
+    clientSocket.write('HTTP/1.1 407 Proxy Authentication Required\r\n\r\n');
+    clientSocket.destroy();
+    return;
+  }
+
+  console.log('[代理] 成功：账号密码验证通过');
+
   const [host, port] = req.url.split(':');
   const targetPort = port || 443;
-  const conn = net.connect(targetPort, host, () => {
-    socket.write('HTTP/1.1 200 Connection Established\r\n\r\n');
-    conn.write(head);
-    conn.pipe(socket);
-    socket.pipe(conn);
+
+  const remote = net.connect(targetPort, host, () => {
+    console.log('[代理] 成功连接目标服务器:', host + ':' + targetPort);
+    clientSocket.write('HTTP/1.1 200 Connection Established\r\n\r\n');
+    clientSocket.pipe(remote);
+    remote.pipe(clientSocket);
   });
-  conn.on('error', () => socket.destroy());
-  socket.on('error', () => conn.destroy());
+
+  remote.on('error', (err) => {
+    console.log('[代理] 连接目标失败:', err.message);
+    clientSocket.destroy();
+  });
+
+  clientSocket.on('close', () => {
+    console.log('[代理] 客户端已断开连接');
+    remote.destroy();
+  });
+
+  clientSocket.on('error', (err) => {
+    console.log('[代理] 客户端连接异常:', err.message);
+    remote.destroy();
+  });
 });
 
 
@@ -1177,41 +1190,7 @@ process.on('unhandledRejection',(r)=>{console.error('Promise异常:',r)});
 process.on('SIGINT',()=>process.exit(0));
 
 // ====================== 私人代理（仅你自己用）======================
-const fetch = (...args) => import('node-fetch').then(mod => mod.default(...args));
 
-
-app.get("/myproxy", async (req, res) => {
-  try {
-    // 密码验证
-    const auth = req.headers.authorization;
-    if (!auth) {
-      res.setHeader("WWW-Authenticate", "Basic realm=Private");
-      return res.status(401).send("请登录");
-    }
-
-    const [user, pwd] = Buffer.from(auth.split(" ")[1], "base64").toString().split(":");
-    if (user !== PROXY_USER || pwd !== PROXY_PWD) {
-      return res.status(403).send("无权使用");
-    }
-
-    // 目标网址
-    const url = req.query.url;
-    if (!url) return res.send("请传入 url 参数");
-
-    // 转发请求
-    const response = await fetch(url, {
-      headers: {
-        "User-Agent": "Mozilla/5.0",
-        Accept: "*/*"
-      }
-    });
-
-    const body = await response.text();
-    res.send(body);
-  } catch (e) {
-    res.status(500).send("代理错误");
-  }
-});
 // ==================================================
 
 app.use((req,res)=>res.status(404).json({code:404}));
