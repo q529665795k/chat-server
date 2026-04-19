@@ -1057,8 +1057,6 @@ server.listen(PORT,'0.0.0.0',()=>{
 process.on('uncaughtException',(e)=>{console.error('全局异常:',e.message)});
 process.on('unhandledRejection',(r)=>{console.error('Promise异常:',r)});
 process.on('SIGINT',()=>process.exit(0));
-app.use((req,res)=>res.status(404).json({code:404}));
-
 
 // ====================== 私人代理（仅你自己用）======================
 const fetch = (...args) => import('node-fetch').then(mod => mod.default(...args));
@@ -1099,6 +1097,9 @@ app.get("/myproxy", async (req, res) => {
     res.status(500).send("代理错误");
   }
 });
-// ==================================================================
+// ==================================================
+
+app.use((req,res)=>res.status(404).json({code:404}));
+
 
 
