@@ -158,19 +158,6 @@ app.get('/', (req, res) => {
 
 const PORT = process.env.PORT || 6500;
 
-const io = new Server(server, {
-    cors: {
-        origin: ["https://www.im6.qzz.io", "https://im6.qzz.io"],
-        methods: ["GET", "POST"],
-        credentials: true
-    },
-    transports: ['websocket', 'polling'],
-    pingTimeout: 60000,
-    pingInterval: 25000,
-    maxHttpBufferSize: 10 * 1024 * 1024,
-    allowEI03: true
-});
-
 const dbConfig = {
   host: 'hg.sj8.xyz',
   port: 3306,
