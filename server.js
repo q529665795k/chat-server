@@ -5,6 +5,16 @@ const express = require('express');
 const http = require('http');
 const { Server } = require('socket.io');
 const app = express();
+
+app.use((req, res, next) => {
+  res.header("Access-Control-Allow-Origin", "*");
+  res.header("Access-Control-Allow-Methods", "GET,POST,OPTIONS");
+  res.header("Access-Control-Allow-Headers", "Content-Type");
+  if (req.method === "OPTIONS") return res.sendStatus(200);
+  next();
+});
+
+
 const server = http.createServer(app);
 const io = new Server(server, { cors: { origin: "*" } });
 // 代理账号密码
@@ -98,13 +108,17 @@ async function clearUserChatRecords(username) {
     await db.execute("DELETE FROM messages WHERE from_user=? OR to_user=?", [username, username]);
   } catch (e) {}
 }
+// 完整跨域配置，解决OPTIONS预检和所有请求头问题
 app.use((req, res, next) => {
   res.header("Access-Control-Allow-Origin", "*");
-  res.header("Access-Control-Allow-Methods", "GET,POST,OPTIONS");
-  res.header("Access-Control-Allow-Headers", "Content-Type");
-  if (req.method === "OPTIONS") return res.sendStatus(200);
+  res.header("Access-Control-Allow-Methods", "GET,HEAD,OPTIONS,POST,PUT,DELETE");
+  res.header("Access-Control-Allow-Headers", "Origin, X-Requested-With, Content-Type, Accept, Authorization");
+  if (req.method === "OPTIONS") {
+    return res.sendStatus(200);
+  }
   next();
 });
+
 app.get('/', (req, res) => {
   res.send(`
     <html>
