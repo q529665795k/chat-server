@@ -981,7 +981,7 @@ setInterval(() => {
   }
 }, 5 * 60 * 1000); // 5分钟一次
 
-
+server.listen()
 
 server.listen(PORT,'0.0.0.0',()=>{
   console.log('✅ 启动成功 端口:'+PORT);
