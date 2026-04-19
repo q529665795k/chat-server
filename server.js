@@ -727,6 +727,32 @@ app.post('/login', async (req,res)=>{
 
 
 io.on('connection', socket=>{
+ 
+  // ------------------- Socket.IO 心跳保活（直接插在 io.on('connection', 开头） -------------------
+let isAlive = true;
+
+socket.on('pong', () => {
+  isAlive = true;
+});
+
+const heartbeatInterval = setInterval(() => {
+  if (!isAlive) {
+    return socket.disconnect(true);
+  }
+  isAlive = false;
+  socket.emit('ping');
+}, 30000); // 每30秒发一次 ping，防止被 Render/Cloudflare 断开
+
+const timeout = setTimeout(() => {
+  socket.disconnect(true);
+}, 10 * 60 * 1000); // 10分钟无响应强制断开
+
+socket.on('disconnect', () => {
+  clearInterval(heartbeatInterval);
+  clearTimeout(timeout);
+});
+// ------------------- 心跳保活结束 -------------------
+
   const sid=socket.id;
   const user={ id:sid, socket:socket, username:'', partner:null, isMatched:false, lastActive:Date.now(), heartbeatStatus:true, aesKey:'', lastKeepAlive:Date.now(), roomId:null };
   userMap.set(sid,user);
@@ -1051,6 +1077,36 @@ server.listen(PORT,'0.0.0.0',()=>{
   console.log('✅ 改昵称：已连库+重名判断');
   console.log('✅ AI：正常可用');
   console.log('✅ 无语法错误，可直接运行');
+  
+  // 自动获取端口 · 自我连通检测
+setTimeout(() => {
+  const currentPort = server.address().port;
+
+  console.log("========================================");
+  console.log("🔍 开始自我检测，当前端口：" + currentPort);
+
+  const http = require("http");
+  const req = http.request(
+    {
+      host: "127.0.0.1",
+      port: currentPort,
+      path: "/",
+      timeout: 3000
+    },
+    (res) => {
+      console.log("✅ 自我 ping 成功 | 状态码：" + res.statusCode);
+      console.log("========================================");
+    }
+  );
+
+  req.on("error", (err) => {
+    console.log("❌ 自我 ping 失败");
+    console.log("========================================");
+  });
+
+  req.end();
+}, 3000);
+
   showMenu();
 });
 
