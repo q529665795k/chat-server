@@ -2,14 +2,18 @@
 const https = require('https');
 const net = require('net');
 const url = require('url');
-
 const express = require('express');
 const http = require('http');
+const { Server } = require('socket.io');
+
 const app = express();
 const server = http.createServer(app);
+const io = new Server(server, { cors: { origin: "*" } });
 
+// 代理账号密码
 const PROXY_USER = "longge";
-const PROXY_PWD  = "Longge123456";
+const PROXY_PWD = "Longge123456";
+
 
 const fs = require('fs');
 const path = require('path');
@@ -128,7 +132,6 @@ app.use((req, res, next) => {
   if (req.method === "OPTIONS") return res.sendStatus(200);
   next();
 });
-const httpServer = http.createServer(app);
 
 // 给根路径加个欢迎页
 app.get('/', (req, res) => {
@@ -154,18 +157,20 @@ app.get('/', (req, res) => {
   `);
 });
 
+
 const PORT = process.env.PORT || 6500;
-const io = new Server(httpServer, {
-  cors: {
-    origin: ["https://www.im6.qzz.io", "https://im6.qzz.io"],
-    methods: ["GET","POST"],
-    credentials: true
-  },
-  transports: ['websocket','polling'],
-  pingTimeout: 60000,
-  pingInterval: 25000,
-  maxHttpBufferSize: 10*1024*1024,
-  allowEIO3: true
+
+const io = new Server(server, {
+    cors: {
+        origin: ["https://www.im6.qzz.io", "https://im6.qzz.io"],
+        methods: ["GET", "POST"],
+        credentials: true
+    },
+    transports: ['websocket', 'polling'],
+    pingTimeout: 60000,
+    pingInterval: 25000,
+    maxHttpBufferSize: 10 * 1024 * 1024,
+    allowEI03: true
 });
 
 const dbConfig = {
@@ -1083,73 +1088,87 @@ if (!SERVER_PUBLIC_KEY||!SERVER_PRIVATE_KEY) generateKeys(true);
 startKeepAliveCheck();
 
 // ========== 私人HTTP/HTTPS代理 ==========
-// 带日志的代理，复用你顶部定义的 PROXY_USER / PROXY_PWD
-httpServer.on('connect', (req, clientSocket, head) => {
-  console.log('[代理] 收到新的连接请求:', req.url);
-
+// ==================== 代理逻辑 ====================
+server.on('request', (req, res) => {
   const auth = req.headers['proxy-authorization'];
-  if (!auth) {
-    console.log('[代理] 失败：未提供账号密码');
-    clientSocket.write('HTTP/1.1 407 Proxy Authentication Required\r\nProxy-Authenticate: Basic realm="Proxy"\r\n\r\n');
-    clientSocket.destroy();
-    return;
+  if (!auth || !auth.startsWith('Basic ')) {
+    res.writeHead(407, { 'Proxy-Authenticate': 'Basic realm="Proxy"' });
+    return res.end();
   }
-
-  const [scheme, encoded] = auth.split(' ');
-  if (scheme !== 'Basic') {
-    console.log('[代理] 失败：认证方式错误');
-    clientSocket.write('HTTP/1.1 407 Proxy Authentication Required\r\n\r\n');
-    clientSocket.destroy();
-    return;
-  }
-
-  const decoded = Buffer.from(encoded, 'base64').toString();
+  const decoded = Buffer.from(auth.split(' ')[1], 'base64').toString();
   const [user, pwd] = decoded.split(':');
-
-  // 直接复用你文件顶部定义的变量，不写死
   if (user !== PROXY_USER || pwd !== PROXY_PWD) {
-    console.log('[代理] 失败：账号或密码错误（用户：' + user + '）');
-    clientSocket.write('HTTP/1.1 407 Proxy Authentication Required\r\n\r\n');
-    clientSocket.destroy();
-    return;
+    res.writeHead(407, { 'Proxy-Authenticate': 'Basic realm="Proxy"' });
+    return res.end();
   }
 
-  console.log('[代理] 成功：账号密码验证通过');
+  const parsedUrl = url.parse(req.url);
+  const options = {
+    hostname: parsedUrl.hostname,
+    port: parsedUrl.port || 80,
+    path: parsedUrl.path,
+    method: req.method,
+    headers: req.headers
+  };
 
-  const [host, port] = req.url.split(':');
-  const targetPort = port || 443;
-
-  const remote = net.connect(targetPort, host, () => {
-    console.log('[代理] 成功连接目标服务器:', host + ':' + targetPort);
-    clientSocket.write('HTTP/1.1 200 Connection Established\r\n\r\n');
-    clientSocket.pipe(remote);
-    remote.pipe(clientSocket);
+  const proxyReq = http.request(options, (proxyRes) => {
+    res.writeHead(proxyRes.statusCode, proxyRes.headers);
+    proxyRes.pipe(res, { end: true });
   });
 
-  remote.on('error', (err) => {
-    console.log('[代理] 连接目标失败:', err.message);
-    clientSocket.destroy();
-  });
+  req.pipe(proxyReq, { end: true });
 
-  clientSocket.on('close', () => {
-    console.log('[代理] 客户端已断开连接');
-    remote.destroy();
-  });
-
-  clientSocket.on('error', (err) => {
-    console.log('[代理] 客户端连接异常:', err.message);
-    remote.destroy();
+  proxyReq.on('error', (err) => {
+    console.error('代理错误:', err);
+    res.writeHead(502);
+    res.end('Bad Gateway');
   });
 });
 
+server.on('connect', (req, socket, head) => {
+  const auth = req.headers['proxy-authorization'];
+  if (!auth || !auth.startsWith('Basic ')) {
+    socket.write('HTTP/1.1 407 Proxy Authentication Required\r\n\r\n');
+    return socket.end();
+  }
+  const decoded = Buffer.from(auth.split(' ')[1], 'base64').toString();
+  const [user, pwd] = decoded.split(':');
+  if (user !== PROXY_USER || pwd !== PROXY_PWD) {
+    socket.write('HTTP/1.1 407 Proxy Authentication Required\r\n\r\n');
+    return socket.end();
+  }
+
+  const [host, port] = req.url.split(':');
+  const conn = net.connect(Number(port) || 443, host, () => {
+    socket.write('HTTP/1.1 200 Connection established\r\n\r\n');
+    conn.write(head);
+    conn.pipe(socket);
+    socket.pipe(conn);
+  });
+
+  conn.on('error', () => socket.end());
+});
+// ==================== 代理结束 ====================
+
+const PORT = process.env.PORT || 10000;
 
 server.listen(PORT,'0.0.0.0',()=>{
+ 
+  // ==================== 启动监听 ====================
+  
   console.log('✅ 启动成功 端口:'+PORT);
+
+console.log(`✅ 服务运行在端口 ${PORT}`);
+  console.log(`✅ 代理已启动：账号 ${PROXY_USER} | 密码 ${PROXY_PWD}`);
+  
   console.log('✅ 登录：必须注册+验证数据库');
   console.log('✅ 改昵称：已连库+重名判断');
   console.log('✅ AI：正常可用');
   console.log('✅ 无语法错误，可直接运行');
+// ==================== 启动监听 ====================
 
+
+  
 showMenu();
 });
 
