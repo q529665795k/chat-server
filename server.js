@@ -966,11 +966,11 @@ io.on('connection', socket=>{
 loadPwd();
 loadUsers();
 loadKeys();
-if (!SERVER_PUBLIC_KEY||!SERVER_PRIVATE_KEY) generateKeys(true);
+
 startKeepAliveCheck();
 // 【5分钟保活】自己请求自己，防止平台休眠，带日志
+// 【5分钟保活】自己请求自己，防止平台休眠，带日志
 setInterval(() => {
- 
   try {
     http.get(`http://127.0.0.1:${PORT}`, (res) => {
       console.log(`[保活成功] ${new Date().toLocaleString()} - 防止服务器休眠`);
@@ -982,7 +982,8 @@ setInterval(() => {
   }
 }, 5 * 60 * 1000); // 5分钟一次
 
-server.listen()
+
+
 
 server.listen(PORT,'0.0.0.0',()=>{
   console.log('✅ 启动成功 端口:'+PORT);
