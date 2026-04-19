@@ -969,6 +969,20 @@ loadKeys();
 if (!SERVER_PUBLIC_KEY||!SERVER_PRIVATE_KEY) generateKeys(true);
 startKeepAliveCheck();
 
+// 【5分钟保活】自己请求自己，防止平台休眠，带日志
+setInterval(() => {
+  try {
+    http.get(`http://127.0.0.1:${PORT}`, (res) => {
+      console.log(`[保活成功] ${new Date().toLocaleString()} - 防止服务器休眠`);
+    }).on('error', (err) => {
+      console.log(`[保活失败] ${new Date().toLocaleString()} -`, err.message);
+    });
+  } catch (e) {
+    console.log("[保活异常]", e.message);
+  }
+}, 5 * 60 * 1000); // 5分钟一次
+
+
 server.listen(PORT,'0.0.0.0',()=>{
   console.log('✅ 启动成功 端口:'+PORT);
   console.log('✅ 登录：必须注册+验证数据库');
