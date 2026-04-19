@@ -6,14 +6,35 @@ const http = require('http');
 const { Server } = require('socket.io');
 const app = express();
 
+// 全局状态管理
+const loginMap = new Map();
+const userMap = new Map();
+const userSessionMap = new Map();
+
+// 配置常量
+const ADMIN_PWD = '123456'; // 这里填你原来的管理员密码，没有就随便写个
+const SERVER_PUBLIC_KEY = ''; // 空字符串占位，不影响基础功能
+const HEARTBEAT_INTERVAL = 30000;
+const UNLOGGED_CLEAN_INTERVAL = 5000;
+
+
+const allowedOrigins = ["https://www.im6.qzz.io", "https://im6.qzz.io"];
 app.use((req, res, next) => {
-  res.header("Access-Control-Allow-Origin", "*");
-  res.header("Access-Control-Allow-Methods", "GET,POST,OPTIONS");
-  res.header("Access-Control-Allow-Headers", "Content-Type");
-  if (req.method === "OPTIONS") return res.sendStatus(200);
+  const origin = req.headers.origin;
+  if (allowedOrigins.includes(origin)) {
+    res.header("Access-Control-Allow-Origin", origin);
+  }
+  res.header("Access-Control-Allow-Credentials", "true");
+  res.header("Access-Control-Allow-Methods", "GET,POST,OPTIONS,PUT,DELETE");
+  res.header("Access-Control-Allow-Headers", "Content-Type, Authorization, Origin, X-Requested-With, Accept");
+
+  if (req.method === "OPTIONS") {
+    return res.sendStatus(200);
+  }
   next();
 });
 
+app.use(express.json()
 
 const server = http.createServer(app);
 // 代理账号密码
@@ -107,16 +128,7 @@ async function clearUserChatRecords(username) {
     await db.execute("DELETE FROM messages WHERE from_user=? OR to_user=?", [username, username]);
   } catch (e) {}
 }
-// 完整跨域配置，解决OPTIONS预检和所有请求头问题
-app.use((req, res, next) => {
-  res.header("Access-Control-Allow-Origin", "https://www.im6.qzz.io");
-  res.header("Access-Control-Allow-Methods", "GET,POST,OPTIONS,PUT,DELETE");
-  res.header("Access-Control-Allow-Headers", "Content-Type, Authorization, Origin, X-Requested-With, Accept");
-  if (req.method === "OPTIONS") {
-    return res.sendStatus(200);
-  }
-  next();
-});
+// 完整跨域配置，解决OPTIONS预检和所有
 
 
 app.get('/', (req, res) => {
@@ -190,6 +202,48 @@ let db;
     console.error('❌ MySQL 失败:', err.message);
   }
 })();
+// 登录接口（确保只发送一次响应，解决 headers sent 错误）
+app.post('/login', async (req, res) => {
+  try {
+    // 从请求体中获取账号密码（依赖前面的 express.json() 中间件）
+    const { username, password } = req.body;
+
+    // 检查数据库连接是否正常
+    if (!db) {
+      return res.status(500).json({ success: false, message: '数据库未连接，请稍后重试' });
+    }
+
+    // 执行数据库查询，匹配账号密码
+    const [rows] = await db.execute(
+      'SELECT id, username FROM users WHERE username = ? AND password = ?',
+      [username, password]
+    );
+
+    if (rows.length > 0) {
+      // 登录成功，返回用户信息
+      return res.json({
+        success: true,
+        user: rows[0]
+      });
+    } else {
+      // 账号密码不匹配
+      return res.json({
+        success: false,
+        message: '用户名或密码错误'
+      });
+    }
+
+  } catch (err) {
+    console.error('❌ 登录接口错误:', err);
+    // 服务器错误，返回 500 状态码
+    return res.status(500).json({
+      success: false,
+      message: '服务器内部错误，请稍后重试'
+    });
+  }
+});
+
+
 const PWD_FILE = path.join(__dirname, 'admin.pwd');
 const PRI_KEY_FILE = path.join(__dirname, 'server.pri');
 const PUB_KEY_FILE = path.join(__dirname, 'server.pub');
@@ -621,62 +675,214 @@ app.post('/_hidden_change_key', (req,res)=>{
 });
 
 // ==================== 登录修复 ====================
-app.post('/register', async (req,res)=>{
-  const { username,password } = req.body;
-  if (!username || !password || username.length < 2 || username.length > 20 || password.length < 6) {
-    return res.json({code:400,msg:'格式错误'});
-  }
+// 注册接口（和登录接口配套）
+app.post('/register', async (req, res) => {
   try {
-    const [exists] = await db.execute('SELECT id FROM users WHERE username=?', [username]);
-    if (exists.length > 0) {
-      return res.json({code:400,msg:'已存在'});
+    const { username, password } = req.body;
+    if (!username || !password || username.length < 2 || username.length > 20) {
+      return res.json({ success: false, message: '用户名格式错误（2-20位）' });
     }
-    await db.execute('INSERT INTO users (username,password) VALUES (?,?)', [username, password]);
-    loginMap.set(username, password);
-    return res.json({code:200,msg:'注册成功'});
+    if (password.length < 6) {
+      return res.json({ success: false, message: '密码长度不能少于6位' });
+    }
+
+    if (!db) {
+      return res.status(500).json({ success: false, message: '数据库未连接' });
+    }
+
+    const [exists] = await db.execute('SELECT id FROM users WHERE username = ?', [username]);
+    if (exists.length > 0) {
+      return res.json({ success: false, message: '用户名已存在' });
+    }
+
+    // 注意：这里直接存储明文密码，仅用于测试，生产环境必须加密
+    await db.execute('INSERT INTO users (username, password) VALUES (?, ?)', [username, password]);
+    return res.json({ success: true, message: '注册成功' });
+
   } catch (err) {
     console.error('注册错误:', err);
-    return res.json({code:500,msg:'注册失败'});
+    return res.status(500).json({ success: false, message: '注册失败，请稍后重试' });
   }
 });
 
-app.post('/login', async (req,res)=>{
-  const { username,password } = req.body;
-  if (!username||!password) return res.json({code:400,msg:'请输入账号密码'});
-  
-  try {
-    const [rows] = await db.execute('SELECT password FROM users WHERE username=?', [username]);
-    if (rows.length === 0) {
-      return res.json({code:404,msg:'账号不存在'});
-    }
-    if (rows[0].password === password) {
-      loginMap.set(username, password);
-      return res.json({code:200,msg:'登录成功'});
-    } else {
-      return res.json({code:400,msg:'密码错误'});
-    }
-  } catch (err) {
-    console.error('登录数据库查询失败:', err);
-    return res.json({code:500,msg:'服务器错误'});
-  }
-});
 
-io.on('connection', socket=>{
-  // ==================== 心跳保活修复 ====================
+io.on('connection', socket => {
+
+    // ---------------- 变量必须最先定义 ----------------
+  const sid = socket.id;
+  const user = {
+    id: sid,
+    socket: socket,
+    username: '',
+    partner: null,
+    isMatched: false,
+    lastActive: Date.now()
+  };
+  userMap.set(sid, user);
+
+  // 心跳代码
   let isAlive = true;
   socket.on('pong', () => { isAlive = true; });
+
   const heartbeatInterval = setInterval(() => {
     if (!isAlive) return socket.disconnect(true);
     isAlive = false;
     socket.emit('ping');
-  }, 30000);
+  }, HEARTBEAT_INTERVAL);
 
-  const timeout = setTimeout(() => { socket.disconnect(true); }, 10 * 60 * 1000);
+  const timeout = setTimeout(() => {
+    socket.disconnect(true);
+  }, 10 * 60 * 1000);
+
+  // 未登录清理定时器
+  const unloggedTimer = setInterval(() => {
+    if (!user.username || !loginMap.has(user.username) || userSessionMap.get(user.username) !== sid) {
+      socket.disconnect(true);
+      userMap.delete(sid);
+      clearInterval(unloggedTimer);
+    } else {
+      clearInterval(unloggedTimer);
+    }
+  }, UNLOGGED_CLEAN_INTERVAL);
+
+  // 给前端发送初始化信息
+  socket.emit('server-init', {
+    pubkey: SERVER_PUBLIC_KEY,
+    heartbeatInterval: HEARTBEAT_INTERVAL
+  });
+
+  // ---------------- 事件监听 ----------------
+  socket.on('clear-chat', async () => {
+    if (!user.username) return;
+    await clearUserChatRecords(user.username);
+  });
+
+  socket.on('change-nick', async (data) => {
+    try {
+      const newName = data?.newName?.trim();
+      const oldName = user.username;
+      if (!newName || !oldName || newName === oldName) {
+        return socket.emit('nick-result', { success: false, msg: '无效昵称' });
+      }
+      if (newName.length < 2 || newName.length > 20) {
+        return socket.emit('nick-result', { success: false, msg: '昵称长度2-20位' });
+      }
+
+      const [exists] = await db.execute("SELECT id FROM users WHERE username = ?", [newName]);
+      if (exists.length > 0) {
+        return socket.emit('nick-result', { success: false, msg: '昵称已被占用' });
+      }
+
+      user.username = newName;
+      loginMap.delete(oldName);
+      loginMap.set(newName, '');
+      userSessionMap.set(newName, sid);
+
+      socket.emit('nick-result', { success: true, oldName, newName });
+    } catch (err) {
+      console.error('改名失败:', err);
+      socket.emit('nick-result', { success: false, msg: '改名失败' });
+    }
+  });
+
+  // ---------------- disconnect 监听（必须放在最后） ----------------
   socket.on('disconnect', () => {
     clearInterval(heartbeatInterval);
     clearTimeout(timeout);
+    clearInterval(unloggedTimer);
+    if (userMap.has(sid)) {
+      const u = userMap.get(sid);
+      if (u && u.username) {
+        loginMap.delete(u.username);
+        userSessionMap.delete(u.username);
+      }
+      userMap.delete(sid);
+    }
   });
 
+  // 心跳保活修复
+  let isAlive = true;
+  socket.on('pong', () => { isAlive = true; });
+
+  const heartbeatInterval = setInterval(() => {
+    if (!isAlive) return socket.disconnect(true);
+    isAlive = false;
+    socket.emit('ping');
+  }, HEARTBEAT_INTERVAL);
+
+  const timeout = setTimeout(() => {
+    socket.disconnect(true);
+  }, 10 * 60 * 1000);
+
+  const sid = socket.id;
+  const user = {
+    id: sid,
+    socket: socket,
+    username: '',
+    partner: null,
+    isMatched: false,
+    lastActive: Date.now()
+  };
+  userMap.set(sid, user);
+
+  socket.emit('server-init', {
+    pubkey: SERVER_PUBLIC_KEY,
+    heartbeatInterval: HEARTBEAT_INTERVAL
+  });
+
+  // 未登录用户自动清理
+  const unloggedTimer = setInterval(() => {
+    if (!user.username || !loginMap.has(user.username) || userSessionMap.get(user.username) !== sid) {
+      socket.disconnect(true);
+      userMap.delete(sid);
+      clearInterval(unloggedTimer);
+    } else {
+      clearInterval(unloggedTimer);
+    }
+  }, UNLOGGED_CLEAN_INTERVAL);
+
+  socket.on('clear-chat', async () => {
+    if (!user.username) return;
+    await clearUserChatRecords(user.username);
+  });
+
+  // 改名后匹配修复（这里你原来的代码没写完，我给你补个基础版）
+  socket.on('change-nick', async (data) => {
+    try {
+      const newName = data?.newName?.trim();
+      const oldName = user.username;
+      if (!newName || !oldName || newName === oldName) return;
+
+      // 更新本地状态
+      user.username = newName;
+      loginMap.delete(oldName);
+      loginMap.set(newName, ''); // 密码部分你自己维护
+      userSessionMap.set(newName, sid);
+
+      socket.emit('nick-changed', { oldName, newName });
+    } catch (err) {
+      console.error('改名失败:', err);
+    }
+  });
+
+  // 断开连接清理
+  socket.on('disconnect', () => {
+    clearInterval(heartbeatInterval);
+    clearTimeout(timeout);
+    clearInterval(unloggedTimer);
+    if (userMap.has(sid)) {
+      const u = userMap.get(sid);
+      if (u && u.username) {
+        loginMap.delete(u.username);
+        userSessionMap.delete(u.username);
+      }
+      userMap.delete(sid);
+    }
+  });
+});
+
+
+    
   const sid=socket.id;
   const user={ id:sid, socket:socket, username:'', partner:null, isMatched:false, lastActive:Date.now(), heartbeatStatus:true, aesKey:'', lastKeepAlive:Date.now(), roomId:null };
   userMap.set(sid,user);
