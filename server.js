@@ -1078,7 +1078,7 @@ server.listen(PORT,'0.0.0.0',()=>{
   console.log('✅ AI：正常可用');
   console.log('✅ 无语法错误，可直接运行');
   
-  // 5分钟保活 + 失败自动重启（无语法错误版）
+  // 5分钟保活 + 失败自动重启（最终无错版）
 const setupKeepAlive = () => {
   const currentPort = server.address().port;
   console.log("🔍 保活服务启动 | 端口：" + currentPort);
@@ -1111,7 +1111,9 @@ const setupKeepAlive = () => {
   setInterval(pingSelf, 5 * 60 * 1000);
 };
 
+// 关键！这行不能少，否则保活代码永远不会执行
 server.on('listening', setupKeepAlive);
+
 
 
 
