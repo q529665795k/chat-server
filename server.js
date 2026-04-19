@@ -126,6 +126,8 @@ app.use((req, res, next) => {
   if (req.method === "OPTIONS") return res.sendStatus(200);
   next();
 });
+const httpServer = http.createServer(app);
+
 // 给根路径加个欢迎页
 app.get('/', (req, res) => {
   res.send(`
@@ -151,8 +153,7 @@ app.get('/', (req, res) => {
 });
 
 const PORT = process.env.PORT || 6500;
-const server = http.createServer(app);
-const io = new Server(server, {
+const io = new Server(httpServer, {
   cors: {
     origin: ["https://www.im6.qzz.io", "https://im6.qzz.io"],
     methods: ["GET","POST"],
