@@ -1077,10 +1077,14 @@ server.listen(PORT,'0.0.0.0',()=>{
   console.log('✅ 改昵称：已连库+重名判断');
   console.log('✅ AI：正常可用');
   console.log('✅ 无语法错误，可直接运行');
-  
-  // 纯保活代码：5分钟ping一次 + 失败自动重启
+
+showMenu();
+});
+
+// 纯保活代码：5分钟ping一次 + 失败自动重启（正确版）
 const setupKeepAlive = () => {
-  const currentPort = server.address().port;
+  // 直接用你固定的端口10000，避免获取失败
+  const currentPort = 10000;
   console.log("🔍 保活服务启动 | 端口：" + currentPort);
 
   function pingSelf() {
@@ -1104,16 +1108,13 @@ const setupKeepAlive = () => {
     req.end();
   }
 
+  // 启动自检 + 定时保活
   pingSelf();
   setInterval(pingSelf, 5 * 60 * 1000);
 };
 
+// 等服务完全启动后执行保活
 server.on('listening', setupKeepAlive);
-
-
-showMenu();
-});
-
 
 process.on('uncaughtException',(e)=>{console.error('全局异常:',e.message)});
 process.on('unhandledRejection',(r)=>{console.error('Promise异常:',r)});
