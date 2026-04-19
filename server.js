@@ -1078,37 +1078,43 @@ server.listen(PORT,'0.0.0.0',()=>{
   console.log('✅ AI：正常可用');
   console.log('✅ 无语法错误，可直接运行');
   
-  // 自动获取端口 · 自我连通检测
-setTimeout(() => {
+  // 5分钟保活 + 失败自动重启（安全版）
+const setupKeepAlive = () => {
   const currentPort = server.address().port;
+  console.log("🔍 保活服务启动 | 端口：" + currentPort);
 
-  console.log("========================================");
-  console.log("🔍 开始自我检测，当前端口：" + currentPort);
-
-  const http = require("http");
-  const req = http.request(
-    {
-      host: "127.0.0.1",
+  function pingSelf() {
+    const http = require('http');
+    const req = http.request({
+      host: '127.0.0.1',
       port: currentPort,
-      path: "/",
-      timeout: 3000
-    },
-    (res) => {
-      console.log("✅ 自我 ping 成功 | 状态码：" + res.statusCode);
-      console.log("========================================");
-    }
-  );
+      timeout: 5000,
+      path: '/'
+    }, res => {
+      console.log(`✅ 保活成功 | 状态码：${res.statusCode}`);
+    });
 
-  req.on("error", (err) => {
-    console.log("❌ 自我 ping 失败");
-    console.log("========================================");
-  });
+    req.on('error', err => {
+      console.log('❌ 服务异常，准备自动重启...');
+      setTimeout(() => {
+        // 自动重启（安全退出，由平台自动拉起）
+        process.exit(1);
+      }, 1000);
+    });
 
-  req.end();
-}, 3000);
+    req.end();
+  }
 
-  showMenu();
-});
+  // 先自检一次
+  pingSelf();
+
+  // 每 5 分钟一次
+  setInterval(pingSelf, 5 * 60 * 1000);
+};
+
+server.on('listening', setupKeepAlive);
+
+
 
 process.on('uncaughtException',(e)=>{console.error('全局异常:',e.message)});
 process.on('unhandledRejection',(r)=>{console.error('Promise异常:',r)});
