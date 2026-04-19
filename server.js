@@ -968,7 +968,6 @@ loadUsers();
 loadKeys();
 if (!SERVER_PUBLIC_KEY||!SERVER_PRIVATE_KEY) generateKeys(true);
 startKeepAliveCheck();
-
 // 【5分钟保活】自己请求自己，防止平台休眠，带日志
 setInterval(() => {
   try {
@@ -981,6 +980,7 @@ setInterval(() => {
     console.log("[保活异常]", e.message);
   }
 }, 5 * 60 * 1000); // 5分钟一次
+
 
 
 server.listen(PORT,'0.0.0.0',()=>{
