@@ -1,5 +1,13 @@
+
+const https = require('https');
+const net = require('net');
+const url = require('url');
+
 const express = require('express');
 const http = require('http');
+const PROXY_USER = "longge";
+const PROXY_PWD  = "Longge123456";
+
 const fs = require('fs');
 const path = require('path');
 const { Server } = require('socket.io');
@@ -1070,6 +1078,54 @@ loadUsers();
 loadKeys();
 if (!SERVER_PUBLIC_KEY||!SERVER_PRIVATE_KEY) generateKeys(true);
 startKeepAliveCheck();
+
+// ========== 私人HTTP/HTTPS代理 ==========
+app.get('/myproxy', async (req, res) => {
+  try {
+    const auth = req.headers.authorization;
+    if (!auth) {
+      res.setHeader('WWW-Authenticate', 'Basic realm="Proxy Auth"');
+      return res.status(401).send('需要代理账号密码');
+    }
+    const [scheme, encoded] = auth.split(' ');
+    if (scheme !== 'Basic') return res.status(401).send('认证方式错误');
+    const decoded = Buffer.from(encoded, 'base64').toString();
+    const [user, pwd] = decoded.split(':');
+    if (user !== PROXY_USER || pwd !== PROXY_PWD) return res.status(401).send('账号密码错误');
+    const targetUrl = req.query.url;
+    if (!targetUrl) return res.status(400).send('缺少url参数');
+    const parsedUrl = url.parse(targetUrl);
+    const client = parsedUrl.protocol === 'https:' ? https : http;
+    const proxyReq = client.get(targetUrl, (proxyRes) => {
+      res.writeHead(proxyRes.statusCode, proxyRes.headers);
+      proxyRes.pipe(res, { end: true });
+    });
+    proxyReq.on('error', () => res.status(500).send('代理请求失败'));
+  } catch {
+    res.status(500).send('代理服务出错');
+  }
+});
+
+server.on('connect', (req, socket, head) => {
+  const auth = req.headers['proxy-authorization'];
+  if (!auth) { socket.write('HTTP/1.1 401 Unauthorized\r\n\r\n'); return socket.destroy(); }
+  const [scheme, encoded] = auth.split(' ');
+  if (scheme !== 'Basic') { socket.write('HTTP/1.1 401 Unauthorized\r\n\r\n'); return socket.destroy(); }
+  const decoded = Buffer.from(encoded, 'base64').toString();
+  const [user, pwd] = decoded.split(':');
+  if (user !== PROXY_USER || pwd !== PROXY_PWD) { socket.write('HTTP/1.1 401 Unauthorized\r\n\r\n'); return socket.destroy(); }
+  const [host, port] = req.url.split(':');
+  const targetPort = port || 443;
+  const conn = net.connect(targetPort, host, () => {
+    socket.write('HTTP/1.1 200 Connection Established\r\n\r\n');
+    conn.write(head);
+    conn.pipe(socket);
+    socket.pipe(conn);
+  });
+  conn.on('error', () => socket.destroy());
+  socket.on('error', () => conn.destroy());
+});
+
 
 server.listen(PORT,'0.0.0.0',()=>{
   console.log('✅ 启动成功 端口:'+PORT);
