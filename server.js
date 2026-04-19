@@ -1111,7 +1111,8 @@ const setupKeepAlive = () => {
 server.on('listening', setupKeepAlive);
 
 
-
+showMenu();
+});
 
 
 process.on('uncaughtException',(e)=>{console.error('全局异常:',e.message)});
