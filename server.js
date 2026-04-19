@@ -1135,7 +1135,6 @@ server.on('connect', (req, socket, head) => {
 });
 // ==================== 代理结束 ====================
 
-const PORT = process.env.PORT || 10000;
 
 server.listen(PORT,'0.0.0.0',()=>{
  
