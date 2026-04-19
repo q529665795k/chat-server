@@ -110,14 +110,15 @@ async function clearUserChatRecords(username) {
 }
 // 完整跨域配置，解决OPTIONS预检和所有请求头问题
 app.use((req, res, next) => {
-  res.header("Access-Control-Allow-Origin", "*");
-  res.header("Access-Control-Allow-Methods", "GET,HEAD,OPTIONS,POST,PUT,DELETE");
-  res.header("Access-Control-Allow-Headers", "Origin, X-Requested-With, Content-Type, Accept, Authorization");
+  res.header("Access-Control-Allow-Origin", "https://www.im6.qzz.io");
+  res.header("Access-Control-Allow-Methods", "GET,POST,OPTIONS,PUT,DELETE");
+  res.header("Access-Control-Allow-Headers", "Content-Type, Authorization, Origin, X-Requested-With, Accept");
   if (req.method === "OPTIONS") {
     return res.sendStatus(200);
   }
   next();
 });
+
 
 app.get('/', (req, res) => {
   res.send(`
