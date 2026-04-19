@@ -1140,7 +1140,7 @@ showMenu();
 // 纯保活代码：5分钟ping一次 + 失败自动重启（正确版）
 const setupKeepAlive = () => {
   // 直接用你固定的端口10000，避免获取失败
-  const currentPort = 10000;
+  const currentPort = PORT;
   console.log("🔍 保活服务启动 | 端口：" + currentPort);
 
   function pingSelf() {
@@ -1179,9 +1179,6 @@ process.on('SIGINT',()=>process.exit(0));
 // ====================== 私人代理（仅你自己用）======================
 const fetch = (...args) => import('node-fetch').then(mod => mod.default(...args));
 
-
-const PROXY_USER = "longge";
-const PROXY_PWD  = "Qwoaini123456";
 
 app.get("/myproxy", async (req, res) => {
   try {
