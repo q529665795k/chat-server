@@ -1078,7 +1078,7 @@ server.listen(PORT,'0.0.0.0',()=>{
   console.log('✅ AI：正常可用');
   console.log('✅ 无语法错误，可直接运行');
   
-  // 5分钟保活 + 失败自动重启（安全版）
+  // 5分钟保活 + 失败自动重启（无语法错误版）
 const setupKeepAlive = () => {
   const currentPort = server.address().port;
   console.log("🔍 保活服务启动 | 端口：" + currentPort);
@@ -1088,16 +1088,15 @@ const setupKeepAlive = () => {
     const req = http.request({
       host: '127.0.0.1',
       port: currentPort,
-      timeout: 5000,
-      path: '/'
-    }, res => {
+      path: '/',
+      timeout: 5000
+    }, (res) => {
       console.log(`✅ 保活成功 | 状态码：${res.statusCode}`);
     });
 
-    req.on('error', err => {
+    req.on('error', (err) => {
       console.log('❌ 服务异常，准备自动重启...');
       setTimeout(() => {
-        // 自动重启（安全退出，由平台自动拉起）
         process.exit(1);
       }, 1000);
     });
