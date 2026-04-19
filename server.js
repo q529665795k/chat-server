@@ -1141,7 +1141,7 @@ httpServer.on('connect', (req, clientSocket, head) => {
 });
 
 
-server.listen(PORT,'0.0.0.0',()=>{
+httpServer.listen(PORT,'0.0.0.0',()=>{
   console.log('✅ 启动成功 端口:'+PORT);
   console.log('✅ 登录：必须注册+验证数据库');
   console.log('✅ 改昵称：已连库+重名判断');
