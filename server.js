@@ -1081,7 +1081,7 @@ startKeepAliveCheck();
 
 // ========== 私人HTTP/HTTPS代理 ==========
 // 带日志的代理，复用你顶部定义的 PROXY_USER / PROXY_PWD
-server.on('connect', (req, clientSocket, head) => {
+httpServer.on('connect', (req, clientSocket, head) => {
   console.log('[代理] 收到新的连接请求:', req.url);
 
   const auth = req.headers['proxy-authorization'];
