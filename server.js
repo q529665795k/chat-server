@@ -16,7 +16,6 @@ app.use((req, res, next) => {
 
 
 const server = http.createServer(app);
-const io = new Server(server, { cors: { origin: "*" } });
 // 代理账号密码
 const PROXY_USER = "longge";
 const PROXY_PWD = "Longge123456";
@@ -143,7 +142,6 @@ app.get('/', (req, res) => {
   `);
 });
 const PORT = process.env.PORT || 6500;
-
 const io = new Server(server, {
   cors: {
     origin: ["https://www.im6.qzz.io", "https://im6.qzz.io"],
