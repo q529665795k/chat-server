@@ -610,67 +610,84 @@ io.on('connection', socket => {
   socket.on('check-partner', () => checkPartnerStatus(sid));
 
   // 消息发送 —— 已修复！
-  socket.on('send-msg', async (data) => {
-    try {
-      if (!user.username || !user.isMatched || !user.partner || !data)
-        return socket.emit('msg-fail', { info: '无法发送' });
-      const content = data.content || '';
-      if (!content) return socket.emit('msg-fail', { info: '内容为空' });
+  // 消息发送 —— 修复版 + 日志
+socket.on('send-msg', async (data) => {
+  console.log(`[send-msg] 收到消息请求，用户：${user.username || '未知'}`);
+  console.log(`[send-msg] 消息数据：`, JSON.stringify(data));
 
-      const to = userMap.get(user.partner);
-      const toUser = to?.username || 'unknown';
-      const fromNick = loginMap.get(user.username)?.nickname || user.username;
-
-      if (db) {
-        await db.execute('INSERT INTO messages (from_user,to_user,content,msg_type,msg_id) VALUES (?,?,?,?,?)',
-          [user.username, toUser, content, data.type || 'text', data.msgId || '']);
-      }
-
-      if (user.partner === 'ai_bot') {
-        if (data.type === 'text') {
-          const reply = await callAI(content);
-          setTimeout(() => {
-            socket.emit('new-msg', {
-              content: reply, type: 'text', burn: false,
-              receipt: false, msgId: Date.now().toString(),
-              fromId: 'ai_bot', fromName: 'AI陪伴者'
-            });
-          }, 600);
-        }
-        return;
-      }
-
-      if (to && to.socket) {
-        to.socket.emit('new-msg', {
-          content: content,
-          type: data.type || 'text',
-          burn: data.burn || false,
-          receipt: data.receipt || false,
-          msgId: data.msgId || '',
-          fromId: sid,
-          fromName: fromNick
-        });
-      } else {
-        saveOfflineMsg(toUser, {
-          fromId: user.username,
-          content: content,
-          type: data.type || 'text',
-          burn: data.burn || false,
-          receipt: data.receipt || false,
-          msgId: data.msgId || ''
-        });
-      }
-    } catch (e) {
-      socket.emit('msg-fail', { info: '发送失败' });
+  try {
+    // 基础校验
+    if (!user.username || !user.isMatched || !user.partner || !data) {
+      console.log(`[send-msg] 校验失败：用户未登录/未匹配/无数据`);
+      return socket.emit('msg-fail', { info: '无法发送' });
     }
-  });
 
-  socket.on('msg-read-confirm', async (data) => {
-    try {
-      const { msgId } = data;
-      if (!user.username || !msgId) return;
-      if (db) await db.execute('UPDATE messages SET is_read=1 WHERE msg_id=? AND to_user=?', [msgId, user.username]);
-      
+    const content = data.content || '';
+    if (!content) {
+      console.log(`[send-msg] 校验失败：内容为空`);
+      return socket.emit('msg-fail', { info: '内容为空' });
+    }
+
+    // 获取接收方用户信息
+    const to = userMap.get(user.partner);
+    if (!to) {
+      console.log(`[send-msg] 错误：接收方用户 ${user.partner} 不存在`);
+      return socket.emit('msg-fail', { info: '接收方不存在' });
+    }
+    const toUser = to.username || 'unknown';
+    const fromNick = loginMap.get(user.username)?.nickname || user.username;
+
+    console.log(`[send-msg] 发送方：${user.username}（${fromNick}） -> 接收方：${toUser}`);
+
+    // 保存消息到数据库（如果有DB）
+    if (db) {
+      await db.execute(
+        'INSERT INTO messages (from_user,to_user,content,msg_type,msg_id) VALUES (?,?,?,?,?)',
+        [user.username, toUser, content, data.type || 'text', data.msgId || '']
+      );
+      console.log(`[send-msg] 消息已存入数据库`);
+    }
+
+    // AI机器人逻辑（保持不变）
+    if (user.partner === 'ai_bot') {
+      if (data.type === 'text') {
+        const reply = await callAI(content);
+        setTimeout(() => {
+          socket.emit('new-msg', {
+            content: reply, type: 'text', burn: false,
+            receipt: false, msgId: Date.now().toString(),
+            fromId: 'ai_bot', fromName: 'AI陪伴者'
+          });
+          console.log(`[send-msg] AI回复已发送给用户`);
+        }, 600);
+      }
+      return;
+    }
+
+    // 关键：转发给真实用户
+    if (to && to.socket && to.socket.connected) {
+      console.log(`[send-msg] 正在转发给接收方socket：${to.socket.id}`);
+      to.socket.emit('new-msg', {
+        content: data.content,
+        type: data.type || 'text',
+        burn: data.burn || false,
+        receipt: data.receipt || false,
+        msgId: data.msgId || '',
+        fromId: user.username,
+        fromName: fromNick
+      });
+      console.log(`[send-msg] 消息已成功转发给 ${toUser}`);
+    } else {
+      console.log(`[send-msg] 错误：接收方socket不存在或已断开`);
+      socket.emit('msg-fail', { info: '对方不在线' });
+    }
+
+  } catch (err) {
+    console.error(`[send-msg] 处理异常：`, err);
+    socket.emit('msg-fail', { info: '服务器错误' });
+  }
+});
+
       // 已读回执回传
       const partner = userMap.get(user.partner);
       if (partner && partner.socket) {
