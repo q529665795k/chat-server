@@ -572,7 +572,7 @@ io.on('connection', socket => {
 });
 
 
-  const sid = socket.id;
+  
   const user = {
     id: sid, socket, username: '', partner: null, isMatched: false,
     lastActive: Date.now(), lastKeepAlive: 0, roomId: null
