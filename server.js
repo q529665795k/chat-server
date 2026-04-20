@@ -800,7 +800,7 @@ try {
   }
 } catch (e) {}  // 现在 try 和 catch 配对了，不会再报错
 
-});
+
   socket.on('RECONNECT', (data) => {
     const { userId, roomId } = data;
     if (!userId || !roomId || userId !== user.username) return socket.emit('RECONNECT_RESULT', { success: false });
