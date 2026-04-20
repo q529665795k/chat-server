@@ -209,11 +209,17 @@ app.post('/register', async (req, res) => {
 
 const server = http.createServer(app);
 const io = new Server(server, {
-  cors: { origin: "https://www.im6.qzz.io,https://im6.qzz.io" },methods: ["GET","POST"], credentials: true },
- transports: ['websocket','polling'],
-  
+  const io = new Server(server, {
+  cors: {
+    origin: ["https://im6.qzz.io", "https://www.im6.qzz.io"],
+    methods: ["GET", "POST"],
+    credentials: true
+  },
+  transports: ['websocket', 'polling'],
   pingTimeout: 60000,
-  pingInterval: 25000
+  pingInterval: 25000,
+  maxHttpBufferSize: 10 * 1024 * 1024,
+  allowEIO3: true
 });
 
 io.on('connection', (socket) => {
