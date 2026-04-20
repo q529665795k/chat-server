@@ -636,16 +636,7 @@ io.on('connection', socket => {
   
 
   
-      // 只改昵称，不改用户名！
-      await db.execute('UPDATE users SET nickname=? WHERE username=?', [newNick, user.username]);
-      const info = loginMap.get(user.username);
-      info.nickname = newNick;
-      loginMap.set(user.username, info);
-      socket.emit('nick-result', { success: true, newNick });
-    } catch (e) {
-      socket.emit('nick-result', { success: false, msg: '修改失败' });
-    }
-  });
+      
 
   socket.on('checkLogin', (data) => {
     const { userId, token } = data;
