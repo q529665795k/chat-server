@@ -529,6 +529,8 @@ const io = new Server(server, {
 io.on('connection', socket => {
 
   // 全局前端动作日志（无语法错误版）
+  io.on('connection', socket => {
+  // 1. 全局前端动作日志
   socket.on("client-action-log", (data) => {
     const time = new Date().toLocaleString();
     console.log("\n======================================");
@@ -540,7 +542,7 @@ io.on('connection', socket => {
     console.log("======================================\n");
   });
 
-  // 只保留一次 sid 声明！
+  // 2. 变量声明（只声明一次，顺序固定）
   const sid = socket.id;
   const user = {
     id: sid,
@@ -554,7 +556,6 @@ io.on('connection', socket => {
   };
   userMap.set(sid, user);
 
-  // 后面的所有业务代码（心跳、匹配、消息发送等）保持原样
   const timer = setInterval(() => {
     if (!user.username || !loginMap.has(user.username) || userSessionMap.get(user.username) !== sid) {
       socket.disconnect();
@@ -563,6 +564,79 @@ io.on('connection', socket => {
     }
   }, UNLOGGED_CLEAN_INTERVAL);
 
+  // 3. 所有事件（包括 RECONNECT，都写在里面！）
+  socket.on('clear-chat', async () => {
+    if (user.username) await clearUserChatRecords(user.username);
+    socket.emit('clear-chat-record', { msg: '清空成功' });
+  });
+
+  socket.on('change-nick', async (data) => {
+    try {
+      const newNick = data;
+      if (!user.username) return socket.emit('nick-result', { success: false, msg: '未登录' });
+      if (!newNick || newNick.length < 2 || newNick.length > 20)
+        return socket.emit('nick-result', { success: false, msg: '长度2-20' });
+
+      await db.execute('UPDATE users SET nickname=? WHERE username=?', [newNick, user.username]);
+      const info = loginMap.get(user.username);
+      info.nickname = newNick;
+      loginMap.set(user.username, info);
+      socket.emit('nick-result', { success: true, newNick });
+    } catch (e) {
+      socket.emit('nick-result', { success: false, msg: '修改失败' });
+    }
+  });
+
+  socket.on('checkLogin', (data) => {
+    const { userId, token } = data;
+    if (!userId || !token || token !== userId || !loginMap.has(userId))
+      return socket.emit('notLogin');
+
+    user.username = userId;
+    userSessionMap.set(userId, sid);
+    usernameToSocket.set(userId, socket);
+    pushOfflineMsg(socket, userId);
+    socket.emit('loginSuccess');
+  });
+
+  // 你的 RECONNECT 事件，已经帮你写在里面了
+  socket.on('RECONNECT', (data) => {
+    const { userId, roomId } = data;
+    if (!userId || !roomId || userId !== user.username) return socket.emit('RECONNECT_RESULT', { success: false });
+    const ret = checkReconnectValid(userId, roomId);
+    socket.emit('RECONNECT_RESULT', ret);
+    if (ret.success) {
+      user.isMatched = true;
+      user.roomId = roomId;
+      pushOfflineMsg(socket, userId);
+    }
+  });
+
+  socket.on('disconnect', () => {
+    cleanMatchTimer(sid);
+    if (user.username) {
+      userSessionMap.delete(user.username);
+      usernameToSocket.delete(user.username);
+    }
+    if (user.partner && user.partner !== 'ai_bot') {
+      const p = userMap.get(user.partner);
+      if (p && p.socket) p.socket.emit('partner-leave');
+    }
+    keepAliveMap.delete(sid);
+    userMap.delete(sid);
+    waitingUsers.delete(sid);
+    clearInterval(timer);
+  });
+});
+
+  }, UNLOGGED_CLEAN_INTERVAL);
+
+ 
+  
+  
+  
+  
+  
   socket.on('clear-chat', async () => {
     if (user.username) await clearUserChatRecords(user.username);
     socket.emit('clear-chat-record', { msg: '清空成功' });
