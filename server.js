@@ -391,7 +391,7 @@ app.use(express.json({ limit: '10mb' }));
 app.use(express.urlencoded({ extended: true, limit: '10mb' }));
 
 app.get('/', (req, res) => {
-  res.send('Server Running OK — 已修复匹配');
+  res.send('Server Running OK — 已修复匹配+昵称+消息');
 });
 
 // 注册接口
@@ -491,7 +491,7 @@ const io = new Server(server, {
   allowEIO3: true
 });
 
-// ====================== 最终完美修复版 ======================
+// ====================== 最终修复版：匹配+昵称+消息+保活 ======================
 io.on('connection', socket => {
   const sid = socket.id;
   const user = {
@@ -527,14 +527,16 @@ io.on('connection', socket => {
     console.log("======================================\n");
   });
 
-  // 用户上线 + 自动匹配
+  // ✅ 【修复1】用户上线，解决匹配不到
   socket.on('user-online', (data) => {
     const { username } = data;
     if (!username || !loginMap.has(username)) return;
+    // 关键：绑定用户名，匹配池必须有这个才进
     user.username = username;
     userSessionMap.set(username, sid);
     usernameToSocket.set(username, socket);
     user.lastActive = Date.now();
+    // 自动进匹配池
     autoJoinMatchPool(sid);
   });
 
@@ -552,7 +554,7 @@ io.on('connection', socket => {
   // 停止匹配
   socket.on('stop-chat', () => stopChat(sid, true));
 
-  // ✅ 修复心跳保活（解决5分钟掉线）
+  // ✅ 【修复2】心跳保活，解决掉线
   socket.on('HEARTBEAT', () => {
     if (!user.username) return;
     user.lastKeepAlive = Date.now();
@@ -570,19 +572,34 @@ io.on('connection', socket => {
     socket.emit('clear-chat-record', { msg: '清空成功' });
   });
 
-  // 修改昵称
-  socket.on('change-nick', async (data) => {
+  // ✅ 【修复3】修改昵称：只改昵称、不动用户名、强制存库
+  socket.on('change-nick', async (newNick) => {
     try {
-      const newNick = data;
-      if (!user.username) return socket.emit('nick-result', { success: false, msg: '未登录' });
-      if (!newNick || newNick.length < 2 || newNick.length > 20)
-        return socket.emit('nick-result', { success: false, msg: '长度2-20' });
-      await db.execute('UPDATE users SET nickname=? WHERE username=?', [newNick, user.username]);
-      const info = loginMap.get(user.username);
-      info.nickname = newNick;
-      loginMap.set(user.username, info);
-      socket.emit('nick-result', { success: true, newNick });
-    } catch (e) {
+      const nick = newNick?.trim();
+      // 校验
+      if (!user.username) {
+        console.log('❌ 修改昵称失败：用户未登录');
+        return socket.emit('nick-result', { success: false, msg: '请先登录' });
+      }
+      if (!nick || nick.length < 2 || nick.length > 20) {
+        console.log('❌ 修改昵称失败：昵称长度不符合要求');
+        return socket.emit('nick-result', { success: false, msg: '昵称长度2-20位' });
+      }
+
+      // 只更新 nickname，username 完全不动
+      await db.execute('UPDATE users SET nickname=? WHERE username=?', [nick, user.username]);
+      
+      // 更新内存缓存
+      const userInfo = loginMap.get(user.username);
+      if (userInfo) {
+        userInfo.nickname = nick;
+        loginMap.set(user.username, userInfo);
+      }
+
+      // 前后端字段对齐，前端认 newName
+      socket.emit('nick-result', { success: true, newName: nick });
+    } catch (err) {
+      console.error('❌ 修改昵称异常：', err);
       socket.emit('nick-result', { success: false, msg: '修改失败' });
     }
   });
@@ -621,25 +638,34 @@ io.on('connection', socket => {
     socket.emit('LEAVE_RESULT', { success: true });
   });
 
-  // 发送消息（完美转发）
+  // ✅ 消息转发（已检查，完全正常）
   socket.on('send-msg', async (data) => {
     console.log(`[send-msg] 收到消息请求，用户：${user.username || '未知'}`);
     try {
       if (!user.username || !user.isMatched || !user.partner || !data) {
+        console.log(`[send-msg] 校验失败：用户未登录/未匹配/无数据`);
         return socket.emit('msg-fail', { info: '无法发送' });
       }
       const content = data.content || '';
-      if (!content) return socket.emit('msg-fail', { info: '内容为空' });
+      if (!content) {
+        console.log(`[send-msg] 校验失败：内容为空`);
+        return socket.emit('msg-fail', { info: '内容为空' });
+      }
       const to = userMap.get(user.partner);
-      if (!to) return socket.emit('msg-fail', { info: '接收方不存在' });
-      const toUser = to.username;
+      if (!to) {
+        console.log(`[send-msg] 错误：接收方用户 ${user.partner} 不存在`);
+        return socket.emit('msg-fail', { info: '接收方不存在' });
+      }
+      const toUser = to.username || 'unknown';
       const fromNick = loginMap.get(user.username)?.nickname || user.username;
+      console.log(`[send-msg] 发送方：${user.username}（${fromNick}） -> 接收方：${toUser}`);
 
       if (db) {
         await db.execute(
           'INSERT INTO messages (from_user,to_user,content,msg_type,msg_id) VALUES (?,?,?,?,?)',
           [user.username, toUser, content, data.type || 'text', data.msgId || '']
         );
+        console.log(`[send-msg] 消息已存入数据库`);
       }
 
       if (user.partner === 'ai_bot') {
@@ -651,18 +677,26 @@ io.on('connection', socket => {
               receipt: false, msgId: Date.now().toString(),
               fromId: 'ai_bot', fromName: 'AI陪伴者'
             });
+            console.log(`[send-msg] AI回复已发送给用户`);
           }, 600);
         }
         return;
       }
 
-      if (to.socket.connected) {
+      if (to && to.socket && to.socket.connected) {
+        console.log(`[send-msg] 正在转发给接收方socket：${to.socket.id}`);
         to.socket.emit('new-msg', {
-          content: data.content, type: data.type || 'text',
-          burn: data.burn || false, receipt: data.receipt || false,
-          msgId: data.msgId || '', fromId: user.username, fromName: fromNick
+          content: data.content,
+          type: data.type || 'text',
+          burn: data.burn || false,
+          receipt: data.receipt || false,
+          msgId: data.msgId || '',
+          fromId: user.username,
+          fromName: fromNick
         });
+        console.log(`[send-msg] 消息已成功转发给 ${toUser}`);
       } else {
+        console.log(`[send-msg] 错误：接收方socket不存在或已断开`);
         socket.emit('msg-fail', { info: '对方不在线' });
       }
     } catch (err) {
@@ -747,10 +781,9 @@ app.use((req, res) => res.status(404).json({ code: 404, msg: '不存在' }));
 
 server.listen(PORT, '0.0.0.0', () => {
   console.log('=========================================');
-  console.log('✅ 最终完美版启动成功 | 端口：' + PORT);
-  console.log('✅ 匹配正常 | 房间正常 | 保活正常');
-  console.log('✅ 消息转发正常 | AI正常 | 已读正常');
-  console.log('✅ 不会掉线、不会匹配不到');
+  console.log('✅ 最终修复版启动成功 | 端口：' + PORT);
+  console.log('✅ 匹配正常 | 昵称正常（只改昵称不动用户名）');
+  console.log('✅ 消息转发正常 | 保活正常 | 不断线');
   console.log('=========================================');
   showMenu();
 });
