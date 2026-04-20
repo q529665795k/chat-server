@@ -569,7 +569,7 @@ io.on('connection', socket => {
   });
 
   
-
+}); 
   socket.on('clear-chat', async () => {
     if (user.username) await clearUserChatRecords(user.username);
     socket.emit('clear-chat-record', { msg: '清空成功' });
