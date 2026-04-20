@@ -568,22 +568,7 @@ io.on('connection', socket => {
     socket.emit('clear-chat-record', { msg: '清空成功' });
   });
 
-  // 其他 socket.on(...) 事件继续写在这里...
-
-
-
   
-
-
-
-
-  const timer = setInterval(() => {
-    if (!user.username || !loginMap.has(user.username) || userSessionMap.get(user.username) !== sid) {
-      socket.disconnect();
-      userMap.delete(sid);
-      clearInterval(timer);
-    }
-  }, UNLOGGED_CLEAN_INTERVAL);
 
   socket.on('clear-chat', async () => {
     if (user.username) await clearUserChatRecords(user.username);
