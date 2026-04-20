@@ -640,35 +640,10 @@ io.on('connection', socket => {
 
   
 
-  socket.on('HEARTBEAT', () => {
-    if (user.username && loginMap.has(user.username) && userSessionMap.get(user.username) === sid) {
-      user.lastActive = Date.now();
-      user.lastKeepAlive = Date.now();
-      socket.emit('heartbeat-ack');
-      if (user.roomId) resetRoomExpire(user.roomId);
-    }
-  });
+  
+    
 
-  socket.on('user-online', (data) => {
-    const { username } = data;
-    if (!username || !loginMap.has(username)) return socket.emit('invalid-username');
-    user.username = username;
-    userSessionMap.set(username, sid);
-    usernameToSocket.set(username, socket);
-    user.lastActive = Date.now();
-    socket.emit('username-set-success');
-    autoJoinMatchPool(sid);
-  });
 
-  socket.on('match-chat', () => {
-    if (!user.username) return socket.emit('match-end', { info: '请登录' });
-    if (user.isMatched) stopChat(sid, false);
-    if (waitingUsers.has(sid)) return socket.emit('match-tip', { info: '排队中' });
-    waitingUsers.add(sid);
-    const timer = setTimeout(() => assignAiRobot(sid), MATCH_TIMEOUT);
-    userMatchTimer.set(sid, timer);
-    tryMatch();
-  });
 
   socket.on('stop-chat', () => stopChat(sid, true));
   socket.on('check-partner', () => checkPartnerStatus(sid));
