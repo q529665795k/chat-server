@@ -408,26 +408,69 @@ app.get('/', (req, res) => {
 });
 
 app.post('/register', async (req, res) => {
+  console.log('收到注册请求，body:', req.body);
+  // 1. 先校验请求体是否存在，避免undefined报错
+  if (!req.body) {
+    console.log('请求体为空');
+    return res.json({ code: 400, msg: '请求格式错误' });
+  }
+
   const { username, password } = req.body;
-  if (!username || !password || username.length < 2 || username.length > 20 || password.length < 6)
-    return res.json({ code: 400, msg: '格式错误' });
+  // 2. 严格校验参数
+  if (!username || !password) {
+    console.log('用户名或密码为空');
+    return res.json({ code: 400, msg: '请输入账号密码' });
+  }
+  if (username.length < 2 || username.length > 20) {
+    console.log('用户名长度不符合要求:', username);
+    return res.json({ code: 400, msg: '用户名长度2-20位' });
+  }
+  if (password.length < 6) {
+    console.log('密码长度不符合要求');
+    return res.json({ code: 400, msg: '密码长度不少于6位' });
+  }
+
   try {
+    // 3. 检查用户是否存在，写法更严谨
     const [exists] = await db.execute('SELECT id FROM users WHERE username=?', [username]);
-    if (exists.length) return res.json({ code: 400, msg: '已存在' });
-    await db.execute('INSERT INTO users (username,nickname,password) VALUES (?,?,?)', [username, username, password]);
+    console.log('用户存在查询结果:', exists);
+    if (exists.length > 0) {
+      console.log('用户已存在:', username);
+      return res.json({ code: 400, msg: '账号已存在' });
+    }
+
+    // 4. 插入用户，插入成功后再设置loginMap
+    console.log('开始插入用户:', username);
+    await db.execute(
+      'INSERT INTO users (username, nickname, password) VALUES (?, ?, ?)',
+      [username, username, password]
+    );
+
+    // 插入成功才设置内存登录状态
     loginMap.set(username, { nickname: username, password });
+    console.log('注册成功:', username);
     return res.json({ code: 200, msg: '注册成功' });
   } catch (err) {
+    // 5. 打印完整错误，方便排查
+    console.error('注册接口错误:', err);
     return res.json({ code: 500, msg: '注册失败' });
   }
 });
 
+
 app.post('/login', async (req, res) => {
   const { username, password } = req.body;
   if (!username || !password) return res.json({ code: 400, msg: '请输入账号密码' });
+
   try {
-    const [rows] = await db.execute('SELECT password,nickname FROM users WHERE username=?', [username]);
-    if (!rows.length) return res.json({ code: 404, msg: '账号不存在' });
+    const rows = await db.execute('SELECT password,nickname FROM users WHERE username=?', [username]);
+    
+    // 正确判断：如果 rows.length 为 0，才说明用户不存在
+    if (!rows.length) {
+      return res.json({ code: 404, msg: '账号不存在' });
+    }
+
+    // 现在 rows[0] 一定存在，不会报错了
     if (rows[0].password === password) {
       loginMap.set(username, {
         nickname: rows[0].nickname || username,
@@ -438,9 +481,11 @@ app.post('/login', async (req, res) => {
       return res.json({ code: 400, msg: '密码错误' });
     }
   } catch (err) {
+    console.error('登录错误:', err);
     return res.json({ code: 500, msg: '服务器错误' });
   }
 });
+
 
 // Socket.IO 正确初始化
 const io = new Server(server, {
