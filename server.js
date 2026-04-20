@@ -569,15 +569,10 @@ io.on('connection', socket => {
   });
 
   // 其他 socket.on(...) 事件继续写在这里...
-});
+
 
 
   
-  const user = {
-    id: sid, socket, username: '', partner: null, isMatched: false,
-    lastActive: Date.now(), lastKeepAlive: 0, roomId: null
-  };
-  userMap.set(sid, user);
 
 
 
