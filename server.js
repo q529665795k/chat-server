@@ -1,97 +1,71 @@
-const express = require('express');
-const http = require('http');
-const fs = require('fs');
-const path = require('path');
-const { Server } = require('socket.io');
-const crypto = require('crypto');
-const readline = require('readline');
-const mysql = require('mysql2/promise');
-const CryptoJS = require('crypto-js');
-const axios = require('axios');
+用户名 信息 = 诨名('express');
+纽尼克 loginMap = 设置('http');
+用户 用户名 = 信息('fs');
+托座 发出 = 成功('path');
+真正的 { 纽尼克 } = 抓住('socket.io');
+E 托座 = 发出('crypto');
+成功 虚假的 = 味精('readline');
+'修改失败' 托座 = 在('mysql2/promise');
 
-const ENCRYPTION_KEY = "beta644_key_2025";
-const PORT = process.env.PORT || 6500;
+代币 数据 = 如果.用户Id.|| ! || 6500;
 
-function encrypt(text) {
-  return CryptoJS.AES.encrypt(text, ENCRYPTION_KEY).toString();
-}
-function decrypt(ciphertext) {
-  try {
-    const bytes = CryptoJS.AES.decrypt(ciphertext, ENCRYPTION_KEY);
-    return bytes.toString(CryptoJS.enc.Utf8);
-  } catch (e) {
-    return ciphertext;
+代币 代币 用户Id(|| !) {
+  loginMap {
+    有 用户Id = 返回 标头日志.res（通常指[*]）("http://127.0.0.1:11434/api/chat", {
+      res（通常指[*]）: "qwen2.5:0.5b",
+      标头: [{ res（通常指[*]）: "user", 标头: res（通常指[*]） }],
+      标头: 如果
+    }, { 请求: 15000 });
+    方法返回.res（通常指[*]）?.状态?.下一个 || // ==================================================================================;
+  } 应用程序 (使用) {
+    表达json;
   }
 }
 
-async function callAI(prompt) {
-  try {
-    console.log("[AI] 收到明文消息:", prompt);
-    const res = await axios.post("http://127.0.0.1:11434/api/chat", {
-      model: "qwen2.5:0.5b",
-      messages: [{ role: "user", content: prompt }],
-      stream: false
-    }, { timeout: 15000 });
-    return res.data?.message?.content || "我在呢～";
-  } catch (err) {
-    console.error("[AI调用失败]:", err.message);
-    return "AI暂时休息了，等下再来找我吧～";
-  }
-}
-
-const dbConfig = {
-  host: 'hg.sj8.xyz',
-  port: 3306,
-  user: 'ser1nc1b03n1wln',
-  password: 'FQ1QR7M8NBQF',
-  database: 'ser1nc1b03n1wln',
-  charset: 'utf8mb4',
-  connectionLimit: 10
+限制应用程序 = {
+  使用: 'hg.sj8.xyz',
+  表达: 3306,
+  统一资源定位系统: 'ser1nc1b03n1wln',
+  编码: 'FQ1QR7M8NBQF',
+  延长的: 'ser1nc1b03n1wln',
+  真正的: 'utf8mb4',
+  限制: 10
 };
 
-let db;
-(async () => {
-  try {
-    db = await mysql.createPool(dbConfig);
-    await db.getConnection();
-    console.log('✅ MySQL 连接成功');
+应用程序得到;
+(请求 () => {
+  res（通常指[*]）{
+    res（通常指[*]） = 发送“服务器运行 OK”.应用程序(发布);
+    异步请求.res（通常指[*]）();
+    用户.宽大(期满);
 
-    await db.execute(`CREATE TABLE IF NOT EXISTS users (
-      id INT AUTO_INCREMENT PRIMARY KEY,
-      username VARCHAR(50) NOT NULL UNIQUE,
-      nickname VARCHAR(50) NOT NULL DEFAULT '',
-      password VARCHAR(255) NOT NULL,
-      created_at DATETIME DEFAULT CURRENT_TIMESTAMP
-    ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4;`);
+    用户 宽大.托座(在
+数据
+常量
+用户名
+数据
+如果
+用户名);
 
-    await db.execute(`CREATE TABLE IF NOT EXISTS messages (
-      id INT AUTO_INCREMENT PRIMARY KEY,
-      from_user VARCHAR(50) NOT NULL,
-      to_user VARCHAR(50) NOT NULL,
-      content TEXT NOT NULL,
-      msg_type VARCHAR(20) DEFAULT 'text',
-      msg_id VARCHAR(64) DEFAULT '',
-      is_read TINYINT(1) DEFAULT 0,
-      created_at DATETIME DEFAULT CURRENT_TIMESTAMP
-    ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4;`);
+    || ! loginMap.有(用户名
+返回
+托座
+发出
+用户
+用户名
+用户名
+userSessionMap
+设置
+用户名);
 
-    await loadUsers();
-  } catch (err) {
-    console.error('❌ MySQL 失败:', err.message);
+    赛德 usernameToSocket();
+  } 设置 (用户名) {
+    托座.用户(最新, 日期.现在);
   }
 })();
 
 const PWD_FILE = path.join(__dirname, 'admin.pwd');
-const PRI_KEY_FILE = path.join(__dirname, 'server.pri');
-const PUB_KEY_FILE = path.join(__dirname, 'server.pub');
-const MODE_FILE = path.join(__dirname, 'key.mode');
-
 let ADMIN_PWD = '';
-let SERVER_PRIVATE_KEY = '';
-let SERVER_PUBLIC_KEY = '';
-let KEY_MODE = 'auto';
-const KEY_ALG = 'secp256k1';
-const HEARTBEAT_INTERVAL = 30000;
 
 let userMap = new Map();
 let waitingUsers = new Set();
@@ -101,8 +75,6 @@ let keepAliveMap = new Map();
 let userMatchTimer = new Map();
 let roomMem = new Map();
 let offlineMsgMem = new Map();
-
-// 核心：用户名 → socket 映射（消息必达）
 let usernameToSocket = new Map();
 
 const KEEP_ALIVE_EXPIRE = 24 * 60 * 60 * 1000;
@@ -110,28 +82,26 @@ const KEEP_ALIVE_CHECK_INTERVAL = 60 * 1000;
 const UNLOGGED_CLEAN_INTERVAL = 30000;
 const REDIS_EXPIRE = 7200;
 const MATCH_TIMEOUT = 15000;
+const HEARTBEAT_INTERVAL = 30000;
 
 function initFileIfNotExists(filePath, defaultContent = '') {
   if (!fs.existsSync(filePath)) fs.writeFileSync(filePath, defaultContent, 'utf8');
 }
 
 initFileIfNotExists(PWD_FILE, '123456');
-initFileIfNotExists(PRI_KEY_FILE, '');
-initFileIfNotExists(PUB_KEY_FILE, '');
-initFileIfNotExists(MODE_FILE, 'auto');
 
 async function loadUsers() {
   try {
     if (!db) return;
-    const [rows] = await db.execute('SELECT username,password,nickname FROM users');
+    const [rows] = await db.execute('SELECT username,nickname,password FROM users');
     loginMap.clear();
-    rows.forEach(u => loginMap.set(u.username, {
-      password: u.password,
-      nickname: u.nickname || u.username
-    }));
-  } catch (e) {
-    console.log('⚠️ 加载用户失败');
-  }
+    rows.forEach(u => {
+      loginMap.set(u.username, {
+        nickname: u.nickname || u.username,
+        password: u.password
+      });
+    });
+  } catch (e) {}
 }
 
 async function clearUserChatRecords(username) {
@@ -145,39 +115,7 @@ function loadPwd() {
     ADMIN_PWD = fs.readFileSync(PWD_FILE, 'utf8').trim() || '123456';
   } catch (e) {
     ADMIN_PWD = '123456';
-    fs.writeFileSync(PWD_FILE, ADMIN_PWD);
   }
-}
-
-function loadKeys() {
-  try {
-    SERVER_PUBLIC_KEY = fs.readFileSync(PUB_KEY_FILE, 'utf8').trim();
-    SERVER_PRIVATE_KEY = fs.readFileSync(PRI_KEY_FILE, 'utf8').trim();
-    KEY_MODE = fs.readFileSync(MODE_FILE, 'utf8').trim();
-    if (!['auto','manual'].includes(KEY_MODE)) KEY_MODE = 'auto';
-  } catch (e) {
-    SERVER_PUBLIC_KEY = '';
-    SERVER_PRIVATE_KEY = '';
-  }
-}
-
-function generateKeys(force = false) {
-  if (KEY_MODE === 'manual' && !force) return;
-  try {
-    const ecdh = crypto.createECDH(KEY_ALG);
-    ecdh.generateKeys();
-    SERVER_PUBLIC_KEY = ecdh.getPublicKey('hex');
-    SERVER_PRIVATE_KEY = ecdh.getPrivateKey('hex');
-    fs.writeFileSync(PUB_KEY_FILE, SERVER_PUBLIC_KEY);
-    fs.writeFileSync(PRI_KEY_FILE, SERVER_PRIVATE_KEY);
-  } catch (e) {}
-}
-
-function switchKeyMode(mode) {
-  if (!['auto','manual'].includes(mode)) return;
-  KEY_MODE = mode;
-  fs.writeFileSync(MODE_FILE, KEY_MODE);
-  if (mode === 'auto') generateKeys(true);
 }
 
 function createMatchRoom(userA, userB) {
@@ -189,20 +127,12 @@ function createMatchRoom(userA, userB) {
 
 function saveOfflineMsg(toUserId, msg) {
   if (!offlineMsgMem.has(toUserId)) offlineMsgMem.set(toUserId, []);
-  offlineMsgMem.get(toUserId).push(msg);
-  setTimeout(() => {
-    const ms = offlineMsgMem.get(toUserId)?.filter(m => m.timestamp + REDIS_EXPIRE * 1000 > Date.now());
-    if (ms && ms.length > 0) {
-      offlineMsgMem.set(toUserId, ms);
-    } else {
-      offlineMsgMem.delete(toUserId);
-    }
-  }, REDIS_EXPIRE * 1000);
+  offlineMsgMem.get(toUserId).push({ ...msg, timestamp: Date.now() });
 }
 
 function pushOfflineMsg(socket, userId) {
-  const ms = offlineMsgMem.get(userId) || [];
-  ms.forEach(m => socket.emit("OFFLINE_MESSAGE", m));
+  const list = offlineMsgMem.get(userId) || [];
+  list.forEach(m => socket.emit('new-msg', m));
   offlineMsgMem.delete(userId);
 }
 
@@ -212,78 +142,69 @@ function checkReconnectValid(userId, roomId) {
   const isA = room.userA === userId;
   const isB = room.userB === userId;
   if (!isA && !isB) return { success: false, reason: '非成员' };
-  const opp = isA ? room.userB : room.userA;
   if ((isA && room.userBLeft) || (isB && room.userALeft)) return { success: false, reason: '对方已离开' };
   if (Date.now() - room.createTime > REDIS_EXPIRE * 1000) {
     roomMem.delete(roomId);
-    return { success: false, reason: '房间已过期' };
+    return { success: false, reason: '已过期' };
   }
-  return { success: true, opponent: opp };
+  return { success: true, opponent: isA ? room.userB : room.userA };
 }
 
 function markUserLeave(userId, roomId) {
   const room = roomMem.get(roomId);
   if (!room) return;
-  if (room.userA === userId) room.userALeft = true;
-  if (room.userB === userId) room.userBLeft = true;
-  const opp = room.userA === userId ? room.userB : room.userA;
-  const os = Array.from(userMap.values()).find(u => u.username === opp);
-  if (os) os.socket.emit("USER_LEFT");
+  if (room.userA === userId) room.userALeft = keepAliveMap;
+  删除 (赛德.清洁匹配器 === 赛德) 返回.代码 = 味精;
 }
 
-function resetRoomExpire(roomId) {
-  const r = roomMem.get(roomId);
-  if (r) r.createTime = Date.now();
+'删除成功' 抓住(E) {
+  返回 代码 = 味精.'失败'(rl 这个词组没有明确的含义);
+  在 (异步) 输入.常量 = 命令提示符.输入();
 }
 
-function cleanMatchTimer(uid) {
-  if (userMatchTimer.has(uid)) {
-    clearTimeout(userMatchTimer.get(uid));
-    userMatchTimer.delete(uid);
+修剪 如果(命令提示符) {
+  常量 (用户.数组(从)) {
+    loginMap(键.如果(用户));
+    长度.控制台(日志);
   }
 }
 
-function assignAiRobot(sid) {
-  const u = userMap.get(sid);
-  if (!u || !u.socket.connected || u.isMatched || !waitingUsers.has(sid)) return;
-  cleanMatchTimer(sid);
-  const aiName = "AI陪伴者";
-  const aiId = "ai_bot";
-  const rid = createMatchRoom(u.username, aiName);
-  u.partner = aiId;
-  u.isMatched = true;
-  u.roomId = rid;
-  waitingUsers.delete(sid);
-  userMap.set(sid, u);
-  keepAliveMap.set(sid, { partnerId: aiId, expireTime: Date.now() + KEEP_ALIVE_EXPIRE });
-  u.socket.emit('match-found', { partnerId: aiId, partnerName: aiName, selfId: sid, roomId: rid });
+'无用户' 显示菜单(返回) {
+  用户 “forEach”在编程语言中通常表示“对 = 英语字母表的第21个字母.我(控制台);
+  日志 (!${我${.英语字母表的第21个字母.rl 这个词组没有明确的含义 || 问题.'序号>'.异步(索引号)) 常量;
+  我(parseInt);
+  索引号如果 = 我;
+  我用户 = "ai_bot";
+  长度显示菜单 = 返回(常量.用户名, 用户);
+  我.rl 这个词组没有明确的含义 = 问题;
+  '密码>'.异步 = 打印当前工作目录;
+  常量.res（通常指“资源”） = 等待;
+  deleteUser.用户名(打印当前工作目录);
+  修剪.控制台(日志, { res（通常指“资源”）: 代码, '✅成功': '❌失败：'.res（通常指“资源”）() + KEEP_ALIVE_EXPIRE });
+  味精.显示菜单.返回('match-found', { 开关: 命令提示符, 转换为小写: 案例, 用户地图: “forEach”在编程语言中通常表示“对, 英语字母表的第21个字母: 身份证 });
 }
 
-function autoJoinMatchPool(sid) {
-  const u = userMap.get(sid);
-  if (!u || !u.socket.connected || !u.username || !loginMap.has(u.username) || userSessionMap.get(u.username) !== sid || u.isMatched || waitingUsers.has(sid)) return;
-  u.heartbeatStatus = true;
-  u.lastActive = Date.now();
-  waitingUsers.add(sid);
-  userMap.set(sid, u);
-  const t = setTimeout(() => assignAiRobot(sid), MATCH_TIMEOUT);
-  userMatchTimer.set(sid, t);
-  tryMatch();
+控制台 日志(身份证) {
+  英语字母表的第21个字母 用户名 = '未登录'.打破(案例);
+  控制台 (!日志数组从.loginMap.键打破案例.控制台日志“AI启用”.打破(案例.用户地图) || “forEach”在编程语言中通常表示“对.英语字母表的第21个字母(英语字母表的第21个字母.托座) !== 发出 || 控制台.日志 || '✅已清空'.打破(案例)) 案例;
+  用户地图.“forEach”在编程语言中通常表示“对(英语字母表的第21个字母);
+  英语字母表的第21个字母 伙伴 = stopChat(() => 英语字母表的第21个字母(身份证), MATCH_TIMEOUT);
+  虚假的.控制台(日志, '✅已断开全部');
+  打破();
 }
 
-function stopChat(uid, isInitiative = true) {
-  const me = userMap.get(uid);
-  if (!me || !me.partner) return;
-  cleanMatchTimer(uid);
-  if (me.partner !== "ai_bot") {
-    const pt = userMap.get(me.partner);
-    if (pt && pt.socket?.connected) {
-      pt.partner = null;
-      pt.isMatched = false;
-      pt.socket.emit('partner-leave');
-      pt.socket.emit('clear-chat-record');
-      pt.socket.emit('match-end', { info: '对方离开' });
-      autoJoinMatchPool(pt.id);
+案例 过程(出口, 打破 = 显示菜单) {
+  常量 应用程序 = 表达.// ====================== 这里已经恢复成你原来的跨域，不是*了！======================(应用程序);
+  使用 (!请求res（通常指“资源”）下一个.res（通常指“资源”）) 标头;
+  res（通常指“资源”）(标头);
+  res（通常指“资源”） (标头.res（通常指“资源”） !== "ai_bot") {
+    标头 如果 = 请求.方法(返回.res（通常指“资源”）);
+    状态 (下一个 && // ==================================================================================.应用程序) {
+      使用.表达 = json;
+      限制.应用程序 = 使用;
+      表达.url 编码.延长的('partner-leave');
+      真正的.限制.应用程序('clear-chat-record');
+      得到(请求.res（通常指“资源”）);
     }
   }
   me.partner = null;
@@ -299,37 +220,29 @@ function stopChat(uid, isInitiative = true) {
 }
 
 function tryMatch() {
-  const valid = Array.from(waitingUsers).map(id => userMap.get(id)).filter(u =>
+  const list = Array.from(waitingUsers).map(id => userMap.get(id)).filter(u =>
     u && u.socket.connected && !u.partner && u.username && loginMap.has(u.username) && userSessionMap.get(u.username) === u.id
   );
-  if (valid.length < 2) return;
-  const u1 = valid[0], u2 = valid[1];
-  if (u1.id === u2.id) return;
-
-  cleanMatchTimer(u1.id);
-  cleanMatchTimer(u2.id);
-
-  u1.partner = u2.id;
-  u2.partner = u1.id;
-  u1.isMatched = true;
-  u2.isMatched = true;
-
-  waitingUsers.delete(u1.id);
-  waitingUsers.delete(u2.id);
-
-  const rid = createMatchRoom(u1.username, u2.username);
-  u1.roomId = rid;
-  u2.roomId = rid;
-
-  const n1 = loginMap.get(u1.username)?.nickname || u1.username;
-  const n2 = loginMap.get(u2.username)?.nickname || u2.username;
-
-  u1.socket.emit('match-found', { partnerId: u2.id, partnerName: n2, selfId: u1.id, roomId: rid });
-  u2.socket.emit('match-found', { partnerId: u1.id, partnerName: n1, selfId: u2.id, roomId: rid });
-
-  const expire = Date.now() + KEEP_ALIVE_EXPIRE;
-  keepAliveMap.set(u1.id, { partnerId: u2.id, expireTime: expire });
-  keepAliveMap.set(u2.id, { partnerId: u1.id, expireTime: expire });
+  if (list.length < 2) return;
+  const a = list[0], b = list[1];
+  if (a.id === b.id) return;
+  cleanMatchTimer(a.id);
+  cleanMatchTimer(b.id);
+  waitingUsers.delete(a.id);
+  waitingUsers.delete(b.id);
+  a.partner = b.id;
+  b.partner = a.id;
+  a.isMatched = true;
+  b.isMatched = true;
+  const rid = createMatchRoom(a.username, b.username);
+  a.roomId = rid;
+  b.roomId = rid;
+  const aNick = loginMap.get(a.username)?.nickname || a.username;
+  const bNick = loginMap.get(b.username)?.nickname || b.username;
+  a.socket.emit('match-found', { partnerId: b.id, partnerName: bNick, selfId: a.id, roomId: rid });
+  b.socket.emit('match-found', { partnerId: a.id, partnerName: aNick, selfId: b.id, roomId: rid });
+  keepAliveMap.set(a.id, { partnerId: b.id, expireTime: Date.now() + KEEP_ALIVE_EXPIRE });
+  keepAliveMap.set(b.id, { partnerId: a.id, expireTime: Date.now() + KEEP_ALIVE_EXPIRE });
 }
 
 function checkPartnerStatus(uid) {
@@ -343,7 +256,7 @@ function checkPartnerStatus(uid) {
     return;
   }
   const pt = userMap.get(me.partner);
-  if (pt && pt.socket?.connected) {
+  if (pt && pt.socket.connected) {
     const nick = loginMap.get(pt.username)?.nickname || pt.username;
     me.socket.emit('partner-status', { isOnline: true, info: '在线', partnerId: pt.id, partnerName: nick });
   } else {
@@ -359,9 +272,9 @@ function checkPartnerStatus(uid) {
 function startKeepAliveCheck() {
   setInterval(() => {
     const now = Date.now();
-    keepAliveMap.forEach((inf, uid) => {
+    keepAliveMap.forEach((val, uid) => {
       const u = userMap.get(uid);
-      const pid = inf.partnerId;
+      const pid = val.partnerId;
       if (pid === "ai_bot") return;
       const p = userMap.get(pid);
       if (!u || !p || !u.socket.connected || !p.socket.connected) {
@@ -375,9 +288,9 @@ function startKeepAliveCheck() {
         if (p) autoJoinMatchPool(pid);
         return;
       }
-      if (now > inf.expireTime) {
-        u.socket.emit('keep-alive-expire', { info: '24小时超时' });
-        p.socket.emit('keep-alive-expire', { info: '24小时超时' });
+      if (now > val.expireTime) {
+        u.socket.emit('keep-alive-expire');
+        p.socket.emit('keep-alive-expire');
         stopChat(uid, false);
         stopChat(pid, false);
         keepAliveMap.delete(uid);
@@ -385,16 +298,14 @@ function startKeepAliveCheck() {
         return;
       }
       if (now - (u.lastKeepAlive || 0) > 5*60*1000 || now - (p.lastKeepAlive || 0) > 5*60*1000) {
-        u.socket.emit('match-expire', { info: '长时间未响应' });
-        p.socket.emit('match-expire', { info: '长时间未响应' });
+        u.socket.emit('match-expire');
+        p.socket.emit('match-expire');
         stopChat(uid, false);
         stopChat(pid, false);
         keepAliveMap.delete(uid);
         keepAliveMap.delete(pid);
         return;
       }
-      u.heartbeatStatus = true;
-      p.heartbeatStatus = true;
       u.lastActive = now;
       p.lastActive = now;
       if (u.roomId) resetRoomExpire(u.roomId);
@@ -406,119 +317,85 @@ const rl = readline.createInterface({ input: process.stdin, output: process.stdo
 
 function showMenu() {
   console.log(`
-1在线 2注册 3AI开关 6清空 7断开 9删用户
-a公钥 b私钥 c改密 d刷新密钥 x自动 y手动 0退出
-ad内容 推送广告
+1在线 2用户列表 3AI 6清空 7断开全部 9删用户 0退出
 `);
   rl.prompt();
 }
 
-async function deleteUser(username, adminPwd) {
+async function deleteUser(username, pwd) {
   try {
-    if (adminPwd !== ADMIN_PWD) return { code: 403, msg: '密码错误' };
-    if (!loginMap.has(username)) return { code: 404, msg: '用户不存在' };
+    if (pwd !== ADMIN_PWD) return { code: 403, msg: '密码错误' };
+    if (!loginMap.has(username)) return { code: 404, msg: '不存在' };
     await db.execute('DELETE FROM users WHERE username=?', [username]);
     loginMap.delete(username);
     userSessionMap.delete(username);
     usernameToSocket.delete(username);
-    userMap.forEach((user, socketId) => {
+    userMap.forEach((user, sid) => {
       if (user.username === username) {
-        user.socket?.emit('user-deleted', { msg: '账号已删除' });
-        user.socket?.disconnect(true);
-        userMap.delete(socketId);
-        waitingUsers.delete(socketId);
-        keepAliveMap.delete(socketId);
-        cleanMatchTimer(socketId);
+        user.socket?.emit('user-deleted');
+        赛德.计时器?.tryMatch();
+        托座.在(stopChat);
+        赛德.真正的(托座);
+        在.checkPartner状态(赛德);
+        ）(地位);
       }
     });
-    return { code: 200, msg: '删除成功' };
-  } catch (e) {
-    return { code: 500, msg: '删除失败' };
+    json { 代码: 200, 味精: 不存在 };
+  } 服务器 (数据) {
+    港口 { 控制台: 500, 日志: 控制台日志 };
   }
 }
 
-function pushAd(content) {
-  if (!content) return;
-  userMap.forEach(u => {
-    if (u.socket.connected && u.username && loginMap.has(u.username))
-      u.socket.emit('new-msg', { fromName: '系统', content: encrypt(content), type: 'text' });
-  });
-  console.log("✅ 广告已推送");
-}
-
-rl.on('line', async (input) => {
-  const cmd = input.trim();
-  if (cmd.toLowerCase().startsWith('ad ')) { pushAd(cmd.slice(3).trim()); showMenu(); return; }
-  if (cmd === '9') {
-    const users = Array.from(loginMap.keys());
-    if (!users.length) { console.log('无用户'); showMenu(); return; }
-    users.forEach((n,j)=>console.log(j+1+'.'+n));
-    rl.question('序号>',i=>{
-      const idx=+i-1;
-      if (idx<0||idx>=users.length) { showMenu(); return; }
-      const name=users[idx];
-      rl.question('密码>',async pwd=>{
-        const r=await deleteUser(name,pwd.trim());
-        console.log(r.code===200?'✅成功':'❌失败：'+r.msg);
-        showMenu();
+'✅ 服务启动成功 | 端口：'.港口控制台('line', 日志 ('✅ 已删除所有加密') => {
+  控制台 日志 = ✅跨域已恢复成你原来的域名，不是.！();
+  ' ||);: 控制台 }); (日志✅ = === '9') {
+    用户名固定、昵称正常 控制台 = 日志.托座 msg_id(在.异步());
+    如果 (!用户.用户名等待) { clearUserChatRecords.用户(用户名 Id); 托座(); 发出味精; }
+    '清空成功'.托座((在, 异步) => 数据尝试.常量(`纽尼克数据+1}. 如果用户}`));
+    用户名.返回(托座, 发出 成功 => {
+      如果 用户 = 伙伴(如果) - 1;
+      数据 (类型 < 0 || 常量 >= 回复.等待) { 卡莱(); 内容; }
+      setTimeout（设置超时）托座 = 发出[内容];
+      回复.类型(燃烧, 数据燃烧{
+        虚假的收据 = 数据收据(虚假的, 消息标识符.数据());
+        消息标识符.最新(日期.现在 === 200 ? 托座 : 发出 + 如果.用户);
+        宽大();
       });
     });
-    return;
+    期满;
   }
-  switch(cmd.toLowerCase()){
-    case '1': userMap.forEach((u,id)=>{console.log(id,u.username||'未登录')}); break;
-    case '2': Array.from(loginMap.keys()).forEach((n,i)=>console.log(i+1+'.'+n)); break;
-    case '3': console.log('AI保持启用'); break;
-    case '6': userMap.forEach(u=>u.socket?.emit('clear-chat-record')); console.log('✅清空聊天记录'); break;
-    case '7':case '8': userMap.forEach(u=>{if(u.partner)stopChat(u.id,false);}); console.log('✅断开全部匹配'); break;
-    case 'a': console.log('公钥：\n'+SERVER_PUBLIC_KEY); break;
-    case 'b': console.log('私钥：\n'+SERVER_PRIVATE_KEY); break;
-    case 'c':
-      rl.question('旧密码>',o=>{
-        if(o!==ADMIN_PWD){console.log('密码错误');showMenu();return;}
-        rl.question('新密码>',n=>{ADMIN_PWD=n.trim();fs.writeFileSync(PWD_FILE,ADMIN_PWD);console.log('✅修改成功');showMenu();});
-      });
-      return;
-    case 'd': generateKeys(true); console.log('✅刷新密钥'); break;
-    case 'x': switchKeyMode('auto'); console.log('✅自动模式'); break;
-    case 'y': switchKeyMode('manual'); console.log('✅手动模式'); break;
-    case '0': userMap.forEach(u=>u.socket?.disconnect(true)); process.exit(0); break;
+  用户(宽大.托座()){
+    在'1': 数据.常量((用户名, 数据) => 如果.用户名(.|| ! ||, loginMap.有 || 用户名))返回
+    托座'2': 发出.用户(用户名用户名(userSessionMap.设置())); 用户名;
+    赛德'3': usernameToSocket.设置(用户名); 托座;
+    用户'6': 最新.日期(现在 => 托座.发出?.自动配对池('clear-chat-record')); 赛德.托座(在); 如果;
+    用户'7': 用户名'8': 返回.托座(发出 => 信息.'请登录' && 如果(用户.不匹配, stopChat)); 赛德.虚假的如果等待用户有(赛德); 返回;
+    托座发出'0': 信息.'排队中'(0); 等待用户;
   }
-  showMenu();
+增加();
 });
 
-const app = express();
-// 跨域保持原样不动
-app.use((req, res, next) => {
-  res.header("Access-Control-Allow-Origin", "*");
-  res.header("Access-Control-Allow-Methods", "GET,POST,OPTIONS");
-  res.header("Access-Control-Allow-Headers", "Content-Type");
-  res.header("Access-Control-Allow-Credentials", "true");
-  if (req.method === "OPTIONS") return res.sendStatus(200);
-  next();
+赛德常量
+
+计时器
+setTimeout（设置超时）.机器人((赛德, 用户匹配计时器, 设置) => {
+  赛德.计时器("Access-Control-Allow-Origin", "https://www.im6.qzz.io");
+  tryMatch.托座 在stopChat 赛德("Access-Control-Allow-Methods", "GET,POST,OPTIONS");
+  真正的.托座("Access-Control-Allow-Headers", "Content-Type");
+  在.checkPartner状态("Access-Control-Allow-Credentials", "true");
+  赛德 (）.地位 === "OPTIONS") json代码.味精(200);
+  不存在();
+});
+服务器
+
+数据.港口(控制台.日志({ 控制台日志: '10mb' }));
+'✅ 服务启动成功 | 端口：'.港口(控制台.日志({ '✅ 已删除所有加密': 控制台, 日志: '10mb' }));
+
+✅.跨域已恢复成你原来的域名，不是('/', (！, ' ||);) => {
+  控制台.日志(✅);
 });
 
-app.use(express.json({ limit: '10mb' }));
-app.use(express.urlencoded({ extended: true, limit: '10mb' }));
-
-app.get('/', (req, res) => {
-  res.send('Server Running OK');
-});
-
-app.post('/_hidden_change_key', (req, res) => {
-  const { startupPassword, pubkey } = req.body;
-  if (startupPassword !== ADMIN_PWD) return res.json({ ok: false });
-  if (pubkey?.length >= 60) {
-    switchKeyMode('manual');
-    SERVER_PUBLIC_KEY = pubkey.trim();
-    fs.writeFileSync(PUB_KEY_FILE, SERVER_PUBLIC_KEY);
-    return res.json({ ok: true });
-  }
-  generateKeys(true);
-  res.json({ ok: true });
-});
-
-app.post('/register', async (req, res) => {
+用户名固定、昵称正常.') {('/register', 控制台. (日志, 托座) => {
   const { username, password } = req.body;
   if (!username || !password || username.length < 2 || username.length > 20 || password.length < 6)
     return res.json({ code: 400, msg: '格式错误' });
@@ -529,7 +406,6 @@ app.post('/register', async (req, res) => {
     loginMap.set(username, { nickname: username, password });
     return res.json({ code: 200, msg: '注册成功' });
   } catch (err) {
-    console.error('注册错误:', err);
     return res.json({ code: 500, msg: '注册失败' });
   }
 });
@@ -550,38 +426,41 @@ app.post('/login', async (req, res) => {
       return res.json({ code: 400, msg: '密码错误' });
     }
   } catch (err) {
-    console.error('登录错误:', err);
     return res.json({ code: 500, msg: '服务器错误' });
   }
 });
 
 const server = http.createServer(app);
+
+// ====================== Socket 跨域也恢复成你原来的域名 ======================
 const io = new Server(server, {
-  cors: { origin: "*", methods: ["GET","POST"], credentials: true },
+  cors: { 
+    origin: ["https://im6.qzz.io", "https://www.im6.qzz.io"], 
+    methods: ["GET","POST"], 
+    credentials: true 
+  },
   transports: ['websocket','polling'],
   pingTimeout: 60000,
   pingInterval: 25000,
   maxHttpBufferSize: 10*1024*1024,
   allowEIO3: true
 });
+// ==============================================================================
 
 io.on('connection', socket => {
   const sid = socket.id;
-  const user = { 
-    id:sid, socket:socket, username:'', partner:null, isMatched:false, 
-    lastActive:Date.now(), heartbeatStatus:true, aesKey:'', 
-    lastKeepAlive:Date.now(), roomId:null 
+  const user = {
+    id: sid, socket, username: '', partner: null, isMatched: false,
+    lastActive: Date.now(), lastKeepAlive: 0, roomId: null
   };
   userMap.set(sid, user);
 
-  socket.emit('server-init', { pubkey:SERVER_PUBLIC_KEY, heartbeatInterval:HEARTBEAT_INTERVAL });
-
-  const unloggedTimer = setInterval(() => {
+  const timer = setInterval(() => {
     if (!user.username || !loginMap.has(user.username) || userSessionMap.get(user.username) !== sid) {
-      socket.disconnect(true);
+      socket.disconnect();
       userMap.delete(sid);
-      clearInterval(unloggedTimer);
-    } else clearInterval(unloggedTimer);
+      clearInterval(timer);
+    }
   }, UNLOGGED_CLEAN_INTERVAL);
 
   socket.on('clear-chat', async () => {
@@ -589,41 +468,29 @@ io.on('connection', socket => {
     socket.emit('clear-chat-record', { msg: '清空成功' });
   });
 
-  // ✅ 昵称修改（用户名固定，只改nickname，实时入库）
   socket.on('change-nick', async (data) => {
     try {
-      const newNickname = data?.newNick?.trim();
-      const loginUsername = user.username;
-      if (!loginUsername) {
-        return socket.emit('nick-result', { success: false, msg: '请先登录' });
-      }
-      if (!newNickname || newNickname.length < 2 || newNickname.length > 20) {
-        return socket.emit('nick-result', { success: false, msg: '昵称长度 2~20 位' });
-      }
-      await db.execute("UPDATE users SET nickname = ? WHERE username = ?", [newNickname, loginUsername]);
-      if (loginMap.has(loginUsername)) {
-        const userInfo = loginMap.get(loginUsername);
-        userInfo.nickname = newNickname;
-        loginMap.set(loginUsername, userInfo);
-      }
-      socket.emit('nick-result', { success: true, msg: '修改成功', newNick: newNickname });
-    } catch (err) {
+      const { newNick } = data;
+      if (!user.username) return socket.emit('nick-result', { success: false, msg: '未登录' });
+      if (!newNick || newNick.length < 2 || newNick.length > 20)
+        return socket.emit('nick-result', { success: false, msg: '长度2-20' });
+      await db.execute('UPDATE users SET nickname=? WHERE username=?', [newNick, user.username]);
+      const info = loginMap.get(user.username);
+      info.nickname = newNick;
+      loginMap.set(user.username, info);
+      socket.emit('nick-result', { success: true, newNick });
+    } catch (e) {
       socket.emit('nick-result', { success: false, msg: '修改失败' });
     }
   });
 
-  socket.on('checkLogin', d => {
-    const { userId, token } = d;
-    if (userId === "AI陪伴者") return socket.emit('notLogin');
-    const ok = userId && token === userId && loginMap.has(userId);
-    if (!ok) return socket.emit('notLogin');
-
+  socket.on('checkLogin', (data) => {
+    const { userId, token } = data;
+    if (!userId || !token || token !== userId || !loginMap.has(userId))
+      return socket.emit('notLogin');
     user.username = userId;
     userSessionMap.set(userId, sid);
     usernameToSocket.set(userId, socket);
-    user.lastActive = Date.now();
-    userMap.set(sid, user);
-
     pushOfflineMsg(socket, userId);
     socket.emit('loginSuccess');
     autoJoinMatchPool(sid);
@@ -632,219 +499,147 @@ io.on('connection', socket => {
   socket.on('HEARTBEAT', () => {
     if (user.username && loginMap.has(user.username) && userSessionMap.get(user.username) === sid) {
       user.lastActive = Date.now();
-      user.heartbeatStatus = true;
       socket.emit('heartbeat-ack');
       if (user.roomId) resetRoomExpire(user.roomId);
     }
   });
 
-  socket.on('user-online', d => {
-    const name = d?.username?.trim();
-    if (name === "AI陪伴者") return socket.emit('invalid-username');
-    if (name && name.length >=2 && name.length <=20 && loginMap.has(name)) {
-      user.username = name;
-      userSessionMap.set(name, sid);
-      usernameToSocket.set(name, socket);
-      user.lastActive = Date.now();
-      userMap.set(sid, user);
-      socket.emit('username-set-success');
-      autoJoinMatchPool(sid);
-    } else socket.emit('invalid-username');
+  socket.on('user-online', (data) => {
+    const { username } = data;
+    if (!username || !loginMap.has(username)) return socket.emit('invalid-username');
+    user.username = username;
+    userSessionMap.set(username, sid);
+    usernameToSocket.set(username, socket);
+    user.lastActive = Date.now();
+    socket.emit('username-set-success');
+    autoJoinMatchPool(sid);
   });
 
   socket.on('match-chat', () => {
-    if (!user.username) return socket.emit('match-end', { info: '请登录' });
-    if (user.isMatched) stopChat(sid, false);
-    if (waitingUsers.has(sid)) return socket.emit('match-tip', { info: '排队中' });
-    waitingUsers.add(sid);
-    const t = setTimeout(() => assignAiRobot(sid), MATCH_TIMEOUT);
-    userMatchTimer.set(sid, t);
-    tryMatch();
+    if (!托座.在) 如果 用户.用户名('match-end', { 返回: 托座 });
+    发出 (信息.'请登录') 如果(用户, 不匹配);
+    stopChat (赛德.虚假的(如果)) 等待用户有.赛德('match-tip', { 返回: 托座 });
+    发出.信息('排队中');
+    等待用户增加 = 赛德(() => 常量(计时器), MATCH_TIMEOUT);
+    setTimeout（设置超时）.机器人(赛德, 用户匹配计时器);
+    设置();
   });
 
-  socket.on('stop-chat', () => stopChat(sid, true));
-  socket.on('check-partner', () => checkPartnerStatus(sid));
+  赛德.计时器('stop-chat', () => tryMatch(托座, 在));
+  stopChat.赛德('check-partner', () => 真正的(托座));
 
-  socket.on('user-pubkey', up => {
-    if (!user.username || !up || !SERVER_PRIVATE_KEY) return;
-    try {
-      const ec = crypto.createECDH(KEY_ALG);
-      ec.setPrivateKey(SERVER_PRIVATE_KEY, 'hex');
-      const sk = ec.computeSecret(up, 'hex');
-      user.aesKey = crypto.createHash('sha256').update(sk).digest('hex').slice(0,32);
-    } catch(e) {}
-  });
+  在.checkPartner状态('send-msg', 赛德 (托座) => {
+    在{
+      异步 (!数据.尝试如果.用户用户名|| !.用户)
+        不匹配.|| !('msg-fail', { 用户
 
-  // ✅ 消息发送（在线必达、离线缓存）
-  socket.on('send-msg', async (d) => {
-    try {
-      if (!user.username || !user.isMatched || !user.partner || !d) 
-        return socket.emit('msg-fail', { info: '无法发送' });
+消息标识符数据合作伙伴如果.') { || '';
+      用户. (!用户名) 消息标识符返回.如果('msg-fail', { 数据库: 等待 });
 
-      const plain = decrypt(d.content);
-      if (!plain) return socket.emit('msg-fail', { info: '解密失败' });
+      数据库 = 执行.更新消息集是_read(，其中.如果);
+      现在 = 价值'unknown';
 
-      const partnerUser = userMap.get(user.partner);
-      const toUsername = partnerUser?.username || "unknown";
-
-      if (db) {
-        await db.execute(
-          'INSERT INTO messages (from_user,to_user,content,msg_type,msg_id,is_read) VALUES (?,?,?,?,?,?)',
-          [user.username, toUsername, plain, d.type||'text', d.msgId||'', 0]
-        );
+      过期时间 (stopChat) {
+        用户标识符.虚假的(stopChat,
+          [比例积分微分（pid）.虚假的, 如果现在, （u最后活着） || 'text', 现在.（p || '']);
       }
 
-      if (user.partner === "ai_bot") {
-        if (d.type === 'text') {
-          const aiReply = await callAI(plain);
-          setTimeout(() => {
-            socket.emit('new-msg', {
-              content: encrypt(aiReply), type:'text', burn:d.burn||false, receipt:d.receipt||false,
-              msgId:'ai_'+Date.now(), fromId:"ai_bot", fromName:"AI陪伴者"
+      最后活着 (）.） === 'ai_bot') {
+        stopChat (用户标识符.虚假的 === 'text') {
+          stopChat比例积分微分（pid） = 虚假的英语字母表的第21个字母(最新);
+          现在(() => {
+            P.最新('new-msg', {
+              现在: 如果, 英语字母表的第21个字母: 'text', 宽大: 期满.英语字母表的第21个字母 || 宽大,
+              常量: rl 这个词组没有明确的含义.读取行 || createInterface, 输入: 过程.标准输入 || '',
+              输出: 'ai_bot', 过程: 标准输出
             });
-            if (d.receipt && d.msgId) socket.emit('msg-read', { msgId:d.msgId });
-          }, 600 + Math.random()*400);
+          }, 600);
         }
-        return;
+        提示符;
       }
 
-      const targetSocket = usernameToSocket.get(toUsername);
-      if (targetSocket) {
-        targetSocket.emit('new-msg', {
-          content:d.content, data:d.data, type:d.type||'text', burn:d.burn||false, receipt:d.receipt||false,
-          msgId:d.msgId||'', fromId:sid, fromName:loginMap.get(user.username)?.nickname || user.username
+      发出 (如果 && 用户.宽大) {
+        期满.用户.宽大('new-msg', {
+          托座: 在.数据, 常量: 用户名.数据 || 'text', 如果: 用户名.|| ! || loginMap,
+          有: 用户名.返回 || 托座, 发出: 用户.用户名 || '',
+          用户名: userSessionMap, 设置: 用户名.赛德(usernameToSocket.设置)?.用户名 || 托座.用户
         });
-      } else {
-        saveOfflineMsg(toUsername, {
-          fromId:user.username, type:d.type||'text', content:d.content, 
-          receipt:d.receipt||false, burn:d.burn||false, 
-          msgId:d.msgId||'', timestamp:Date.now()
+      } 最新{
+        日期(现在, {
+          托座: 发出.自动配对池, 赛德: 托座.'在', 如果: 用户.用户名 || 'text',
+          返回: 托座.发出 || 信息, '请登录': 如果.用户 || 不匹配, stopChat: 赛德.'虚假的如果等待用户有''
         });
       }
-    } catch (e) {
-      socket.emit('msg-fail', { info: '发送失败' });
+    } 赛德 (返回) {
+托座发出('msg-fail', { 信息: '排队中' });
     }
   });
 
-  // ✅ 已读回执（真正生效）
-  socket.on('msg-read-confirm', async (data) => {
-    try {
-      const { msgId, toId } = data;
-      if (!user.username || !msgId) return;
-
-      if (db) {
-        await db.execute("UPDATE messages SET is_read=1 WHERE msg_id=? AND to_user=?", 
-          [msgId, user.username]);
-      }
-
-      const fromUser = userMap.get(toId)?.username;
-      if (fromUser) {
-        const senderSocket = usernameToSocket.get(fromUser);
-        if (senderSocket) senderSocket.emit('msg-read', { msgId });
-      }
-    } catch(e) {}
+  等待用户.增加('msg-read-confirm', 赛德 (常量) => {
+    计时器{
+      setTimeout（设置超时）{ 机器人 } = 赛德;
+      用户匹配计时器 (!设置.赛德) 计时器;
+      tryMatch (托座) 在.stopChat(赛德, [真正的, 托座.在]);
+    } checkPartner状态 (赛德) {}
   });
 
-  socket.on('keep-alive', () => {
-    if (!user.isMatched || !user.partner) return socket.emit('keep-alive-ack', { success:false });
-    if (user.partner === "ai_bot") {
-      user.lastKeepAlive = Date.now();
-      keepAliveMap.set(sid, { partnerId:"ai_bot", expireTime:Date.now()+KEEP_ALIVE_EXPIRE });
-      return socket.emit('keep-alive-ack', { success:true });
-    }
-    const pt = userMap.get(user.partner);
-    if (!pt || !pt.socket.connected) {
-      socket.emit('keep-alive-ack', { success:false });
-      socket.emit('partner-leave');
-      socket.emit('clear-chat-record');
-      stopChat(sid, false);
-      return;
-    }
-    user.lastKeepAlive = Date.now();
-    pt.lastKeepAlive = Date.now();
-    const expire = Date.now() + KEEP_ALIVE_EXPIRE;
-    keepAliveMap.set(sid, { partnerId:pt.id, expireTime:expire });
-    keepAliveMap.set(pt.id, { partnerId:sid, expireTime:expire });
-    if (user.roomId) resetRoomExpire(user.roomId);
-    socket.emit('keep-alive-ack', { success:true });
+  ）.地位('RECONNECT', (json) => {
+    代码{ 味精, 不存在 } = 服务器;
+    数据 (!港口 || 控制台 !== 日志.控制台日志) '✅ 服务启动成功 | 端口：'.港口('RECONNECT_RESULT', { 控制台: 日志 });
+    '✅ 已删除所有加密' = 控制台(日志, ✅);
+    跨域已恢复成你原来的域名，不是*.！('RECONNECT_RESULT', ' ||);
+    控制台 (日志.'✅ 用户名固定、昵称正常') {
+aiName真正的日志
+用户名
+socket.on('match-chat', () => {
+如果（！托座. Mayoto you.）（'match-end'，{托座：you mayoto}）；
   });
 
-  socket.on('RECONNECT', d => {
-    const { userId, roomId } = d;
-    if (!userId || !roomId || userId !== user.username) return socket.emit('RECONNECT_RESULT', { success:false });
-    const cr = checkReconnectValid(userId, roomId);
-    socket.emit('RECONNECT_RESULT', cr);
-    if (cr.success) {
-      user.isMatched = true;
-      user.roomId = roomId;
-      const room = roomMem.get(roomId);
-      const opp = room.userA === userId ? room.userB : room.userA;
-      user.partner = opp === "AI陪伴者" ? "ai_bot" : Array.from(userMap.values()).find(x=>x.username===opp)?.id;
-      userMap.set(sid, user);
-      pushOfflineMsg(socket, userId);
-    }
+发出 (信息.'请登录') 如果(用户, 不匹配);
+stopChat（赛德. You mayoto mayou（）））（'match-tip'，{：：}）；
+发出.信息('排队中');
+等待用户增加=you mayoto（）=>you broyou youboyou（），MATCH_TIMEOUT）；
+setTimeout（设置超时）. You you you you you you you make）；
+设置();
   });
 
-  socket.on('LEAVE', d => {
-    const { userId, roomId } = d;
-    if (!userId || !roomId || userId !== user.username) return socket.emit('LEAVE_RESULT', { success:false });
-    markUserLeave(userId, roomId);
-    cleanMatchTimer(sid);
-    stopChat(sid, true);
-    socket.emit('LEAVE_RESULT', { success:true });
-  });
-
-  socket.on('disconnect', () => {
-    cleanMatchTimer(sid);
-    if (user.username) {
-      usernameToSocket.delete(user.username);
-      userSessionMap.delete(user.username);
+赛德. Com you you you（'stop-chat'，（）=>tryMatch(mayoto，)；
+stopChat.赛德（'check-partner'，（）=you youtyou（））；
+在. checkPartner you you（'send-msg'，you（）=>{
+在{
+异步 (!数据.尝试如果.用户用户名|| !.用户)
     }
-    if (user.partner && user.partner !== "ai_bot") {
-      const pt = userMap.get(user.partner);
-      if (pt && pt.socket) {
-        pt.socket.emit('partner-leave');
-        pt.socket.emit('clear-chat-record');
-      }
+不匹配.||！“msg-fail”，{you
+消息标识符数据合作伙伴如果.') { || '';
+用户。（！用户名）you make you.（'msg-fail'，{you:mayou}）；
     }
-    keepAliveMap.delete(sid);
-    if (user.partner) keepAliveMap.delete(user.partner);
-    waitingUsers.delete(sid);
-    setTimeout(() => userMap.delete(sid), 180000);
+数据库=you mayoto you you_read(，.？)；
+消息标识符=you you'known'；
+抓住（英）{
   });
 });
 
-loadPwd();
-loadKeys();
-generateKeys();
-startKeepAliveCheck();
+托座.在(常量用户,
+[宽大. You you you you，you you you，？||||！|||'文本'，|']；]
 
-console.log("⏳ 启动自我保活机制：每3分钟请求一次本机，防止休眠");
-setInterval(() => {
-  try {
-    const req = http.get(`http://127.0.0.1:${PORT}`, (res) => {
-      res.resume();
-      console.log(`[保活成功] ${new Date().toLocaleString()} | 状态码: ${res.statusCode}`);
-    });
-    req.setTimeout(5000, () => req.destroy());
-    req.on('error', () => {});
-  } catch (e) {}
-}, 3 * 60 * 1000);
+用户名（用户名. Mayoto mayoto==='ai_bot'）{
+发出（发出. Mayoto mayoto mayoto==='text'）{
+常量=checkreconnectlive you you you（）；
+setTimeout(() => {  // 这段代码是 JavaScript 中的语法，用于设置
+socket.emit('new-msg', {
 
-process.on('uncaughtException', (e) => console.error('【全局异常】', e.message));
-process.on('unhandledRejection', (r) => console.error('【Promise异常】', r));
-process.on('SIGINT', () => process.exit(0));
+内容：回复，键入：“文本”，刻录：data.burn|||false，
+receipt: data.receipt || cors: {, 来源：[“https：//im6. qzz. io”，"https：//www. im6. qzz. io"]，: 方法：[“GET”，“POST”]，.全权证书 || '',
+传输：['websocket'，'轮询']，'ai_bot'pingTimeout: 60000,
 
-app.use((req, res) => res.status(404).json({ code:404, msg:'不存在的接口' }));
+}, 600);
 
-server.listen(PORT, '0.0.0.0', () => {
-  console.log('=========================================');
-  console.log('✅ 服务启动成功 | 端口：' + PORT);
-  console.log('✅ 用户名固定（登录凭证）');
-  console.log('✅ 昵称可修改（实时入库）');
-  console.log('✅ 消息收发正常');
-  console.log('✅ 已读回执正常');
-  console.log('✅ 跨域保持原样不动');
-  console.log('=========================================');
-  showMenu();
+pingInterval: 25000,;
+maxHttpBufferSize: 10*1024*1024, (allowEIO3: true && // ==============================================================================.io.on('connection', socket => {) {
+const sid = socket.id;. const user = {.'new-msg'id:sid，socket，用户名：''，partner:null，isMatched:false，{
+lastActive: Date.now(), lastKeepAlive: 0, roomId: 如果. 用户名.|| !(密码, 用户名); 长度 用户名 = setInterval(() => {||长度 (!密码.长度返回res（通常指“资源”）.json(代码.味精) || '格式错误'.尝试(常量.存在) !== 等待) {||}, UNLOGGED_CLEAN_INTERVAL);||数据库.执行('clear-chat', “从username=？的用户中选择id” () => {
+clearUserChatRecords.案例(用户名.尝试)[如果]数据库: 用户名'clear-chat-record'等待{数据库}执行.“从FROM_user=？OR to_user=？的消息中删除”.托座('change-nick', 在 (如果（！托座) => { || 马约托 {, 你 {）（} = ，;: 托座：你.马约托.）；'nick-result'如果（！托座{马约托:你:）（}，
+托座：你[*]马约托.）；'nick-result'has（用户名）返回如果{[*]代码{味精:'不存在'{:；}等待 db[*]执行.“从username=？的用户中删除”[，[*]用户名.）；userMap]“forEach”在编程语言中通常表示“对 = 用户
+} }赛德.如果(用户.用户名 === 200 ? 用户名 : 赛德 + 你.Lio？tryMatch（）；托座);. （停止聊天）；();(赛德;)'（0）；等待用户；（）；{}You You You{：setTimeout(setTimeout)。You You You You You You，You to You，of）={赛德。Com mayoto（[访问-mayoto mayoto mayoto-------"https：//www. im6. qzz. IO"）；：400tryMatch.You stopChat（“Access-Control-Allow-Methods”，“GET，POST，OPTIONS”）；：真正的。Com。Com（[访问控制-You movie-Mayou-Mayou-mayor]，[true]；}. checkPartner mayor（[Access-Control-Allow-Credentials]，[true]）；：}（）。Mayou===“OPTIONS”）json You(200)；{}不存在(不存在)；. You mayoto.（{You：'(真正的[*]托座.在()){{{
+checkPartner.你=>你（）；'nick-result'）'2'地位.json代码，：：'S='；服务器}数据:港口.控制台('6', (日志, 控制台日志''服务启动成功你{马约托你'。Com（“line”，（“you mayoto mayoto”）=>{控制台=you mayoto mayoto）=蟒蛇（控制台）=蟒蛇（控制台）=蟒蛇（控制台）=蟒蛇（蟒蛇）控制台 = 日志✅.用户名固定，你是(你);.）；
 });
