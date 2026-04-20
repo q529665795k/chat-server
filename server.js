@@ -761,7 +761,7 @@ try {
     userMap.delete(sid);
     waitingUsers.delete(sid);
   });
-});
+
 // ===================== 加强版 3 分钟保活 + 自动重启 =====================
 const TARGET_PORT = 10000;
 const KEEPALIVE_INTERVAL = 3 * 60 * 1000;
