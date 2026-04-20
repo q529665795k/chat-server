@@ -513,6 +513,7 @@ app.post('/login', async (req, res) => {
 
 // Socket.IO 正确初始化
 const io = new Server(server, {
+
   cors: {
     origin: ["https://im6.qzz.io", "https://www.im6.qzz.io"],
     methods: ["GET", "POST"],
@@ -526,6 +527,18 @@ const io = new Server(server, {
 });
 
 io.on('connection', socket => {
+
+  socket.on("client-action-log", (data) => {
+  const time = new Date().toLocaleString();
+  console.log("\n======================================");
+  console.log(`[前端动作日志] ${time}`);
+  console.log(`用户ID: ${data.userId || "未登录"}`);
+  console.log(`昵称: ${data.nickName || "未设置"}`);
+  console.log(`动作: ${data.action}`);
+  console.log(`详情: ${JSON.stringify(data.extra || {}, null, 2)}`);
+  console.log("======================================\n");
+});
+
   const sid = socket.id;
   const user = {
     id: sid, socket, username: '', partner: null, isMatched: false,
