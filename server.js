@@ -569,7 +569,7 @@ io.on('connection', socket => {
   });
 
   
-}); 
+
   socket.on('clear-chat', async () => {
     if (user.username) await clearUserChatRecords(user.username);
     socket.emit('clear-chat-record', { msg: '清空成功' });
@@ -726,7 +726,7 @@ try {
   }
 } catch (e) {}  // 现在 try 和 catch 配对了，不会再报错
 
-
+});
   socket.on('RECONNECT', (data) => {
     const { userId, roomId } = data;
     if (!userId || !roomId || userId !== user.username) return socket.emit('RECONNECT_RESULT', { success: false });
@@ -761,7 +761,7 @@ try {
     userMap.delete(sid);
     waitingUsers.delete(sid);
   });
-
+});
 // ===================== 加强版 3 分钟保活 + 自动重启 =====================
 const TARGET_PORT = 10000;
 const KEEPALIVE_INTERVAL = 3 * 60 * 1000;
