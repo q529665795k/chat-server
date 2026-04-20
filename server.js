@@ -738,12 +738,14 @@ socket.on('send-msg', async (data) => {
 });
 
       // 已读回执回传
-      const partner = userMap.get(user.partner);
-      if (partner && partner.socket) {
-        partner.socket.emit('msg-read', { msgId });
-      }
-    } catch (e) {}
-  });
+      // 已读回执回传
+try {
+  const partner = userMap.get(user.partner);
+  if (partner && partner.socket) {
+    partner.socket.emit('msg-read', { msgId });
+  }
+} catch (e) {}  // 现在 try 和 catch 配对了，不会再报错
+
 
   socket.on('RECONNECT', (data) => {
     const { userId, roomId } = data;
