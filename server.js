@@ -1,14 +1,14 @@
-const express = require('express');
 const http = require('http');
-const fs = require('fs');
-const path = require('path');
-const { Server } = require('socket.io');
-const crypto = require('crypto');
-const readline = require('readline');
-const mysql = require('mysql2/promise');
-const axios = require('axios');
+const process = require('process');
+const express = require('express');
+const app = express();
+const server = require('http').createServer(app);
+const io = require('socket.io')(server);
 
+// 现在定义 PORT 完全安全
 const PORT = process.env.PORT || 10000;
+
+
 
 async function callAI(prompt) {
   try {
