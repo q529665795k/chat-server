@@ -8,7 +8,7 @@ const readline = require('readline');
 const mysql = require('mysql2/promise');
 const axios = require('axios');
 
-const PORT = process.env.PORT || 6500;
+const PORT = process.env.PORT || 10000;
 
 async function callAI(prompt) {
   try {
@@ -623,10 +623,20 @@ io.on('connection', socket => {
 loadPwd();
 startKeepAliveCheck();
 
-setInterval(() => {
+// 正确的保活脚本，无语法错误，端口固定为 10000
+setInterval(function() {
   try {
-    http.get(`http://127.0.0.1:${PORT}`, (res) => res.resume());
-  } catch (e) {}
+    const req = http.get('http://127.0.0.1:10000', function(res) {
+      res.resume();
+      console.log('[保活成功] ' + new Date().toLocaleString() + ' | 状态码: ' + res.statusCode);
+    });
+    req.setTimeout(5000, function() { req.destroy(); });
+    req.on('error', function(e) {
+      console.log('[保活失败] ' + new Date().toLocaleString() + ' | 错误: ' + e.message);
+    });
+  } catch (e) {
+    console.log('[保活异常] ' + new Date().toLocaleString() + ' | ' + e.message);
+  }
 }, 3 * 60 * 1000);
 
 process.on('uncaughtException', (e) => console.error('全局异常:', e.message));
@@ -637,7 +647,8 @@ app.use((req, res) => res.status(404).json({ code: 404, msg: '不存在' }));
 
 server.listen(PORT, '0.0.0.0', () => {
   console.log('=========================================');
-  console.log('✅ 服务启动成功 | 端口：' + PORT);
+console.log('✅ 服务启动成功 | 端口：' + PORT + ' | 保活已启用（每3分钟ping一次）');
+
   console.log('✅ 已删除所有加密');
   console.log('✅ 跨域已恢复成你原来的域名，不是*！');
   console.log('✅ 用户名固定、昵称正常');
