@@ -635,13 +635,7 @@ io.on('connection', socket => {
 
   
 
-  socket.on('change-nick', async (data) => {
-    try {
-      const { newNick } = data;
-      if (!user.username) return socket.emit('nick-result', { success: false, msg: '未登录' });
-      if (!newNick || newNick.length < 2 || newNick.length > 20)
-        return socket.emit('nick-result', { success: false, msg: '长度2-20' });
-      
+  
       // 只改昵称，不改用户名！
       await db.execute('UPDATE users SET nickname=? WHERE username=?', [newNick, user.username]);
       const info = loginMap.get(user.username);
