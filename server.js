@@ -581,11 +581,6 @@ io.on('connection', socket => {
 
 
 
-  const user = {
-    id: sid, socket, username: '', partner: null, isMatched: false,
-    lastActive: Date.now(), lastKeepAlive: 0, roomId: null
-  };
-  userMap.set(sid, user);
 
   const timer = setInterval(() => {
     if (!user.username || !loginMap.has(user.username) || userSessionMap.get(user.username) !== sid) {
