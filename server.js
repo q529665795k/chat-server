@@ -645,8 +645,7 @@ io.on('connection', socket => {
 
 
 
-  socket.on('stop-chat', () => stopChat(sid, true));
-  socket.on('check-partner', () => checkPartnerStatus(sid));
+  
 
   // 消息发送 —— 已修复！
   // 消息发送 —— 修复版 + 日志
