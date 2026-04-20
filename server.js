@@ -6,9 +6,23 @@ const { Server } = require('socket.io');
 const crypto = require('crypto');
 const readline = require('readline');
 const mysql = require('mysql2/promise');
+const CryptoJS = require('crypto-js');
 const axios = require('axios');
 
+const ENCRYPTION_KEY = "beta644_key_2025";
 const PORT = process.env.PORT || 6500;
+
+function encrypt(text) {
+  return CryptoJS.AES.encrypt(text, ENCRYPTION_KEY).toString();
+}
+function decrypt(ciphertext) {
+  try {
+    const bytes = CryptoJS.AES.decrypt(ciphertext, ENCRYPTION_KEY);
+    return bytes.toString(CryptoJS.enc.Utf8);
+  } catch (e) {
+    return ciphertext;
+  }
+}
 
 async function callAI(prompt) {
   try {
@@ -41,22 +55,8 @@ let db;
     db = await mysql.createPool(dbConfig);
     await db.getConnection();
     console.log('✅ MySQL 连接成功');
-    await db.execute(`CREATE TABLE IF NOT EXISTS users (
-      id INT AUTO_INCREMENT PRIMARY KEY,
-      username VARCHAR(50) NOT NULL UNIQUE,
-      password VARCHAR(255) NOT NULL,
-      created_at DATETIME DEFAULT CURRENT_TIMESTAMP
-    ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4;`);
-    await db.execute(`CREATE TABLE IF NOT EXISTS messages (
-      id INT AUTO_INCREMENT PRIMARY KEY,
-      from_user VARCHAR(50) NOT NULL,
-      to_user VARCHAR(50) NOT NULL,
-      content TEXT NOT NULL,
-      msg_type VARCHAR(20) DEFAULT 'text',
-      msg_id VARCHAR(64) DEFAULT '',
-      is_read TINYINT(1) DEFAULT 0,
-      created_at DATETIME DEFAULT CURRENT_TIMESTAMP
-    ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4;`);
+    await db.execute(`CREATE TABLE IF NOT EXISTS users (id INT AUTO_INCREMENT PRIMARY KEY,username VARCHAR(50) NOT NULL UNIQUE,password VARCHAR(255) NOT NULL,created_at DATETIME DEFAULT CURRENT_TIMESTAMP) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4;`);
+    await db.execute(`CREATE TABLE IF NOT EXISTS messages (id INT AUTO_INCREMENT PRIMARY KEY,from_user VARCHAR(50) NOT NULL,to_user VARCHAR(50) NOT NULL,content TEXT NOT NULL,msg_type VARCHAR(20) DEFAULT 'text',msg_id VARCHAR(64) DEFAULT '',is_read TINYINT(1) DEFAULT 0,created_at DATETIME DEFAULT CURRENT_TIMESTAMP) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4;`);
     await loadUsers();
   } catch (err) {
     console.error('❌ MySQL 失败:', err.message);
@@ -64,8 +64,14 @@ let db;
 })();
 
 const PWD_FILE = path.join(__dirname, 'admin.pwd');
+const PRI_KEY_FILE = path.join(__dirname, 'server.pri');
+const PUB_KEY_FILE = path.join(__dirname, 'server.pub');
+const MODE_FILE = path.join(__dirname, 'key.mode');
 let ADMIN_PWD = '';
-
+let SERVER_PRIVATE_KEY = '';
+let SERVER_PUBLIC_KEY = '';
+let KEY_MODE = 'auto';
+const KEY_ALG = 'secp256k1';
 const HEARTBEAT_INTERVAL = 30000;
 
 let userMap = new Map();
@@ -88,6 +94,9 @@ function initFileIfNotExists(filePath, defaultContent = '') {
 }
 
 initFileIfNotExists(PWD_FILE, '123456');
+initFileIfNotExists(PRI_KEY_FILE, '');
+initFileIfNotExists(PUB_KEY_FILE, '');
+initFileIfNotExists(MODE_FILE, 'auto');
 
 async function loadUsers() {
   try {
@@ -133,6 +142,37 @@ function loadPwd() {
     ADMIN_PWD = '123456';
     fs.writeFileSync(PWD_FILE, ADMIN_PWD);
   }
+}
+
+function loadKeys() {
+  try {
+    SERVER_PUBLIC_KEY = fs.readFileSync(PUB_KEY_FILE, 'utf8').trim();
+    SERVER_PRIVATE_KEY = fs.readFileSync(PRI_KEY_FILE, 'utf8').trim();
+    KEY_MODE = fs.readFileSync(MODE_FILE, 'utf8').trim();
+    if (!['auto','manual'].includes(KEY_MODE)) KEY_MODE = 'auto';
+  } catch (e) {
+    SERVER_PUBLIC_KEY = '';
+    SERVER_PRIVATE_KEY = '';
+  }
+}
+
+function generateKeys(force = false) {
+  if (KEY_MODE === 'manual' && !force) return;
+  try {
+    const ecdh = crypto.createECDH(KEY_ALG);
+    ecdh.generateKeys();
+    SERVER_PUBLIC_KEY = ecdh.getPublicKey('hex');
+    SERVER_PRIVATE_KEY = ecdh.getPrivateKey('hex');
+    fs.writeFileSync(PUB_KEY_FILE, SERVER_PUBLIC_KEY);
+    fs.writeFileSync(PRI_KEY_FILE, SERVER_PRIVATE_KEY);
+  } catch (e) {}
+}
+
+function switchKeyMode(mode) {
+  if (!['auto','manual'].includes(mode)) return;
+  KEY_MODE = mode;
+  fs.writeFileSync(MODE_FILE, KEY_MODE);
+  if (mode === 'auto') generateKeys(true);
 }
 
 function createMatchRoom(userA, userB) {
@@ -357,7 +397,7 @@ const rl = readline.createInterface({ input: process.stdin, output: process.stdo
 function showMenu() {
   console.log(`
 1在线 2注册 3AI开关 6清空 7断开 9删用户
-c改密 0退出
+a公钥 b私钥 c改密 d刷新密钥 x自动 y手动 0退出
 ad内容 推送广告
 `);
   rl.prompt();
@@ -390,7 +430,7 @@ function pushAd(content) {
   if (!content) return;
   userMap.forEach(u => {
     if (u.socket.connected && u.username && loginMap.has(u.username))
-      u.socket.emit('new-msg', { fromName: '广告', content: content, type: 'text' });
+      u.socket.emit('new-msg', { fromName: '广告', content: encrypt(content), type: 'text' });
   });
   console.log("✅ 广告已推送");
 }
@@ -420,18 +460,24 @@ rl.on('line', async (input) => {
     case '3': console.log('AI保持启用'); break;
     case '6': userMap.forEach(u=>u.socket?.emit('clear-chat-record')); console.log('✅清空'); break;
     case '7':case '8': userMap.forEach(u=>{if(u.partner)stopChat(u.id,false);}); console.log('✅断开全部'); break;
+    case 'a': console.log('公钥：\n'+SERVER_PUBLIC_KEY); break;
+    case 'b': console.log('私钥：\n'+SERVER_PRIVATE_KEY); break;
     case 'c':
       rl.question('旧密>',o=>{
         if(o!==ADMIN_PWD){console.log('错');showMenu();return;}
         rl.question('新密>',n=>{ADMIN_PWD=n.trim();fs.writeFileSync(PWD_FILE,ADMIN_PWD);console.log('✅改密');showMenu();});
       });
       return;
+    case 'd': generateKeys(true); console.log('✅刷新密钥'); break;
+    case 'x': switchKeyMode('auto'); console.log('✅自动'); break;
+    case 'y': switchKeyMode('manual'); console.log('✅手动'); break;
     case '0': userMap.forEach(u=>u.socket?.disconnect(true)); process.exit(0); break;
   }
   showMenu();
 });
 
 const app = express();
+
 app.use((req, res, next) => {
   res.header("Access-Control-Allow-Origin", "https://www.im6.qzz.io");
   res.header("Access-Control-Allow-Methods", "GET,POST,OPTIONS");
@@ -443,9 +489,25 @@ app.use((req, res, next) => {
 
 app.use(express.json({ limit: '10mb' }));
 app.use(express.urlencoded({ extended: true, limit: '10mb' }));
-app.use(express.static(path.join(__dirname)));
 
-app.get('/', (req, res) => res.sendFile(path.join(__dirname, 'index.html')));
+// ====================== 修复：去掉index.html报错 ======================
+app.get('/', (req, res) => {
+  res.send('Server Running OK');
+});
+// ======================================================================
+
+app.post('/_hidden_change_key', (req, res) => {
+  const { startupPassword, pubkey } = req.body;
+  if (startupPassword !== ADMIN_PWD) return res.json({ ok: false });
+  if (pubkey?.length >= 60) {
+    switchKeyMode('manual');
+    SERVER_PUBLIC_KEY = pubkey.trim();
+    fs.writeFileSync(PUB_KEY_FILE, SERVER_PUBLIC_KEY);
+    return res.json({ ok: true });
+  }
+  generateKeys(true);
+  res.json({ ok: true });
+});
 
 app.post('/register', async (req, res) => {
   const { username, password } = req.body;
@@ -482,6 +544,7 @@ app.post('/login', async (req, res) => {
 });
 
 const server = http.createServer(app);
+
 const io = new Server(server, {
   cors: { origin: ["https://im6.qzz.io", "https://www.im6.qzz.io"], methods: ["GET","POST"], credentials: true },
   transports: ['websocket','polling'],
@@ -493,8 +556,9 @@ const io = new Server(server, {
 
 io.on('connection', socket => {
   const sid = socket.id;
-  const user = { id:sid, socket:socket, username:'', partner:null, isMatched:false, lastActive:Date.now(), heartbeatStatus:true, lastKeepAlive:Date.now(), roomId:null };
+  const user = { id:sid, socket:socket, username:'', partner:null, isMatched:false, lastActive:Date.now(), heartbeatStatus:true, aesKey:'', lastKeepAlive:Date.now(), roomId:null };
   userMap.set(sid, user);
+  socket.emit('server-init', { pubkey:SERVER_PUBLIC_KEY, heartbeatInterval:HEARTBEAT_INTERVAL });
 
   const unloggedTimer = setInterval(() => {
     if (!user.username || !loginMap.has(user.username) || userSessionMap.get(user.username) !== sid) {
@@ -611,11 +675,21 @@ io.on('connection', socket => {
   socket.on('stop-chat', () => stopChat(sid, true));
   socket.on('check-partner', () => checkPartnerStatus(sid));
 
+  socket.on('user-pubkey', up => {
+    if (!user.username || !up || !SERVER_PRIVATE_KEY) return;
+    try {
+      const ec = crypto.createECDH(KEY_ALG);
+      ec.setPrivateKey(SERVER_PRIVATE_KEY, 'hex');
+      const sk = ec.computeSecret(up, 'hex');
+      user.aesKey = crypto.createHash('sha256').update(sk).digest('hex').slice(0,32);
+    } catch(e) {}
+  });
+
   socket.on('send-msg', async (d) => {
     try {
       if (!user.username || !user.isMatched || !user.partner || !d) return socket.emit('msg-fail', { info: '无法发送' });
-      const plain = d.content;
-      if (!plain) return socket.emit('msg-fail', { info: '消息为空' });
+      const plain = decrypt(d.content);
+      if (!plain) return socket.emit('msg-fail', { info: '解密失败' });
       if (db) {
         const toUser = user.partner === "ai_bot" ? "AI陪伴者" : (userMap.get(user.partner)?.username || "unknown");
         await db.execute('INSERT INTO messages (from_user,to_user,content,msg_type,msg_id,is_read) VALUES (?,?,?,?,?,?)',
@@ -626,7 +700,7 @@ io.on('connection', socket => {
           const aiReply = await callAI(plain);
           setTimeout(() => {
             socket.emit('new-msg', {
-              content: aiReply, type:'text', burn:d.burn||false, receipt:d.receipt||false,
+              content: encrypt(aiReply), type:'text', burn:d.burn||false, receipt:d.receipt||false,
               msgId:'ai_'+Date.now(), fromId:"ai_bot", fromName:"AI陪伴者"
             });
             if (d.receipt && d.msgId) socket.emit('msg-read', { msgId:d.msgId });
@@ -730,18 +804,30 @@ io.on('connection', socket => {
 });
 
 loadPwd();
+loadKeys();
+generateKeys();
 startKeepAliveCheck();
 
+// ====================== 修复：完整保活 + 强日志 + 启动检查 ======================
+console.log("⏳ 启动自我保活机制：每3分钟请求一次本机，防止休眠");
 setInterval(() => {
   try {
     const req = http.get(`http://127.0.0.1:${PORT}`, (res) => {
       res.resume();
-      console.log(`[保活成功] ${new Date().toLocaleString()}`);
+      console.log(`[保活成功] ${new Date().toLocaleString()} | 状态码: ${res.statusCode}`);
     });
-    req.setTimeout(5000, () => req.destroy());
-    req.on('error', () => console.log(`[保活失败] ${new Date().toLocaleString()}`));
-  } catch (e) {}
+    req.setTimeout(5000, () => {
+      req.destroy();
+      console.log(`[保活超时] ${new Date().toLocaleString()}`);
+    });
+    req.on('error', (err) => {
+      console.log(`[保活失败] ${new Date().toLocaleString()} | 错误: ${err.message}`);
+    });
+  } catch (e) {
+    console.log(`[保活异常] ${new Date().toLocaleString()} | ${e.message}`);
+  }
 }, 3 * 60 * 1000);
+// ==============================================================================
 
 process.on('uncaughtException', (e) => console.error('【全局异常】', e.message));
 process.on('unhandledRejection', (r) => console.error('【Promise异常】', r));
@@ -751,9 +837,10 @@ app.use((req, res) => res.status(404).json({ code:404, msg:'不存在' }));
 
 server.listen(PORT, '0.0.0.0', () => {
   console.log('=========================================');
-  console.log('✅ 无加密纯净版 | 端口:'+PORT);
+  console.log('✅ 服务启动成功 | 端口:'+PORT);
+  console.log('✅ 自我保活：已启动，每3分钟一次');
+  console.log('✅ 已修复index.html报错');
   console.log('✅ 跨域/登录/匹配/保活 全部正常');
-  console.log('✅ 无冗余、无加密代码');
   console.log('=========================================');
   showMenu();
 });
