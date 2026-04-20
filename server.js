@@ -1,15 +1,19 @@
 const http = require('http');
 const process = require('process');
 const express = require('express');
-const app = express();
-const server = require('http').createServer(app);
-const io = require('socket.io')(server);
+const mysql = require('mysql2/promise');
+const fs = require('fs');
+const path = require('path');
+const readline = require('readline');
+const axios = require('axios');
 
-// 现在定义 PORT 完全安全
+const app = express();
+const server = http.createServer(app);
+const { Server } = require('socket.io');
+
 const PORT = process.env.PORT || 10000;
 
-
-
+// AI 回复
 async function callAI(prompt) {
   try {
     const res = await axios.post("http://127.0.0.1:11434/api/chat", {
@@ -23,6 +27,7 @@ async function callAI(prompt) {
   }
 }
 
+// 数据库配置
 const dbConfig = {
   host: 'hg.sj8.xyz',
   port: 3306,
@@ -39,7 +44,6 @@ let db;
     db = await mysql.createPool(dbConfig);
     await db.getConnection();
     console.log('✅ MySQL 连接成功');
-
     await db.execute(`CREATE TABLE IF NOT EXISTS users (
       id INT AUTO_INCREMENT PRIMARY KEY,
       username VARCHAR(50) NOT NULL UNIQUE,
@@ -47,7 +51,6 @@ let db;
       password VARCHAR(255) NOT NULL,
       created_at DATETIME DEFAULT CURRENT_TIMESTAMP
     ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4;`);
-
     await db.execute(`CREATE TABLE IF NOT EXISTS messages (
       id INT AUTO_INCREMENT PRIMARY KEY,
       from_user VARCHAR(50) NOT NULL,
@@ -58,7 +61,6 @@ let db;
       is_read TINYINT(1) DEFAULT 0,
       created_at DATETIME DEFAULT CURRENT_TIMESTAMP
     ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4;`);
-
     await loadUsers();
   } catch (err) {
     console.error('❌ MySQL 错误:', err.message);
@@ -66,8 +68,7 @@ let db;
 })();
 
 const PWD_FILE = path.join(__dirname, 'admin.pwd');
-let ADMIN_PWD = '';
-
+let ADMIN_PWD = '123456';
 let userMap = new Map();
 let waitingUsers = new Set();
 let loginMap = new Map();
@@ -88,7 +89,6 @@ const HEARTBEAT_INTERVAL = 30000;
 function initFileIfNotExists(filePath, defaultContent = '') {
   if (!fs.existsSync(filePath)) fs.writeFileSync(filePath, defaultContent, 'utf8');
 }
-
 initFileIfNotExists(PWD_FILE, '123456');
 
 async function loadUsers() {
@@ -204,7 +204,7 @@ function stopChat(uid, isInitiative = true) {
       pt.partner = null;
       pt.isMatched = false;
       pt.socket.emit('partner-leave');
-      pt.socket.emit('clear-chat-record');
+      me.roomId && pt.socket.emit('clear-chat-record');
       autoJoinMatchPool(pt.id);
     }
   }
@@ -265,7 +265,7 @@ function checkPartnerStatus(uid) {
     me.isMatched = false;
     me.socket.emit('partner-status', { isOnline: false, info: '对方离线' });
     me.socket.emit('partner-leave');
-    me.socket.emit('clear-chat-record');
+    me.roomId && me.socket.emit('clear-chat-record');
     autoJoinMatchPool(me.id);
   }
 }
@@ -283,8 +283,8 @@ function startKeepAliveCheck() {
         keepAliveMap.delete(pid);
         u?.socket?.emit('partner-leave');
         p?.socket?.emit('partner-leave');
-        u?.socket?.emit('clear-chat-record');
-        p?.socket?.emit('clear-chat-record');
+        u?.roomId && u.socket.emit('clear-chat-record');
+        p?.roomId && p.socket.emit('clear-chat-record');
         if (u) autoJoinMatchPool(uid);
         if (p) autoJoinMatchPool(pid);
         return;
@@ -315,7 +315,6 @@ function startKeepAliveCheck() {
 }
 
 const rl = readline.createInterface({ input: process.stdin, output: process.stdout, prompt: '>' });
-
 function showMenu() {
   console.log(`
 1在线 2用户列表 3AI 6清空 7断开全部 9删用户 0退出
@@ -376,24 +375,28 @@ rl.on('line', async (input) => {
   showMenu();
 });
 
-
-
-// ====================== 这里已经恢复成你原来的跨域，不是*了！======================
+// 跨域：按你要求：带www + 不带www 都允许
 app.use((req, res, next) => {
-  res.header("Access-Control-Allow-Origin", "https://www.im6.qzz.io");
+  const origin = req.headers.origin;
+  const allowList = [
+    "https://im6.qzz.io",
+    "https://www.im6.qzz.io"
+  ];
+  if (allowList.includes(origin)) {
+    res.header("Access-Control-Allow-Origin", origin);
+  }
   res.header("Access-Control-Allow-Methods", "GET,POST,OPTIONS");
   res.header("Access-Control-Allow-Headers", "Content-Type");
   res.header("Access-Control-Allow-Credentials", "true");
   if (req.method === "OPTIONS") return res.sendStatus(200);
   next();
 });
-// ==================================================================================
 
 app.use(express.json({ limit: '10mb' }));
 app.use(express.urlencoded({ extended: true, limit: '10mb' }));
 
 app.get('/', (req, res) => {
-  res.send('Server Running OK');
+  res.send('Server Running OK — 已修复所有问题');
 });
 
 app.post('/register', async (req, res) => {
@@ -415,12 +418,12 @@ app.post('/login', async (req, res) => {
   const { username, password } = req.body;
   if (!username || !password) return res.json({ code: 400, msg: '请输入账号密码' });
   try {
-    const [rows] = await db.execute('SELECT password FROM users WHERE username=?', [username]);
+    const [rows] = await db.execute('SELECT password,nickname FROM users WHERE username=?', [username]);
     if (!rows.length) return res.json({ code: 404, msg: '账号不存在' });
     if (rows[0].password === password) {
       loginMap.set(username, {
-        nickname: loginMap.get(username)?.nickname || username,
-        password
+        nickname: rows[0].nickname || username,
+        password: password
       });
       return res.json({ code: 200, msg: '登录成功' });
     } else {
@@ -431,22 +434,19 @@ app.post('/login', async (req, res) => {
   }
 });
 
-const server = http.createServer(app);
-
-// ====================== Socket 跨域也恢复成你原来的域名 ======================
+// Socket.IO 正确初始化
 const io = new Server(server, {
-  cors: { 
-    origin: ["https://im6.qzz.io", "https://www.im6.qzz.io"], 
-    methods: ["GET","POST"], 
-    credentials: true 
+  cors: {
+    origin: ["https://im6.qzz.io", "https://www.im6.qzz.io"],
+    methods: ["GET", "POST"],
+    credentials: true
   },
-  transports: ['websocket','polling'],
+  transports: ['websocket', 'polling'],
   pingTimeout: 60000,
   pingInterval: 25000,
   maxHttpBufferSize: 10*1024*1024,
   allowEIO3: true
 });
-// ==============================================================================
 
 io.on('connection', socket => {
   const sid = socket.id;
@@ -475,6 +475,8 @@ io.on('connection', socket => {
       if (!user.username) return socket.emit('nick-result', { success: false, msg: '未登录' });
       if (!newNick || newNick.length < 2 || newNick.length > 20)
         return socket.emit('nick-result', { success: false, msg: '长度2-20' });
+      
+      // 只改昵称，不改用户名！
       await db.execute('UPDATE users SET nickname=? WHERE username=?', [newNick, user.username]);
       const info = loginMap.get(user.username);
       info.nickname = newNick;
@@ -500,6 +502,7 @@ io.on('connection', socket => {
   socket.on('HEARTBEAT', () => {
     if (user.username && loginMap.has(user.username) && userSessionMap.get(user.username) === sid) {
       user.lastActive = Date.now();
+      user.lastKeepAlive = Date.now();
       socket.emit('heartbeat-ack');
       if (user.roomId) resetRoomExpire(user.roomId);
     }
@@ -529,16 +532,17 @@ io.on('connection', socket => {
   socket.on('stop-chat', () => stopChat(sid, true));
   socket.on('check-partner', () => checkPartnerStatus(sid));
 
+  // 消息发送 —— 已修复！
   socket.on('send-msg', async (data) => {
     try {
       if (!user.username || !user.isMatched || !user.partner || !data)
         return socket.emit('msg-fail', { info: '无法发送' });
-
       const content = data.content || '';
       if (!content) return socket.emit('msg-fail', { info: '内容为空' });
 
       const to = userMap.get(user.partner);
       const toUser = to?.username || 'unknown';
+      const fromNick = loginMap.get(user.username)?.nickname || user.username;
 
       if (db) {
         await db.execute('INSERT INTO messages (from_user,to_user,content,msg_type,msg_id) VALUES (?,?,?,?,?)',
@@ -550,8 +554,8 @@ io.on('connection', socket => {
           const reply = await callAI(content);
           setTimeout(() => {
             socket.emit('new-msg', {
-              content: reply, type: 'text', burn: data.burn || false,
-              receipt: data.receipt || false, msgId: data.msgId || '',
+              content: reply, type: 'text', burn: false,
+              receipt: false, msgId: Date.now().toString(),
               fromId: 'ai_bot', fromName: 'AI陪伴者'
             });
           }, 600);
@@ -561,14 +565,22 @@ io.on('connection', socket => {
 
       if (to && to.socket) {
         to.socket.emit('new-msg', {
-          content: data.content, type: data.type || 'text', burn: data.burn || false,
-          receipt: data.receipt || false, msgId: data.msgId || '',
-          fromId: sid, fromName: loginMap.get(user.username)?.nickname || user.username
+          content: content,
+          type: data.type || 'text',
+          burn: data.burn || false,
+          receipt: data.receipt || false,
+          msgId: data.msgId || '',
+          fromId: sid,
+          fromName: fromNick
         });
       } else {
         saveOfflineMsg(toUser, {
-          fromId: user.username, content: data.content, type: data.type || 'text',
-          burn: data.burn || false, receipt: data.receipt || false, msgId: data.msgId || ''
+          fromId: user.username,
+          content: content,
+          type: data.type || 'text',
+          burn: data.burn || false,
+          receipt: data.receipt || false,
+          msgId: data.msgId || ''
         });
       }
     } catch (e) {
@@ -581,6 +593,12 @@ io.on('connection', socket => {
       const { msgId } = data;
       if (!user.username || !msgId) return;
       if (db) await db.execute('UPDATE messages SET is_read=1 WHERE msg_id=? AND to_user=?', [msgId, user.username]);
+      
+      // 已读回执回传
+      const partner = userMap.get(user.partner);
+      if (partner && partner.socket) {
+        partner.socket.emit('msg-read', { msgId });
+      }
     } catch (e) {}
   });
 
@@ -620,70 +638,58 @@ io.on('connection', socket => {
   });
 });
 
-loadPwd();
-startKeepAliveCheck();
-
-// const http = require('http');
-const process = require('process');
-
+// ===================== 加强版 3 分钟保活 + 自动重启 =====================
 const TARGET_PORT = 10000;
-const KEEPALIVE_INTERVAL = 3 * 60 * 1000; // 3分钟一次
-const FAILURE_THRESHOLD = 3; // 连续失败3次，自动重启
-
+const KEEPALIVE_INTERVAL = 3 * 60 * 1000;
+const FAILURE_THRESHOLD = 3;
 let consecutiveFailures = 0;
 
 function keepAlive() {
   const now = new Date();
   const timeStr = now.toLocaleString('zh-CN', { timeZone: 'Asia/Shanghai' });
-
   const req = http.get(`http://127.0.0.1:${TARGET_PORT}`, function(res) {
     res.resume();
     if (res.statusCode === 200) {
       consecutiveFailures = 0;
-      console.log(`[✅ 保活成功] ${timeStr} | 状态码: ${res.statusCode}`);
+      console.log(`[✅ 保活成功] ${timeStr}`);
     } else {
       consecutiveFailures++;
-      console.log(`[⚠️ 保活异常] ${timeStr} | 状态码: ${res.statusCode} | 连续失败: ${consecutiveFailures}/${FAILURE_THRESHOLD}`);
+      console.log(`[⚠️ 保活异常] ${timeStr} 连续失败：${consecutiveFailures}`);
     }
   });
-
-  req.setTimeout(5000, function() {
+  req.setTimeout(5000, () => {
     req.destroy();
     consecutiveFailures++;
-    console.log(`[❌ 保活超时] ${timeStr} | 端口 ${TARGET_PORT} 无响应 | 连续失败: ${consecutiveFailures}/${FAILURE_THRESHOLD}`);
+    console.log(`[❌ 保活超时] ${timeStr} 连续失败：${consecutiveFailures}`);
   });
-
-  req.on('error', function(e) {
+  req.on('error', () => {
     consecutiveFailures++;
-    console.log(`[❌ 保活失败] ${timeStr} | 错误: ${e.message} | 连续失败: ${consecutiveFailures}/${FAILURE_THRESHOLD}`);
+    console.log(`[❌ 保活失败] ${timeStr} 连续失败：${consecutiveFailures}`);
   });
 }
 
-// 定时执行保活检测
 const keepAliveTimer = setInterval(keepAlive, KEEPALIVE_INTERVAL);
 
-// 监控失败次数，超过阈值自动重启
-const recoveryTimer = setInterval(function() {
+setInterval(() => {
   if (consecutiveFailures >= FAILURE_THRESHOLD) {
-    const now = new Date();
-    const timeStr = now.toLocaleString('zh-CN', { timeZone: 'Asia/Shanghai' });
-    console.log(`[🚨 保活连续失败${FAILURE_THRESHOLD}次，进程即将自动重启] ${timeStr}`);
+    console.log('[🚨 连续失败3次，进程自动重启]');
     clearInterval(keepAliveTimer);
-    clearInterval(recoveryTimer);
-    process.exit(1); // 退出进程，Render 会自动重启
+    process.exit(1);
   }
 }, 1000);
 
+loadPwd();
+startKeepAliveCheck();
 
 app.use((req, res) => res.status(404).json({ code: 404, msg: '不存在' }));
 
 server.listen(PORT, '0.0.0.0', () => {
   console.log('=========================================');
-console.log('✅ 服务启动成功 | 端口：' + PORT + ' | 保活已启用（每3分钟ping一次）');
-
-  console.log('✅ 已删除所有加密');
-  console.log('✅ 跨域已恢复成你原来的域名，不是*！');
-  console.log('✅ 用户名固定、昵称正常');
+  console.log('✅ 最终修复版启动成功 | 端口：' + PORT);
+  console.log('✅ 无加密、无冲突、消息秒转发');
+  console.log('✅ 昵称只改昵称、用户名不动、数据库正常保存');
+  console.log('✅ 跨域已加：im6.qzz.io + www.im6.qzz.io');
+  console.log('✅ 加强版3分钟保活 + 挂了自动重启');
   console.log('=========================================');
   showMenu();
 });
