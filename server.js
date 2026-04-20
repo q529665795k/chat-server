@@ -184,7 +184,7 @@ function stopChat(id) {
 const app = express();
 app.use(express.json());
 app.use((req, res, next) => {
-  res.header('Access-Control-Allow-Origin', '*');
+  res.header('Access-Control-Allow-Origin', 'https://im6.qzz.io');
   res.header('Access-Control-Allow-Methods', 'GET,POST,OPTIONS');
   res.header('Access-Control-Allow-Headers', 'Content-Type');
   next();
@@ -209,7 +209,7 @@ app.post('/register', async (req, res) => {
 
 const server = http.createServer(app);
 const io = new Server(server, {
-  cors: { origin: "*" },
+  cors: { origin: "https://www.im6.qzz.io" },
   pingTimeout: 60000,
   pingInterval: 25000
 });
