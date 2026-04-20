@@ -623,25 +623,57 @@ io.on('connection', socket => {
 loadPwd();
 startKeepAliveCheck();
 
-// 正确的保活脚本，无语法错误，端口固定为 10000
-setInterval(function() {
-  try {
-    const req = http.get('http://127.0.0.1:10000', function(res) {
-      res.resume();
-      console.log('[保活成功] ' + new Date().toLocaleString() + ' | 状态码: ' + res.statusCode);
-    });
-    req.setTimeout(5000, function() { req.destroy(); });
-    req.on('error', function(e) {
-      console.log('[保活失败] ' + new Date().toLocaleString() + ' | 错误: ' + e.message);
-    });
-  } catch (e) {
-    console.log('[保活异常] ' + new Date().toLocaleString() + ' | ' + e.message);
-  }
-}, 3 * 60 * 1000);
+// const http = require('http');
+const process = require('process');
 
-process.on('uncaughtException', (e) => console.error('全局异常:', e.message));
-process.on('unhandledRejection', (r) => console.error('Promise异常:', r));
-process.on('SIGINT', () => process.exit(0));
+const TARGET_PORT = 10000;
+const KEEPALIVE_INTERVAL = 3 * 60 * 1000; // 3分钟一次
+const FAILURE_THRESHOLD = 3; // 连续失败3次，自动重启
+
+let consecutiveFailures = 0;
+
+function keepAlive() {
+  const now = new Date();
+  const timeStr = now.toLocaleString('zh-CN', { timeZone: 'Asia/Shanghai' });
+
+  const req = http.get(`http://127.0.0.1:${TARGET_PORT}`, function(res) {
+    res.resume();
+    if (res.statusCode === 200) {
+      consecutiveFailures = 0;
+      console.log(`[✅ 保活成功] ${timeStr} | 状态码: ${res.statusCode}`);
+    } else {
+      consecutiveFailures++;
+      console.log(`[⚠️ 保活异常] ${timeStr} | 状态码: ${res.statusCode} | 连续失败: ${consecutiveFailures}/${FAILURE_THRESHOLD}`);
+    }
+  });
+
+  req.setTimeout(5000, function() {
+    req.destroy();
+    consecutiveFailures++;
+    console.log(`[❌ 保活超时] ${timeStr} | 端口 ${TARGET_PORT} 无响应 | 连续失败: ${consecutiveFailures}/${FAILURE_THRESHOLD}`);
+  });
+
+  req.on('error', function(e) {
+    consecutiveFailures++;
+    console.log(`[❌ 保活失败] ${timeStr} | 错误: ${e.message} | 连续失败: ${consecutiveFailures}/${FAILURE_THRESHOLD}`);
+  });
+}
+
+// 定时执行保活检测
+const keepAliveTimer = setInterval(keepAlive, KEEPALIVE_INTERVAL);
+
+// 监控失败次数，超过阈值自动重启
+const recoveryTimer = setInterval(function() {
+  if (consecutiveFailures >= FAILURE_THRESHOLD) {
+    const now = new Date();
+    const timeStr = now.toLocaleString('zh-CN', { timeZone: 'Asia/Shanghai' });
+    console.log(`[🚨 保活连续失败${FAILURE_THRESHOLD}次，进程即将自动重启] ${timeStr}`);
+    clearInterval(keepAliveTimer);
+    clearInterval(recoveryTimer);
+    process.exit(1); // 退出进程，Render 会自动重启
+  }
+}, 1000);
+
 
 app.use((req, res) => res.status(404).json({ code: 404, msg: '不存在' }));
 
