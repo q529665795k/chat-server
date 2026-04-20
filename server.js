@@ -376,21 +376,17 @@ rl.on('line', async (input) => {
 });
 
 // 跨域：按你要求：带www + 不带www 都允许
+// ====================== 还原成你原来能用的跨域 ======================
 app.use((req, res, next) => {
-  const origin = req.headers.origin;
-  const allowList = [
-    "https://im6.qzz.io",
-    "https://www.im6.qzz.io"
-  ];
-  if (allowList.includes(origin)) {
-    res.header("Access-Control-Allow-Origin", origin);
-  }
+  res.header("Access-Control-Allow-Origin", "https://www.im6.qzz.io");
   res.header("Access-Control-Allow-Methods", "GET,POST,OPTIONS");
   res.header("Access-Control-Allow-Headers", "Content-Type");
   res.header("Access-Control-Allow-Credentials", "true");
   if (req.method === "OPTIONS") return res.sendStatus(200);
   next();
 });
+// ======================================================================
+
 
 app.use(express.json({ limit: '10mb' }));
 app.use(express.urlencoded({ extended: true, limit: '10mb' }));
