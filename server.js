@@ -6,11 +6,9 @@ const fs = require('fs');
 const path = require('path');
 const readline = require('readline');
 const axios = require('axios');
-
 const app = express();
 const server = http.createServer(app);
 const { Server } = require('socket.io');
-
 const PORT = process.env.PORT || 10000;
 
 // AI 回复
@@ -37,7 +35,6 @@ const dbConfig = {
   charset: 'utf8mb4',
   connectionLimit: 10
 };
-
 let db;
 (async () => {
   try {
@@ -315,6 +312,7 @@ function startKeepAliveCheck() {
 }
 
 const rl = readline.createInterface({ input: process.stdin, output: process.stdout, prompt: '>' });
+
 function showMenu() {
   console.log(`
 1在线 2用户列表 3AI 6清空 7断开全部 9删用户 0退出
@@ -375,30 +373,19 @@ rl.on('line', async (input) => {
   showMenu();
 });
 
-// 跨域：按你要求：带www + 不带www 都允许
-// ====================== 还原成你原来能用的跨域 ======================
+// 跨域
 app.use((req, res, next) => {
   const origin = req.headers.origin;
   const allowList = ["https://im6.qzz.io", "https://www.im6.qzz.io"];
-
-  // 动态设置，不写死！
   if (allowList.includes(origin)) {
     res.header("Access-Control-Allow-Origin", origin);
   }
-
   res.header("Access-Control-Allow-Methods", "GET, POST, OPTIONS");
   res.header("Access-Control-Allow-Headers", "Content-Type");
   res.header("Access-Control-Allow-Credentials", "true");
-
   if (req.method === "OPTIONS") return res.sendStatus(200);
   next();
 });
-
-
-
-
-// ======================================================================
-
 
 app.use(express.json({ limit: '10mb' }));
 app.use(express.urlencoded({ extended: true, limit: '10mb' }));
@@ -407,20 +394,16 @@ app.get('/', (req, res) => {
   res.send('Server Running OK — 已修复所有问题');
 });
 
-// 注册接口：明文存储，修复用户存在性判断
+// 注册接口
 app.post('/register', async (req, res) => {
   console.log('=== 收到注册请求 ===');
   console.log('请求体:', req.body);
-
   if (!req.body) {
     console.log('❌ 请求体为空');
     return res.json({ code: 400, msg: '请求格式错误' });
   }
-
   const { username, password } = req.body;
   console.log('解析到的用户名:', username, '密码:', password);
-
-  // 参数校验
   if (!username || !password) {
     console.log('❌ 用户名或密码为空');
     return res.json({ code: 400, msg: '请输入账号密码' });
@@ -433,25 +416,19 @@ app.post('/register', async (req, res) => {
     console.log('❌ 密码长度不符合要求');
     return res.json({ code: 400, msg: '密码长度不少于6位' });
   }
-
   try {
     console.log('🔍 检查用户是否存在...');
-    // 关键修复：正确解构查询结果，判断用户是否存在
     const [rows] = await db.execute('SELECT id FROM users WHERE username=?', [username]);
     console.log('✅ 用户存在查询结果:', rows);
-
     if (rows.length > 0) {
       console.log('❌ 用户已存在:', username);
       return res.json({ code: 400, msg: '账号已存在' });
     }
-
     console.log('🔍 插入用户（明文存储）...');
-    // 直接插入明文密码，不做任何加密
     await db.execute(
       'INSERT INTO users (username, password) VALUES (?, ?)',
       [username, password]
     );
-
     loginMap.set(username, { nickname: username, password });
     console.log('✅ 注册成功:', username);
     return res.json({ code: 200, msg: '注册成功' });
@@ -461,38 +438,28 @@ app.post('/register', async (req, res) => {
   }
 });
 
-
-
-// 注册接口：明文存储，修复用户存在性判断
-// 登录接口：明文对比，修复逻辑和异常处理
+// 登录接口
 app.post('/login', async (req, res) => {
   console.log('=== 收到登录请求 ===');
   console.log('请求体:', req.body);
-
   const { username, password } = req.body || {};
   console.log('解析到的用户名:', username, '密码:', password);
-
   if (!username || !password) {
     console.log('❌ 参数不完整');
     return res.json({ code: 400, msg: '请输入账号密码' });
   }
-
   try {
     console.log('🔍 执行SQL查询...');
-    // 关键修复：正确解构查询结果，避免undefined报错
     const [rows] = await db.execute(
       'SELECT password FROM users WHERE username=?',
       [username]
     );
     console.log('✅ SQL查询结果:', rows);
-
     if (!rows || rows.length === 0) {
       console.log('❌ 用户不存在:', username);
       return res.json({ code: 404, msg: '账号不存在' });
     }
-
     console.log('✅ 找到用户:', rows[0]);
-    // 直接明文对比，不做任何加密
     if (rows[0].password === password) {
       loginMap.set(username, {
         nickname: username,
@@ -510,10 +477,8 @@ app.post('/login', async (req, res) => {
   }
 });
 
-
-// Socket.IO 正确初始化
+// Socket.IO 初始化
 const io = new Server(server, {
-
   cors: {
     origin: ["https://im6.qzz.io", "https://www.im6.qzz.io"],
     methods: ["GET", "POST"],
@@ -526,23 +491,8 @@ const io = new Server(server, {
   allowEIO3: true
 });
 
+// ====================== 唯一、正确、无重复的 connection ======================
 io.on('connection', socket => {
-
-  // 全局前端动作日志（无语法错误版）
-  io.on('connection', socket => {
-  // 1. 全局前端动作日志
-  socket.on("client-action-log", (data) => {
-    const time = new Date().toLocaleString();
-    console.log("\n======================================");
-    console.log(`[前端动作日志] ${time}`);
-    console.log(`用户ID: ${data.userId || "未登录"}`);
-    console.log(`昵称: ${data.nickname || "未设置"}`);
-    console.log(`动作: ${data.action}`);
-    console.log(`详情: ${JSON.stringify(data.extra || {}, null, 2)}`);
-    console.log("======================================\n");
-  });
-
-  // 2. 变量声明（只声明一次，顺序固定）
   const sid = socket.id;
   const user = {
     id: sid,
@@ -556,6 +506,7 @@ io.on('connection', socket => {
   };
   userMap.set(sid, user);
 
+  // 未登录清理定时器
   const timer = setInterval(() => {
     if (!user.username || !loginMap.has(user.username) || userSessionMap.get(user.username) !== sid) {
       socket.disconnect();
@@ -564,19 +515,31 @@ io.on('connection', socket => {
     }
   }, UNLOGGED_CLEAN_INTERVAL);
 
-  // 3. 所有事件（包括 RECONNECT，都写在里面！）
+  // 日志
+  socket.on("client-action-log", (data) => {
+    const time = new Date().toLocaleString();
+    console.log("\n======================================");
+    console.log(`[前端动作日志] ${time}`);
+    console.log(`用户ID: ${data.userId || "未登录"}`);
+    console.log(`昵称: ${data.nickname || "未设置"}`);
+    console.log(`动作: ${data.action}`);
+    console.log(`详情: ${JSON.stringify(data.extra || {}, null, 2)}`);
+    console.log("======================================\n");
+  });
+
+  // 清空聊天
   socket.on('clear-chat', async () => {
     if (user.username) await clearUserChatRecords(user.username);
     socket.emit('clear-chat-record', { msg: '清空成功' });
   });
 
+  // 修改昵称
   socket.on('change-nick', async (data) => {
     try {
       const newNick = data;
       if (!user.username) return socket.emit('nick-result', { success: false, msg: '未登录' });
       if (!newNick || newNick.length < 2 || newNick.length > 20)
         return socket.emit('nick-result', { success: false, msg: '长度2-20' });
-
       await db.execute('UPDATE users SET nickname=? WHERE username=?', [newNick, user.username]);
       const info = loginMap.get(user.username);
       info.nickname = newNick;
@@ -587,11 +550,11 @@ io.on('connection', socket => {
     }
   });
 
+  // 校验登录
   socket.on('checkLogin', (data) => {
     const { userId, token } = data;
     if (!userId || !token || token !== userId || !loginMap.has(userId))
       return socket.emit('notLogin');
-
     user.username = userId;
     userSessionMap.set(userId, sid);
     usernameToSocket.set(userId, socket);
@@ -599,7 +562,7 @@ io.on('connection', socket => {
     socket.emit('loginSuccess');
   });
 
-  // 你的 RECONNECT 事件，已经帮你写在里面了
+  // 重连
   socket.on('RECONNECT', (data) => {
     const { userId, roomId } = data;
     if (!userId || !roomId || userId !== user.username) return socket.emit('RECONNECT_RESULT', { success: false });
@@ -612,6 +575,96 @@ io.on('connection', socket => {
     }
   });
 
+  // 离开房间
+  socket.on('LEAVE', (data) => {
+    const { userId, roomId } = data;
+    if (!userId || !roomId || userId !== user.username) return socket.emit('LEAVE_RESULT', { success: false });
+    markUserLeave(userId, roomId);
+    stopChat(sid, true);
+    socket.emit('LEAVE_RESULT', { success: true });
+  });
+
+  // 发送消息
+  socket.on('send-msg', async (data) => {
+    console.log(`[send-msg] 收到消息请求，用户：${user.username || '未知'}`);
+    console.log(`[send-msg] 消息数据：`, JSON.stringify(data));
+    try {
+      if (!user.username || !user.isMatched || !user.partner || !data) {
+        console.log(`[send-msg] 校验失败：用户未登录/未匹配/无数据`);
+        return socket.emit('msg-fail', { info: '无法发送' });
+      }
+      const content = data.content || '';
+      if (!content) {
+        console.log(`[send-msg] 校验失败：内容为空`);
+        return socket.emit('msg-fail', { info: '内容为空' });
+      }
+      const to = userMap.get(user.partner);
+      if (!to) {
+        console.log(`[send-msg] 错误：接收方用户 ${user.partner} 不存在`);
+        return socket.emit('msg-fail', { info: '接收方不存在' });
+      }
+      const toUser = to.username || 'unknown';
+      const fromNick = loginMap.get(user.username)?.nickname || user.username;
+      console.log(`[send-msg] 发送方：${user.username}（${fromNick}） -> 接收方：${toUser}`);
+
+      if (db) {
+        await db.execute(
+          'INSERT INTO messages (from_user,to_user,content,msg_type,msg_id) VALUES (?,?,?,?,?)',
+          [user.username, toUser, content, data.type || 'text', data.msgId || '']
+        );
+        console.log(`[send-msg] 消息已存入数据库`);
+      }
+
+      if (user.partner === 'ai_bot') {
+        if (data.type === 'text') {
+          const reply = await callAI(content);
+          setTimeout(() => {
+            socket.emit('new-msg', {
+              content: reply, type: 'text', burn: false,
+              receipt: false, msgId: Date.now().toString(),
+              fromId: 'ai_bot', fromName: 'AI陪伴者'
+            });
+            console.log(`[send-msg] AI回复已发送给用户`);
+          }, 600);
+        }
+        return;
+      }
+
+      if (to && to.socket && to.socket.connected) {
+        console.log(`[send-msg] 正在转发给接收方socket：${to.socket.id}`);
+        to.socket.emit('new-msg', {
+          content: data.content,
+          type: data.type || 'text',
+          burn: data.burn || false,
+          receipt: data.receipt || false,
+          msgId: data.msgId || '',
+          fromId: user.username,
+          fromName: fromNick
+        });
+        console.log(`[send-msg] 消息已成功转发给 ${toUser}`);
+      } else {
+        console.log(`[send-msg] 错误：接收方socket不存在或已断开`);
+        socket.emit('msg-fail', { info: '对方不在线' });
+      }
+    } catch (err) {
+      console.error(`[send-msg] 处理异常：`, err);
+      socket.emit('msg-fail', { info: '服务器错误' });
+    }
+  });
+
+  // 已读回执
+  socket.on('msg-read', (data) => {
+    const { msgId } = data || {};
+    if (!msgId) return;
+    try {
+      const partner = userMap.get(user.partner);
+      if (partner && partner.socket) {
+        partner.socket.emit('msg-read', { msgId });
+      }
+    } catch (e) {}
+  });
+
+  // 断开连接
   socket.on('disconnect', () => {
     cleanMatchTimer(sid);
     if (user.username) {
@@ -628,150 +681,9 @@ io.on('connection', socket => {
     clearInterval(timer);
   });
 });
+// ============================================================================
 
-  }, UNLOGGED_CLEAN_INTERVAL);
-
-
-
-  
-
-  
-    
-
-  
-
-  
-    
-
-
-
-  
-
-  // 消息发送 —— 已修复！
-  // 消息发送 —— 修复版 + 日志
-socket.on('send-msg', async (data) => {
-  console.log(`[send-msg] 收到消息请求，用户：${user.username || '未知'}`);
-  console.log(`[send-msg] 消息数据：`, JSON.stringify(data));
-
-  try {
-    // 基础校验
-    if (!user.username || !user.isMatched || !user.partner || !data) {
-      console.log(`[send-msg] 校验失败：用户未登录/未匹配/无数据`);
-      return socket.emit('msg-fail', { info: '无法发送' });
-    }
-
-    const content = data.content || '';
-    if (!content) {
-      console.log(`[send-msg] 校验失败：内容为空`);
-      return socket.emit('msg-fail', { info: '内容为空' });
-    }
-
-    // 获取接收方用户信息
-    const to = userMap.get(user.partner);
-    if (!to) {
-      console.log(`[send-msg] 错误：接收方用户 ${user.partner} 不存在`);
-      return socket.emit('msg-fail', { info: '接收方不存在' });
-    }
-    const toUser = to.username || 'unknown';
-    const fromNick = loginMap.get(user.username)?.nickname || user.username;
-
-    console.log(`[send-msg] 发送方：${user.username}（${fromNick}） -> 接收方：${toUser}`);
-
-    // 保存消息到数据库（如果有DB）
-    if (db) {
-      await db.execute(
-        'INSERT INTO messages (from_user,to_user,content,msg_type,msg_id) VALUES (?,?,?,?,?)',
-        [user.username, toUser, content, data.type || 'text', data.msgId || '']
-      );
-      console.log(`[send-msg] 消息已存入数据库`);
-    }
-
-    // AI机器人逻辑（保持不变）
-    if (user.partner === 'ai_bot') {
-      if (data.type === 'text') {
-        const reply = await callAI(content);
-        setTimeout(() => {
-          socket.emit('new-msg', {
-            content: reply, type: 'text', burn: false,
-            receipt: false, msgId: Date.now().toString(),
-            fromId: 'ai_bot', fromName: 'AI陪伴者'
-          });
-          console.log(`[send-msg] AI回复已发送给用户`);
-        }, 600);
-      }
-      return;
-    }
-
-    // 关键：转发给真实用户
-    if (to && to.socket && to.socket.connected) {
-      console.log(`[send-msg] 正在转发给接收方socket：${to.socket.id}`);
-      to.socket.emit('new-msg', {
-        content: data.content,
-        type: data.type || 'text',
-        burn: data.burn || false,
-        receipt: data.receipt || false,
-        msgId: data.msgId || '',
-        fromId: user.username,
-        fromName: fromNick
-      });
-      console.log(`[send-msg] 消息已成功转发给 ${toUser}`);
-    } else {
-      console.log(`[send-msg] 错误：接收方socket不存在或已断开`);
-      socket.emit('msg-fail', { info: '对方不在线' });
-    }
-
-  } catch (err) {
-    console.error(`[send-msg] 处理异常：`, err);
-    socket.emit('msg-fail', { info: '服务器错误' });
-  }
-});
-
-      // 已读回执回传
-      // 已读回执回传
-try {
-  const partner = userMap.get(user.partner);
-  if (partner && partner.socket) {
-    partner.socket.emit('msg-read', { msgId });
-  }
-} catch (e) {}  // 现在 try 和 catch 配对了，不会再报错
-
-
-  socket.on('RECONNECT', (data) => {
-    const { userId, roomId } = data;
-    if (!userId || !roomId || userId !== user.username) return socket.emit('RECONNECT_RESULT', { success: false });
-    const ret = checkReconnectValid(userId, roomId);
-    socket.emit('RECONNECT_RESULT', ret);
-    if (ret.success) {
-      user.isMatched = true;
-      user.roomId = roomId;
-      pushOfflineMsg(socket, userId);
-    }
-  });
-
-  socket.on('LEAVE', (data) => {
-    const { userId, roomId } = data;
-    if (!userId || !roomId || userId !== user.username) return socket.emit('LEAVE_RESULT', { success: false });
-    markUserLeave(userId, roomId);
-    stopChat(sid, true);
-    socket.emit('LEAVE_RESULT', { success: true });
-  });
-
-  socket.on('disconnect', () => {
-    cleanMatchTimer(sid);
-    if (user.username) {
-      userSessionMap.delete(user.username);
-      usernameToSocket.delete(user.username);
-    }
-    if (user.partner && user.partner !== 'ai_bot') {
-      const p = userMap.get(user.partner);
-      if (p && p.socket) p.socket.emit('partner-leave');
-    }
-    keepAliveMap.delete(sid);
-    userMap.delete(sid);
-    waitingUsers.delete(sid);
-  });
-
-// ===================== 加强版 3 分钟保活 + 自动重启 =====================
+// 保活
 const TARGET_PORT = 10000;
 const KEEPALIVE_INTERVAL = 3 * 60 * 1000;
 const FAILURE_THRESHOLD = 3;
@@ -802,7 +714,6 @@ function keepAlive() {
 }
 
 const keepAliveTimer = setInterval(keepAlive, KEEPALIVE_INTERVAL);
-
 setInterval(() => {
   if (consecutiveFailures >= FAILURE_THRESHOLD) {
     console.log('[🚨 连续失败3次，进程自动重启]');
