@@ -638,17 +638,7 @@ io.on('connection', socket => {
   
       
 
-  socket.on('checkLogin', (data) => {
-    const { userId, token } = data;
-    if (!userId || !token || token !== userId || !loginMap.has(userId))
-      return socket.emit('notLogin');
-    user.username = userId;
-    userSessionMap.set(userId, sid);
-    usernameToSocket.set(userId, socket);
-    pushOfflineMsg(socket, userId);
-    socket.emit('loginSuccess');
-    autoJoinMatchPool(sid);
-  });
+  
 
   socket.on('HEARTBEAT', () => {
     if (user.username && loginMap.has(user.username) && userSessionMap.get(user.username) === sid) {
