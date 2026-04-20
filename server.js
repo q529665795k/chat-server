@@ -580,7 +580,7 @@ io.on('connection', socket => {
   userMap.set(sid, user);
 
 
-  const sid = socket.id;
+
   const user = {
     id: sid, socket, username: '', partner: null, isMatched: false,
     lastActive: Date.now(), lastKeepAlive: 0, roomId: null
