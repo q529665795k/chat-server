@@ -528,7 +528,7 @@ const io = new Server(server, {
 
 io.on('connection', socket => {
 
-  io.on('connection', socket => {
+  // 全局前端动作日志（无语法错误版）
   socket.on("client-action-log", (data) => {
     const time = new Date().toLocaleString();
     console.log("\n======================================");
@@ -539,6 +539,38 @@ io.on('connection', socket => {
     console.log(`详情: ${JSON.stringify(data.extra || {}, null, 2)}`);
     console.log("======================================\n");
   });
+
+  // 只保留一次 sid 声明！
+  const sid = socket.id;
+  const user = {
+    id: sid,
+    socket,
+    username: '',
+    partner: null,
+    isMatched: false,
+    lastActive: Date.now(),
+    lastKeepAlive: 0,
+    roomId: null
+  };
+  userMap.set(sid, user);
+
+  // 后面的所有业务代码（心跳、匹配、消息发送等）保持原样
+  const timer = setInterval(() => {
+    if (!user.username || !loginMap.has(user.username) || userSessionMap.get(user.username) !== sid) {
+      socket.disconnect();
+      userMap.delete(sid);
+      clearInterval(timer);
+    }
+  }, UNLOGGED_CLEAN_INTERVAL);
+
+  socket.on('clear-chat', async () => {
+    if (user.username) await clearUserChatRecords(user.username);
+    socket.emit('clear-chat-record', { msg: '清空成功' });
+  });
+
+  // 其他 socket.on(...) 事件继续写在这里...
+});
+
 
   const sid = socket.id;
   const user = {
