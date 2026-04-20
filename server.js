@@ -376,7 +376,7 @@ rl.on('line', async (input) => {
   showMenu();
 });
 
-const app = express();
+
 
 // ====================== 这里已经恢复成你原来的跨域，不是*了！======================
 app.use((req, res, next) => {
