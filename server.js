@@ -407,6 +407,7 @@ app.get('/', (req, res) => {
   res.send('Server Running OK — 已修复所有问题');
 });
 
+// 注册接口：明文存储，修复用户存在性判断
 app.post('/register', async (req, res) => {
   console.log('=== 收到注册请求 ===');
   console.log('请求体:', req.body);
@@ -419,6 +420,7 @@ app.post('/register', async (req, res) => {
   const { username, password } = req.body;
   console.log('解析到的用户名:', username, '密码:', password);
 
+  // 参数校验
   if (!username || !password) {
     console.log('❌ 用户名或密码为空');
     return res.json({ code: 400, msg: '请输入账号密码' });
@@ -434,15 +436,17 @@ app.post('/register', async (req, res) => {
 
   try {
     console.log('🔍 检查用户是否存在...');
-    const exists = await db.execute('SELECT id FROM users WHERE username=?', [username]);
-    console.log('✅ 用户存在查询结果:', exists);
-    if (exists.length > 0) {
+    // 关键修复：正确解构查询结果，判断用户是否存在
+    const [rows] = await db.execute('SELECT id FROM users WHERE username=?', [username]);
+    console.log('✅ 用户存在查询结果:', rows);
+
+    if (rows.length > 0) {
       console.log('❌ 用户已存在:', username);
       return res.json({ code: 400, msg: '账号已存在' });
     }
 
-    console.log('🔍 插入用户...');
-    // 去掉nickname，只插入username和password
+    console.log('🔍 插入用户（明文存储）...');
+    // 直接插入明文密码，不做任何加密
     await db.execute(
       'INSERT INTO users (username, password) VALUES (?, ?)',
       [username, password]
@@ -459,6 +463,8 @@ app.post('/register', async (req, res) => {
 
 
 
+// 注册接口：明文存储，修复用户存在性判断
+// 登录接口：明文对比，修复逻辑和异常处理
 app.post('/login', async (req, res) => {
   console.log('=== 收到登录请求 ===');
   console.log('请求体:', req.body);
@@ -473,22 +479,23 @@ app.post('/login', async (req, res) => {
 
   try {
     console.log('🔍 执行SQL查询...');
-    // 去掉nickname，只查password
-    const rows = await db.execute(
+    // 关键修复：正确解构查询结果，避免undefined报错
+    const [rows] = await db.execute(
       'SELECT password FROM users WHERE username=?',
       [username]
     );
     console.log('✅ SQL查询结果:', rows);
 
-    if (!rows || !rows.length) {
+    if (!rows || rows.length === 0) {
       console.log('❌ 用户不存在:', username);
       return res.json({ code: 404, msg: '账号不存在' });
     }
 
     console.log('✅ 找到用户:', rows[0]);
+    // 直接明文对比，不做任何加密
     if (rows[0].password === password) {
       loginMap.set(username, {
-        nickname: username, // 用username代替nickname
+        nickname: username,
         password: password
       });
       console.log('✅ 登录成功:', username);
