@@ -8,6 +8,7 @@ const readline = require('readline');
 const axios = require('axios');
 const app = express();
 const server = http.createServer(app);
+const { exec } = require('child_process');
 const { Server } = require('socket.io');
 const PORT = process.env.PORT || 10000;
 
@@ -675,30 +676,98 @@ io.on('connection', socket => {
 });
 
 // 保活
-const TARGET_PORT = 10000;
-const KEEPALIVE_INTERVAL = 3 * 60 * 1000;
-const FAILURE_THRESHOLD = 3;
-let consecutiveFailures = 0;
+// ====================== 配置区（不用改）======================
+const TARGET_URL = 'http://127.0.0.1:10000';
+const PING_INTERVAL = 3 * 60 * 1000;   // 3分钟一次自我Ping
+const FAILURE_THRESHOLD = 3;           // 连续失败3次触发重启
+const LOG_FILE = path.join(__dirname, 'keepalive.log');
+const SCRIPT_PATH = __filename;        // 当前脚本自身路径（用于自重启）
+// ============================================================
 
-function keepAlive() {
-  const now = new Date();
-  const timeStr = now.toLocaleString('zh-CN', { timeZone: 'Asia/Shanghai' });
-  const req = http.get(`http://127.0.0.1:${TARGET_PORT}`, function(res) {
-    res.resume();
-    if (res.statusCode === 200) consecutiveFailures = 0;
-    else consecutiveFailures++;
-  });
-  req.setTimeout(5000, () => { req.destroy(); consecutiveFailures++; });
-  req.on('error', () => consecutiveFailures++);
+let consecutiveFailures = 0;
+let isRestarting = false;
+
+// 日志：控制台 + 文件双输出
+function writeLog(msg) {
+    const t = new Date().toLocaleString('zh-CN', { timeZone: 'Asia/Shanghai' });
+    const line = `[${t}] ${msg}\n`;
+    console.log(line.trim());
+    fs.appendFile(LOG_FILE, line, err => err && console.error('日志写入失败:', err));
 }
 
-setInterval(keepAlive, KEEPALIVE_INTERVAL);
-setInterval(() => {
-  if (consecutiveFailures >= FAILURE_THRESHOLD) process.exit(1);
-}, 1000);
+// 核心：自我Ping探活
+function doPing() {
+    if (isRestarting) return;
+    try {
+        const req = http.get(TARGET_URL, { timeout: 5000 }, res => {
+            if (res.statusCode === 200) {
+                consecutiveFailures = 0;
+                writeLog(`✅ Ping成功 | 状态码:${res.statusCode}`);
+            } else {
+                consecutiveFailures++;
+                writeLog(`⚠️ Ping异常 | 状态码:${res.statusCode} | 连续失败:${consecutiveFailures}/${FAILURE_THRESHOLD}`);
+                checkRestart();
+            }
+            res.resume();
+        });
 
-loadPwd();
-startKeepAliveCheck();
+        req.on('timeout', () => {
+            req.destroy();
+            consecutiveFailures++;
+            writeLog(`⏱️ Ping超时 | 连续失败:${consecutiveFailures}/${FAILURE_THRESHOLD}`);
+            checkRestart();
+        });
+
+        req.on('error', err => {
+            consecutiveFailures++;
+            writeLog(`❌ Ping失败 | ${err.message} | 连续失败:${consecutiveFailures}/${FAILURE_THRESHOLD}`);
+            checkRestart();
+        });
+    } catch (err) {
+        writeLog(`💥 探活异常 | ${err.message}`);
+        consecutiveFailures++;
+        checkRestart();
+    }
+}
+
+// 关键：连续失败达标 → 自动重启自身
+function checkRestart() {
+    if (isRestarting || consecutiveFailures < FAILURE_THRESHOLD) return;
+    isRestarting = true;
+
+    writeLog(`🚨 连续失败${FAILURE_THRESHOLD}次，准备自动重启脚本...`);
+
+    // 启动新进程运行自己
+    const cmd = `node ${SCRIPT_PATH}`;
+    exec(cmd, (err) => {
+        if (err) writeLog(`❌ 重启命令执行失败: ${err.message}`);
+    });
+
+    // 退出当前进程，新进程会立刻顶上
+    setTimeout(() => {
+        writeLog(`🔚 旧进程退出，新进程已拉起`);
+        process.exit(1);
+    }, 1000);
+}
+
+// 兜底：捕获脚本自身崩溃、未处理异常 → 自动重启
+process.on('uncaughtException', err => {
+    writeLog(`💀 脚本崩溃捕获: ${err.message}`);
+    consecutiveFailures = FAILURE_THRESHOLD;
+    checkRestart();
+});
+
+process.on('unhandledRejection', err => {
+    writeLog(`💀 异步异常捕获: ${err.message}`);
+    consecutiveFailures = FAILURE_THRESHOLD;
+    checkRestart();
+});
+
+// 启动
+writeLog(`🚀 一体化保活脚本启动 | 目标:${TARGET_URL} | 间隔:${PING_INTERVAL/1000/60}分钟`);
+setInterval(doPing, PING_INTERVAL);
+// 立刻执行一次，避免刚启动就挂
+doPing();
 app.use((req, res) => res.status(404).json({ code:404, msg:'不存在' }));
 
 server.listen(PORT, '0.0.0.0', () => {
