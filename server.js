@@ -292,20 +292,20 @@ function startKeepAliveCheck() {
       if (!u || !p || !u.socket.connected || !p.socket.connected) {
         keepAliveMap.delete(uid);
         keepAliveMap.delete(pid);
-        u?.socket?.emit('partner-leave');
-        p?.socket?.emit('partner-leave');
+       // u?.socket?.emit('partner-leave');
+      //  p?.socket?.emit('partner-leave');
         u?.roomId && u.socket.emit('clear-chat-record');
         p?.roomId && p.socket.emit('clear-chat-record');
         if (u) autoJoinMatchPool(uid);
         if (p) autoJoinMatchPool(pid);
         sysLog('KEEPALIVE', '对方离线，自动断开', { user: u?.username, partner: p?.username });
-        return;
+        return
       }
       if (now > val.expireTime) {
         u.socket.emit('keep-alive-expire');
         p.socket.emit('keep-alive-expire');
-        stopChat(uid, false);
-        stopChat(pid, false);
+      //  stopChat(uid, false);
+      //  stopChat(pid, false);
         keepAliveMap.delete(uid);
         keepAliveMap.delete(pid);
         sysLog('KEEPALIVE', '保活过期', { u: u.username, p: p.username });
