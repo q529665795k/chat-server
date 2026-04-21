@@ -28,13 +28,30 @@ async function callAI(prompt) {
 }
 
 // ===== D1 数据库连接（只改这里，别的不动）=====
- const { D1Database } = require("@cloudflare/d1");
- let db;
- (async () => {
-   try {
-     // 直接写死你的D1数据库ID，不用绑定、不用配置
-     db = new D1Database("f5d94c67-cc62-451f-8038-21cfe66aace7");
-     sysLog('DB', 'D1 数据库连接成功');
+ 
+ // D1 数据库连接（兼容 Render 环境，不会报模块错误）
+let db;
+(async () => {
+  try {
+    // 直接用环境变量里的数据库ID
+    const D1_DB_ID = process.env.MYSQL_DATABASE;
+    db = {
+      prepare: (sql) => ({
+        execute: async (...params) => {
+          const res = await fetch(`https://api.cloudflare.com/client/v4/d1/databases/${D1_DB_ID}/query`, {
+            method: 'POST',
+            headers: {
+              'Authorization': `Bearer ${process.env.CLOUDFLARE_API_TOKEN}`,
+              'Content-Type': 'application/json'
+            },
+            body: JSON.stringify({ sql, params })
+          });
+          return await res.json();
+        }
+      })
+    };
+    sysLog('DB', 'D1 数据库连接成功');
+
     await db.execute(`CREATE TABLE IF NOT EXISTS users (
       id INT AUTO_INCREMENT PRIMARY KEY,
       username VARCHAR(50) NOT NULL UNIQUE,
