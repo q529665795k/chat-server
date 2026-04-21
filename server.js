@@ -321,16 +321,15 @@ app.post('/register', async (req, res) => {
 
     return res.json({ code: 200, msg: '注册成功' });
   } catch (err) {
-    console.error('注册异常：', err); // 后台打印真实错误，方便排查
+    console.error('注册异常：', err);
     return res.json({ code: 500, msg: '注册失败' });
   }
 });
 
-
 // 登录
 app.post('/login', async (req, res) => {
   try {
-    // 👇 先判断数据库就绪没有（最关键）
+    // 先判断数据库就绪没有（最关键）
     if (!db) {
       return res.json({ code: 500, msg: "数据库初始化中，请稍候重试" });
     }
@@ -350,7 +349,7 @@ app.post('/login', async (req, res) => {
       return res.json({ code: 400, msg: '密码错误' });
     }
 
-    // 登录成功，缓存信息
+    // ✅ 修复：数组取值 rows[0]
     loginMap.set(username, {
       nickname: rows[0].nickname || username,
       password: password
@@ -360,18 +359,22 @@ app.post('/login', async (req, res) => {
     return res.json({ code: 200, msg: '登录成功' });
 
   } catch (err) {
-    // 打印真实错误，方便你看问题
     console.error("登录异常:", err);
     return res.json({ code: 500, msg: '服务器异常，请稍后再试' });
   }
 });
 
-
-// Socket
+// ✅ 修复：Socket.io 正确跨域配置
 const io = new Server(server, {
-  cors: { origin: ["https://im6.qzz.io", "https://www.im6.qzz.io"], methods: ["GET","POST"], credentials: true },
-  transports: ['websocket','polling'], pingTimeout:60000, pingInterval:25000
+  cors: {
+    origin: ["https://im6.qzz.io", "https://www.im6.qzz.io"],
+    credentials: true
+  },
+  transports: ['websocket','polling'], 
+  pingTimeout:60000, 
+  pingInterval:25000
 });
+
 
 io.on('connection', socket => {
   const sid = socket.id;
