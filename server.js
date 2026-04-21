@@ -327,11 +327,12 @@ app.post('/register', async (req, res) => {
 });
 
 // 登录
+// 登录
 app.post('/login', async (req, res) => {
   try {
     // 先判断数据库就绪没有（最关键）
     if (!db) {
-      return res.json({ code: 500, msg: "数据库初始化中，请稍候重试" });
+      return res.json({ code: 500, msg: '数据库初始化中，请稍后重试' });
     }
 
     const { username, password } = req.body;
@@ -340,7 +341,6 @@ app.post('/login', async (req, res) => {
     }
 
     const [rows] = await db.execute('SELECT password,nickname FROM users WHERE username=?', [username]);
-
     if (!rows || rows.length === 0) {
       return res.json({ code: 404, msg: '账号不存在' });
     }
@@ -349,19 +349,33 @@ app.post('/login', async (req, res) => {
       return res.json({ code: 400, msg: '密码错误' });
     }
 
-    // ✅ 修复：数组取值 rows[0]
+    // ✅ 内存缓存最新昵称
     loginMap.set(username, {
       nickname: rows[0].nickname || username,
       password: password
     });
 
+    // 🔥 新增你要的日志
+    console.log('[LOGIN] 已从数据库读取最新昵称', {
+      username: username,
+      latestNickname: rows[0].nickname || username
+    });
+
     sysLog('USER', '用户登录', { username });
-    return res.json({ code: 200, msg: '登录成功' });
+
+    // ✅ 把最新昵称返回给前端
+    return res.json({ 
+      code: 200, 
+      msg: '登录成功',
+      nickname: rows[0].nickname || username
+    });
 
   } catch (err) {
-    console.error("登录异常:", err);
+    console.error('登录异常：', err);
     return res.json({ code: 500, msg: '服务器异常，请稍后再试' });
   }
+});
+
 });
 
 // ✅ 修复：Socket.io 正确跨域配置
