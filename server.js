@@ -29,51 +29,38 @@ async function callAI(prompt) {
 
 // ===== D1 数据库连接（只改这里，别的不动）=====
  
- // D1 数据库连接（兼容 Render 环境，不会报模块错误）
+ // D1 数据库连接（修复版，保证 db.execute 可用）
 let db;
 (async () => {
   try {
-    // 直接用环境变量里的数据库ID
     const D1_DB_ID = process.env.MYSQL_DATABASE;
+    const CF_API_TOKEN = process.env.CLOUDFLARE_API_TOKEN;
+
+    // 正确封装：直接给 db 挂 execute 方法，和你原来 MySQL 用法完全一致
     db = {
-      prepare: (sql) => ({
-        execute: async (...params) => {
-          const res = await fetch(`https://api.cloudflare.com/client/v4/d1/databases/${D1_DB_ID}/query`, {
-            method: 'POST',
+      execute: async (sql, ...params) => {
+        const res = await fetch(
+          `https://api.cloudflare.com/client/v4/d1/databases/${D1_DB_ID}/query`,
+          {
+            method: "POST",
             headers: {
-              'Authorization': `Bearer ${process.env.CLOUDFLARE_API_TOKEN}`,
-              'Content-Type': 'application/json'
+              Authorization: `Bearer ${CF_API_TOKEN}`,
+              "Content-Type": "application/json"
             },
             body: JSON.stringify({ sql, params })
-          });
-          return await res.json();
-        }
-      })
+          }
+        );
+        const data = await res.json();
+        return data;
+      }
     };
-    sysLog('DB', 'D1 数据库连接成功');
 
-    await db.execute(`CREATE TABLE IF NOT EXISTS users (
-      id INT AUTO_INCREMENT PRIMARY KEY,
-      username VARCHAR(50) NOT NULL UNIQUE,
-      nickname VARCHAR(50) NOT NULL DEFAULT '',
-      password VARCHAR(255) NOT NULL,
-      created_at DATETIME DEFAULT CURRENT_TIMESTAMP
-    ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4;`);
-    await db.execute(`CREATE TABLE IF NOT EXISTS messages (
-      id INT AUTO_INCREMENT PRIMARY KEY,
-      from_user VARCHAR(50) NOT NULL,
-      to_user VARCHAR(50) NOT NULL,
-      content TEXT NOT NULL,
-      msg_type VARCHAR(20) DEFAULT 'text',
-      msg_id VARCHAR(64) DEFAULT '',
-      is_read TINYINT(1) DEFAULT 0,
-      created_at DATETIME DEFAULT CURRENT_TIMESTAMP
-    ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4;`);
-    await loadUsers();
+    sysLog("DB", "✅ D1 数据库连接成功，execute 方法已就绪");
   } catch (err) {
-    console.error('❌ MySQL 错误:', err.message);
+    sysLog("DB", "❌ D1 数据库连接失败：" + err.message);
   }
 })();
+
 
 const PWD_FILE = path.join(__dirname, 'admin.pwd');
 let ADMIN_PWD = '123456';
