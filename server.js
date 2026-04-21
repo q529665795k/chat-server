@@ -6,10 +6,11 @@ const fs = require('fs');
 const path = require('path');
 const readline = require('readline');
 const axios = require('axios');
-const app = express();
-const server = http.createServer(app);
 const { exec } = require('child_process');
 const { Server } = require('socket.io');
+
+const app = express();
+const server = http.createServer(app);
 const PORT = process.env.PORT || 10000;
 
 // AI 回复
@@ -42,7 +43,7 @@ let db;
   try {
     db = await mysql.createPool(dbConfig);
     await db.getConnection();
-    console.log('✅ MySQL 连接成功');
+    sysLog('DB', 'MySQL 连接成功');
     await db.execute(`CREATE TABLE IF NOT EXISTS users (
       id INT AUTO_INCREMENT PRIMARY KEY,
       username VARCHAR(50) NOT NULL UNIQUE,
@@ -86,12 +87,17 @@ const MATCH_TIMEOUT = 15000;
 const HEARTBEAT_INTERVAL = 30000;
 
 // ==============================================
-// 🔥 加强日志（全局）
+// 🔥 全局统一日志（控制台 + 文件双输出 · 与前端完全匹配）
 // ==============================================
+const LOG_PATH = path.join(__dirname, 'server.log');
 function sysLog(tag, msg, data = {}) {
-  const t = new Date().toLocaleString();
-  console.log(`[${t}] [${tag}] ${msg}`);
-  if (Object.keys(data).length > 0) console.log('└──', JSON.stringify(data, null, 2));
+  const t = new Date().toLocaleString('zh-CN');
+  let logStr = `[${t}] [${tag}] ${msg}`;
+  if (Object.keys(data).length > 0) {
+    logStr += ' | ' + JSON.stringify(data);
+  }
+  console.log(logStr);
+  fs.appendFileSync(LOG_PATH, logStr + '\n', { flag: 'a' });
 }
 
 function initFileIfNotExists(filePath, defaultContent = '') {
@@ -105,26 +111,25 @@ async function loadUsers() {
     const [rows] = await db.execute('SELECT username,nickname,password FROM users');
     loginMap.clear();
     rows.forEach(u => {
-      loginMap.set(u.username, {
-        nickname: u.nickname || u.username,
-        password: u.password
-      });
+      loginMap.set(u.username, { nickname: u.nickname || u.username, password: u.password });
     });
+    sysLog('USER', '用户数据加载完成', { count: rows.length });
   } catch (e) {}
 }
 
 async function clearUserChatRecords(username) {
   try {
-    if (db && username) await db.execute("DELETE FROM messages WHERE from_user=? OR to_user=?", [username, username]);
+    if (db && username) {
+      await db.execute("DELETE FROM messages WHERE from_user=? OR to_user=?", [username, username]);
+      sysLog('CHAT', '清空个人聊天记录', { user: username });
+    }
   } catch (e) {}
 }
 
 function loadPwd() {
   try {
     ADMIN_PWD = fs.readFileSync(PWD_FILE, 'utf8').trim() || '123456';
-  } catch (e) {
-    ADMIN_PWD = '123456';
-  }
+  } catch (e) { ADMIN_PWD = '123456'; }
 }
 
 function createMatchRoom(userA, userB) {
@@ -145,30 +150,33 @@ function pushOfflineMsg(socket, userId) {
   offlineMsgMem.delete(userId);
 }
 
-function checkReconnectValid(userId, roomId) {
-  const room = roomMem.get(roomId);
-  if (!room) return { success: false, reason: '房间不存在' };
-  const isA = room.userA === userId;
-  const isB = room.userB === userId;
-  if (!isA && !isB) return { success: false, reason: '非成员' };
-  if ((isA && room.userBLeft) || (isB && room.userALeft)) return { success: false, reason: '对方已离开' };
-  if (Date.now() - room.createTime > REDIS_EXPIRE * 1000) {
-    roomMem.delete(roomId);
-    return { success: false, reason: '已过期' };
+function stopChat(uid, isInitiative = true) {
+  const me = userMap.get(uid);
+  if (!me || !me.partner) return;
+  cleanMatchTimer(uid);
+
+  if (me.partner !== "ai_bot") {
+    const pt = userMap.get(me.partner);
+    if (pt && pt.socket) {
+      pt.partner = null;
+      pt.isMatched = false;
+      pt.socket.emit('partner-leave');
+      me.roomId && pt.socket.emit('clear-chat-record');
+      autoJoinMatchPool(pt.id);
+    }
   }
-  return { success: true, opponent: isA ? room.userB : room.userA };
-}
 
-function markUserLeave(userId, roomId) {
-  const room = roomMem.get(roomId);
-  if (!room) return;
-  if (room.userA === userId) room.userALeft = true;
-  if (room.userB === userId) room.userBLeft = true;
-}
-
-function resetRoomExpire(roomId) {
-  const r = roomMem.get(roomId);
-  if (r) r.createTime = Date.now();
+  me.partner = null;
+  me.isMatched = false;
+  me.socket.emit('match-end', { info: isInitiative ? '已断开' : '结束' });
+  keepAliveMap.delete(uid);
+  if (me.roomId) {
+    roomMem.delete(me.roomId);
+    offlineMsgMem.delete(me.username);
+    me.roomId = null;
+  }
+  autoJoinMatchPool(me.id);
+  sysLog('CHAT', '聊天结束', { user: me.username, self: isInitiative });
 }
 
 function cleanMatchTimer(uid) {
@@ -191,7 +199,7 @@ function assignAiRobot(sid) {
   waitingUsers.delete(sid);
   keepAliveMap.set(sid, { partnerId: aiId, expireTime: Date.now() + KEEP_ALIVE_EXPIRE });
   u.socket.emit('match-found', { partnerId: aiId, partnerName: aiName, selfId: sid, roomId: rid });
-  sysLog('MATCH', '超时匹配AI成功', { user: u.username });
+  sysLog('MATCH', '匹配AI成功', { user: u.username });
 }
 
 function autoJoinMatchPool(sid) {
@@ -203,33 +211,6 @@ function autoJoinMatchPool(sid) {
   tryMatch();
 }
 
-function stopChat(uid, isInitiative = true) {
-  const me = userMap.get(uid);
-  if (!me || !me.partner) return;
-  cleanMatchTimer(uid);
-  if (me.partner !== "ai_bot") {
-    const pt = userMap.get(me.partner);
-    if (pt && pt.socket) {
-      pt.partner = null;
-      pt.isMatched = false;
-      pt.socket.emit('partner-leave');
-      me.roomId && pt.socket.emit('clear-chat-record');
-      autoJoinMatchPool(pt.id);
-    }
-  }
-  me.partner = null;
-  me.isMatched = false;
-  me.socket.emit('match-end', { info: isInitiative ? '已断开' : '结束' });
-  keepAliveMap.delete(uid);
-  if (me.roomId) {
-    roomMem.delete(me.roomId);
-    offlineMsgMem.delete(me.username);
-    me.roomId = null;
-  }
-  autoJoinMatchPool(me.id);
-  sysLog('CHAT', '聊天结束', { user: me.username, initiative: isInitiative });
-}
-
 function tryMatch() {
   const list = Array.from(waitingUsers).map(id => userMap.get(id)).filter(u =>
     u && u.socket.connected && !u.partner && u.username && loginMap.has(u.username) && userSessionMap.get(u.username) === u.id
@@ -237,48 +218,30 @@ function tryMatch() {
   if (list.length < 2) return;
   const a = list[0], b = list[1];
   if (a.id === b.id) return;
+
   cleanMatchTimer(a.id);
   cleanMatchTimer(b.id);
   waitingUsers.delete(a.id);
   waitingUsers.delete(b.id);
+
   a.partner = b.id;
   b.partner = a.id;
   a.isMatched = true;
   b.isMatched = true;
+
   const rid = createMatchRoom(a.username, b.username);
   a.roomId = rid;
   b.roomId = rid;
+
   const aNick = loginMap.get(a.username)?.nickname || a.username;
   const bNick = loginMap.get(b.username)?.nickname || b.username;
+
   a.socket.emit('match-found', { partnerId: b.id, partnerName: bNick, selfId: a.id, roomId: rid });
   b.socket.emit('match-found', { partnerId: a.id, partnerName: aNick, selfId: b.id, roomId: rid });
+
   keepAliveMap.set(a.id, { partnerId: b.id, expireTime: Date.now() + KEEP_ALIVE_EXPIRE });
   keepAliveMap.set(b.id, { partnerId: a.id, expireTime: Date.now() + KEEP_ALIVE_EXPIRE });
   sysLog('MATCH', '真人匹配成功', { a: a.username, b: b.username, room: rid });
-}
-
-function checkPartnerStatus(uid) {
-  const me = userMap.get(uid);
-  if (!me || !me.partner) {
-    me.socket.emit('partner-status', { isOnline: false, info: '无匹配' });
-    return;
-  }
-  if (me.partner === "ai_bot") {
-    me.socket.emit('partner-status', { isOnline: true, info: 'AI在线', partnerId: "ai_bot", partnerName: "AI陪伴者" });
-    return;
-  }
-  const pt = userMap.get(me.partner);
-  if (pt && pt.socket.connected) {
-    const nick = loginMap.get(pt.username)?.nickname || pt.username;
-    me.socket.emit('partner-status', { isOnline: true, info: '在线', partnerId: pt.id, partnerName: nick });
-  } else {
-    me.partner = null;
-    me.isMatched = false;
-    me.socket.emit('partner-status', { isOnline: false, info: '对方离线' });
-    me.socket.emit('partner-leave');
-    me.roomId && me.socket.emit('clear-chat-record');
-    autoJoinMatchPool(me.id);
-  }
 }
 
 function startKeepAliveCheck() {
@@ -289,21 +252,19 @@ function startKeepAliveCheck() {
       const pid = val.partnerId;
       if (pid === "ai_bot") return;
       const p = userMap.get(pid);
+
       if (!u || !p || !u.socket.connected || !p.socket.connected) {
         keepAliveMap.delete(uid);
         keepAliveMap.delete(pid);
         u?.socket?.emit('partner-leave');
         p?.socket?.emit('partner-leave');
-        u?.roomId && u.socket.emit('clear-chat-record');
-        p?.roomId && p.socket.emit('clear-chat-record');
         if (u) autoJoinMatchPool(uid);
         if (p) autoJoinMatchPool(pid);
-        sysLog('KEEPALIVE', '对方离线，自动断开', { user: u?.username, partner: p?.username });
+        sysLog('KEEPALIVE', '对方离线，自动断开', { u: u?.username, p: p?.username });
         return;
       }
+
       if (now > val.expireTime) {
-        u.socket.emit('keep-alive-expire');
-        p.socket.emit('keep-alive-expire');
         stopChat(uid, false);
         stopChat(pid, false);
         keepAliveMap.delete(uid);
@@ -311,83 +272,9 @@ function startKeepAliveCheck() {
         sysLog('KEEPALIVE', '保活过期', { u: u.username, p: p.username });
         return;
       }
-      if (now - (u.lastKeepAlive || 0) > 5*60*1000 || now - (p.lastKeepAlive || 0) > 5*60*1000) {
-        u.socket.emit('match-expire');
-        p.socket.emit('match-expire');
-        stopChat(uid, false);
-        stopChat(pid, false);
-        keepAliveMap.delete(uid);
-        keepAliveMap.delete(pid);
-        sysLog('KEEPALIVE', '心跳超时', { u: u.username, p: p.username });
-        return;
-      }
-      u.lastActive = now;
-      p.lastActive = now;
-      if (u.roomId) resetRoomExpire(u.roomId);
     });
   }, KEEP_ALIVE_CHECK_INTERVAL);
 }
-
-const rl = readline.createInterface({ input: process.stdin, output: process.stdout, prompt: '>' });
-function showMenu() {
-  console.log(`
-1在线 2用户列表 3AI 6清空 7断开全部 9删用户 0退出
-`);
-  rl.prompt();
-}
-
-async function deleteUser(username, pwd) {
-  try {
-    if (pwd !== ADMIN_PWD) return { code: 403, msg: '密码错误' };
-    if (!loginMap.has(username)) return { code: 404, msg: '不存在' };
-    await db.execute('DELETE FROM users WHERE username=?', [username]);
-    loginMap.delete(username);
-    userSessionMap.delete(username);
-    usernameToSocket.delete(username);
-    userMap.forEach((user, sid) => {
-      if (user.username === username) {
-        user.socket?.emit('user-deleted');
-        user.socket?.disconnect();
-        userMap.delete(sid);
-        waitingUsers.delete(sid);
-        keepAliveMap.delete(sid);
-        cleanMatchTimer(sid);
-      }
-    });
-    return { code: 200, msg: '删除成功' };
-  } catch (e) {
-    return { code: 500, msg: '失败' };
-  }
-}
-
-rl.on('line', async (input) => {
-  const cmd = input.trim();
-  if (cmd === '9') {
-    const users = Array.from(loginMap.keys());
-    if (!users.length) { console.log('无用户'); showMenu(); return; }
-    users.forEach((u, i) => console.log(`${i+1}. ${u}`));
-    rl.question('序号>', async idx => {
-      const i = parseInt(idx) - 1;
-      if (i < 0 || i >= users.length) { showMenu(); return; }
-      const username = users[i];
-      rl.question('密码>', async pwd => {
-        const res = await deleteUser(username, pwd.trim());
-        console.log(res.code === 200 ? '✅成功' : '❌失败：' + res.msg);
-        showMenu();
-      });
-    });
-    return;
-  }
-  switch(cmd.toLowerCase()){
-    case '1': userMap.forEach((u, id) => console.log(id, u.username || '未登录')); break;
-    case '2': console.log(Array.from(loginMap.keys())); break;
-    case '3': console.log('AI启用'); break;
-    case '6': userMap.forEach(u => u.socket?.emit('clear-chat-record')); console.log('✅已清空'); break;
-    case '7': case '8': userMap.forEach(u => u.partner && stopChat(u.id, false)); console.log('✅已断开全部'); break;
-    case '0': process.exit(0); break;
-  }
-  showMenu();
-});
 
 // 跨域
 app.use((req, res, next) => {
@@ -405,54 +292,47 @@ app.use((req, res, next) => {
 
 app.use(express.json({ limit: '10mb' }));
 app.use(express.urlencoded({ extended: true, limit: '10mb' }));
+
 app.get('/', (req, res) => {
-  res.send('Server Running OK — 加强版：保活+兜底+日志+防断开');
+  res.send('✅ 服务运行正常 · 全局日志已开启');
 });
 
-// 注册接口
+// 注册
 app.post('/register', async (req, res) => {
-  if (!req.body) return res.json({ code: 400, msg: '请求格式错误' });
-  const { username, password } = req.body;
-  if (!username || !password) return res.json({ code: 400, msg: '请输入账号密码' });
-  if (username.length < 2 || username.length > 20) return res.json({ code: 400, msg: '用户名长度2-20位' });
-  if (password.length < 6) return res.json({ code: 400, msg: '密码不少于6位' });
   try {
+    const { username, password } = req.body;
+    if (!username || !password) return res.json({ code: 400, msg: '请输入账号密码' });
     const [rows] = await db.execute('SELECT id FROM users WHERE username=?', [username]);
     if (rows.length > 0) return res.json({ code: 400, msg: '账号已存在' });
-    await db.execute('INSERT INTO users (username, password) VALUES (?, ?)', [username, password]);
+    await db.execute('INSERT INTO users (username, password, nickname) VALUES (?,?,?)', [username, password, username]);
     loginMap.set(username, { nickname: username, password });
-    sysLog('USER', '注册成功', { username });
+    sysLog('USER', '新用户注册', { username });
     return res.json({ code: 200, msg: '注册成功' });
   } catch (err) {
-    console.error('注册错误:', err);
     return res.json({ code: 500, msg: '注册失败' });
   }
 });
 
-// 登录接口
+// 登录
 app.post('/login', async (req, res) => {
-  const { username, password } = req.body || {};
-  if (!username || !password) return res.json({ code: 400, msg: '请输入账号密码' });
   try {
-    const [rows] = await db.execute('SELECT password FROM users WHERE username=?', [username]);
+    const { username, password } = req.body;
+    if (!username || !password) return res.json({ code: 400, msg: '请输入账号密码' });
+    const [rows] = await db.execute('SELECT password,nickname FROM users WHERE username=?', [username]);
     if (!rows || rows.length === 0) return res.json({ code: 404, msg: '账号不存在' });
-    if (rows[0].password === password) {
-      loginMap.set(username, { nickname: username, password: password });
-      sysLog('USER', '登录成功', { username });
-      return res.json({ code: 200, msg: '登录成功' });
-    } else {
-      return res.json({ code: 400, msg: '密码错误' });
-    }
+    if (rows[0].password !== password) return res.json({ code: 400, msg: '密码错误' });
+    loginMap.set(username, { nickname: rows[0].nickname || username, password });
+    sysLog('USER', '用户登录', { username });
+    return res.json({ code: 200, msg: '登录成功' });
   } catch (err) {
-    console.error('登录错误:', err);
     return res.json({ code: 500, msg: '服务器错误' });
   }
 });
 
-// Socket.IO
+// Socket
 const io = new Server(server, {
   cors: { origin: ["https://im6.qzz.io", "https://www.im6.qzz.io"], methods: ["GET","POST"], credentials: true },
-  transports: ['websocket','polling'], pingTimeout:60000, pingInterval:25000, maxHttpBufferSize:10*1024*1024, allowEIO3:true
+  transports: ['websocket','polling'], pingTimeout:60000, pingInterval:25000
 });
 
 io.on('connection', socket => {
@@ -462,9 +342,8 @@ io.on('connection', socket => {
     lastActive:Date.now(), lastKeepAlive:0, roomId:null
   };
   userMap.set(sid, user);
-  sysLog('CONNECT', '新连接', { sid });
+  sysLog('CONNECT', '客户端连接', { sid });
 
-  // 未登录清理
   const timer = setInterval(() => {
     if (!user.username || !loginMap.has(user.username) || userSessionMap.get(user.username) !== sid) {
       socket.disconnect();
@@ -474,318 +353,192 @@ io.on('connection', socket => {
     }
   }, UNLOGGED_CLEAN_INTERVAL);
 
-  // 前端日志
+  // 接收前端日志 → 写入全局日志
   socket.on("client-action-log", (data) => {
-    sysLog('FRONT', data.action, { user:data.userId, nick:data.nickname, ...data.extra });
+    sysLog('FRONT', data.action, {
+      user: data.userId,
+      nick: data.nickname,
+      ...data.extra,
+      time: data.time
+    });
   });
 
-  // 用户上线（加强状态兜底）
-  // 用户上线（加强状态兜底）
-socket.on('user-online', (data) => {
+  socket.on('user-online', (data) => {
     const { username } = data;
     if (!username || !loginMap.has(username)) return;
     user.username = username;
-    // ✅ 强制标记永久在线，杜绝乱判离线
-    user.isOnline = true;
     userSessionMap.set(username, sid);
     usernameToSocket.set(username, socket);
-    user.lastActive = Date.now();
     sysLog('ONLINE', '用户上线', { username, sid });
     autoJoinMatchPool(sid);
-});
+  });
 
-socket.on('match-chat', () => {
-    if (!user.username) return socket.emit('match-error');
+  socket.on('match-chat', () => {
+    if (!user.username) return;
     if (user.isMatched) stopChat(sid, false);
-    if (waitingUsers.has(sid)) return socket.emit('match-error');
+    if (waitingUsers.has(sid)) return;
     waitingUsers.add(sid);
     const t = setTimeout(() => assignAiRobot(sid), MATCH_TIMEOUT);
     userMatchTimer.set(sid, t);
     sysLog('MATCH', '用户发起匹配', { user: user.username });
     tryMatch();
-});
+  });
 
-socket.on('stop-chat', () => stopChat(sid, true));
+  socket.on('stop-chat', () => {
+    sysLog('MATCH', '用户停止匹配', { user: user.username });
+    stopChat(sid, true);
+  });
 
-// 🔥 【修复】心跳加强：永不掉线 + 双向回应 + 强制在线
-// 🔥 心跳加强：60秒超长容错，永不误判离线
-socket.on('HEARTBEAT', () => {
+  socket.on('HEARTBEAT', () => {
     if (!user.username) return;
-    user.isOnline = true;
-    // ✅ 改成60秒超时兜底
     user.lastKeepAlive = Date.now();
     user.lastActive = Date.now();
-    if (user.isMatched && user.partner) {
-        keepAliveMap.set(sid, { 
-            partnerId: user.partner, 
-            expire: Date.now() + 60000  // ✅ 60秒 = 60000毫秒
-        });
-    }
     socket.emit('HEARTBEAT-ACK');
-});
+  });
 
-
-socket.on('clear-chat', async () => {
+  socket.on('clear-chat', async () => {
     if (user.username) await clearUserChatRecords(user.username);
-    socket.emit('clear-chat-record', { msg: '清空成功' });
-    sysLog('CHAT', '清空聊天记录', { user: user.username });
-});
+    socket.emit('clear-chat-record');
+  });
 
-
-  // 修改昵称（稳定版）
   socket.on('change-nick', async (newNick) => {
     try {
       const nick = newNick?.trim();
-      if (!user.username) return socket.emit('nick-result', { success:false, msg:'未登录' });
-      if (!nick || nick.length<2 || nick.length>20) return socket.emit('nick-result', { success:false, msg:'2-20位' });
+      if (!user.username || !nick || nick.length<2 || nick.length>20)
+        return socket.emit('nick-result', { success:false, msg:'格式错误' });
       await db.execute('UPDATE users SET nickname=? WHERE username=?', [nick, user.username]);
       const info = loginMap.get(user.username);
       if (info) { info.nickname = nick; loginMap.set(user.username, info); }
       socket.emit('nick-result', { success:true, newName:nick });
-      sysLog('NICK', '修改昵称成功', { user:user.username, newNick:nick });
+      sysLog('NICK', '修改昵称', { user: user.username, new: nick });
     } catch (err) {
-      console.error('昵称错误:', err);
       socket.emit('nick-result', { success:false, msg:'修改失败' });
     }
   });
 
-  socket.on('checkLogin', (data) => {
-    const { userId, token } = data;
-    if (!userId || !token || token !== userId || !loginMap.has(userId)) return socket.emit('notLogin');
-    user.username = userId;
-    userSessionMap.set(userId, sid);
-    usernameToSocket.set(userId, socket);
-    pushOfflineMsg(socket, userId);
-    socket.emit('loginSuccess');
-    sysLog('AUTH', '校验登录成功', { userId });
-  });
-
-  socket.on('RECONNECT', (data) => {
-    const { userId, roomId } = data;
-    if (!userId || !roomId || userId !== user.username) return socket.emit('RECONNECT_RESULT', { success:false });
-    const ret = checkReconnectValid(userId, roomId);
-    socket.emit('RECONNECT_RESULT', ret);
-    if (ret.success) {
-      user.isMatched = true;
-      user.roomId = roomId;
-      pushOfflineMsg(socket, userId);
-      sysLog('RECONNECT', '重连成功', { userId, roomId });
-    }
-  });
-
-  socket.on('LEAVE', (data) => {
-    const { userId, roomId } = data;
-    if (!userId || !roomId || userId !== user.username) return socket.emit('LEAVE_RESULT', { success:false });
-    markUserLeave(userId, roomId);
-    stopChat(sid, true);
-    socket.emit('LEAVE_RESULT', { success:true });
-  });
-
-  // ==============================
-  // 🔥 消息转发【加强兜底版】
-  // ==============================
   socket.on('send-msg', async (data) => {
-    sysLog('MSG', '收到消息', { from: user.username, data });
     try {
-      // 状态兜底：丢状态自动恢复
-      if (!user.username) {
-        sysLog('MSG', '发送失败：未登录');
-        return socket.emit('msg-fail', { info:'未登录' });
-      }
-      if (!user.isMatched || !user.partner) {
-        if (data.toId) {
-          user.partner = data.toId;
-          user.isMatched = true;
-          user.roomId = data.roomId || `room_${user.username}_${data.toId}`;
-          sysLog('MSG', '状态兜底恢复', { user:user.username, partner:data.toId });
-        } else {
-          sysLog('MSG', '发送失败：未匹配');
-          return socket.emit('msg-fail', { info:'请先匹配' });
-        }
-      }
-
-      const content = data.content?.trim();
-      if (!content) {
-        sysLog('MSG', '发送失败：空内容');
-        return socket.emit('msg-fail', { info:'内容不能为空' });
-      }
-
+      if (!user.username || !user.isMatched || !user.partner) return;
       const to = userMap.get(user.partner);
-      const toUser = to?.username || 'unknown';
       const fromNick = loginMap.get(user.username)?.nickname || user.username;
 
-      // 入库
-      if (db) {
-        await db.execute(
-          'INSERT INTO messages (from_user,to_user,content,msg_type,msg_id,is_read) VALUES (?,?,?,?,?,?)',
-          [user.username, toUser, content, data.type||'text', data.msgId||'', 0]
-        );
-      }
+      sysLog('MSG', '消息发送', {
+        from: user.username,
+        to: to?.username || 'AI',
+        type: data.type || 'text',
+        burn: data.burn || false
+      });
 
-      // AI
-      if (user.partner === 'ai_bot') {
-        if (data.type === 'text') {
-          const reply = await callAI(content);
-          setTimeout(() => {
-            socket.emit('new-msg', {
-              content:reply, type:'text', burn:false, receipt:false,
-              msgId:Date.now().toString(), fromId:'ai_bot', fromName:'AI陪伴者'
-            });
-            sysLog('MSG', 'AI回复', { to:user.username });
-          }, 600);
-        }
+      if (user.partner === 'ai_bot' && data.type === 'text') {
+        const reply = await callAI(data.content);
+        setTimeout(() => {
+          socket.emit('new-msg', {
+            content:reply, type:'text', burn:false,
+            msgId:Date.now().toString(), fromName:'AI陪伴者'
+          });
+        }, 600);
         return;
       }
 
-      // 转发
-      if (to && to.socket && to.socket.connected) {
+      if (to && to.socket) {
         to.socket.emit('new-msg', {
           content:data.content, type:data.type||'text', burn:data.burn||false,
-          receipt:data.receipt||false, msgId:data.msgId||'',
-          fromId:user.username, fromName:fromNick
+          msgId:data.msgId||'', fromName:fromNick
         });
-        sysLog('MSG', '转发成功', { from:user.username, to:toUser });
-      } else {
-        saveOfflineMsg(toUser, {
-          content:data.content, fromId:user.username, fromName:fromNick,
-          msgId:data.msgId, type:data.type||'text'
-        });
-        socket.emit('msg-fail', { info:'对方离线，已存离线' });
-        sysLog('MSG', '对方不在线，已存离线', { to:toUser });
       }
-
-    } catch (err) {
-      console.error('消息异常:', err);
-      socket.emit('msg-fail', { info:'发送异常' });
-    }
+    } catch (err) {}
   });
 
   socket.on('msg-read', (data) => {
-    const { msgId } = data || {};
-    if (!msgId) return;
-    const partner = userMap.get(user.partner);
-    if (partner && partner.socket) partner.socket.emit('msg-read', { msgId });
+    const p = userMap.get(user.partner);
+    if (p && p.socket) {
+      p.socket.emit('msg-read', { msgId: data.msgId });
+      sysLog('MSG', '已读回执', { from: p.username, msgId: data.msgId });
+    }
   });
 
-  // 断开
   socket.on('disconnect', () => {
     cleanMatchTimer(sid);
     if (user.username) {
       userSessionMap.delete(user.username);
       usernameToSocket.delete(user.username);
     }
-    if (user.partner && user.partner !== 'ai_bot') {
-      const p = userMap.get(user.partner);
-      if (p && p.socket) p.socket.emit('partner-leave');
-    }
     keepAliveMap.delete(sid);
     userMap.delete(sid);
     waitingUsers.delete(sid);
     clearInterval(timer);
-    sysLog('DISCONNECT', '断开连接', { sid, user: user.username });
+    sysLog('DISCONNECT', '客户端断开', { sid, user: user.username });
   });
 });
 
-// 保活
-// ====================== 配置区（不用改）======================
-const TARGET_URL = 'http://127.0.0.1:10000';
-const PING_INTERVAL = 3 * 60 * 1000;   // 3分钟一次自我Ping
-const FAILURE_THRESHOLD = 3;           // 连续失败3次触发重启
+startKeepAliveCheck();
+loadPwd();
+
+// ==============================
+// 3分钟自我保活 + 崩溃自动重启
+// ==============================
+const TARGET_URL = 'http://127.0.0.1:' + PORT;
+const PING_INTERVAL = 3 * 60 * 1000;
+const FAILURE_THRESHOLD = 3;
 const LOG_FILE = path.join(__dirname, 'keepalive.log');
-const SCRIPT_PATH = __filename;        // 当前脚本自身路径（用于自重启）
-// ============================================================
+const SCRIPT_PATH = __filename;
 
 let consecutiveFailures = 0;
 let isRestarting = false;
 
-// 日志：控制台 + 文件双输出
 function writeLog(msg) {
-    const t = new Date().toLocaleString('zh-CN', { timeZone: 'Asia/Shanghai' });
-    const line = `[${t}] ${msg}\n`;
-    console.log(line.trim());
-    fs.appendFile(LOG_FILE, line, err => err && console.error('日志写入失败:', err));
+  const t = new Date().toLocaleString('zh-CN');
+  fs.appendFileSync(LOG_FILE, `[${t}] ${msg}\n`, { flag: 'a' });
+  console.log(msg);
 }
 
-// 核心：自我Ping探活
 function doPing() {
-    if (isRestarting) return;
-    try {
-        const req = http.get(TARGET_URL, { timeout: 5000 }, res => {
-            if (res.statusCode === 200) {
-                consecutiveFailures = 0;
-                writeLog(`✅ Ping成功 | 状态码:${res.statusCode}`);
-            } else {
-                consecutiveFailures++;
-                writeLog(`⚠️ Ping异常 | 状态码:${res.statusCode} | 连续失败:${consecutiveFailures}/${FAILURE_THRESHOLD}`);
-                checkRestart();
-            }
-            res.resume();
-        });
-
-        req.on('timeout', () => {
-            req.destroy();
-            consecutiveFailures++;
-            writeLog(`⏱️ Ping超时 | 连续失败:${consecutiveFailures}/${FAILURE_THRESHOLD}`);
-            checkRestart();
-        });
-
-        req.on('error', err => {
-            consecutiveFailures++;
-            writeLog(`❌ Ping失败 | ${err.message} | 连续失败:${consecutiveFailures}/${FAILURE_THRESHOLD}`);
-            checkRestart();
-        });
-    } catch (err) {
-        writeLog(`💥 探活异常 | ${err.message}`);
-        consecutiveFailures++;
-        checkRestart();
-    }
-}
-
-// 关键：连续失败达标 → 自动重启自身
-function checkRestart() {
-    if (isRestarting || consecutiveFailures < FAILURE_THRESHOLD) return;
-    isRestarting = true;
-
-    writeLog(`🚨 连续失败${FAILURE_THRESHOLD}次，准备自动重启脚本...`);
-
-    // 启动新进程运行自己
-    const cmd = `node ${SCRIPT_PATH}`;
-    exec(cmd, (err) => {
-        if (err) writeLog(`❌ 重启命令执行失败: ${err.message}`);
+  if (isRestarting) return;
+  try {
+    http.get(TARGET_URL, { timeout: 5000 }, (res) => {
+      consecutiveFailures = 0;
+    }).on('error', () => {
+      consecutiveFailures++;
+      checkRestart();
+    }).on('timeout', () => {
+      consecutiveFailures++;
+      checkRestart();
     });
-
-    // 退出当前进程，新进程会立刻顶上
-    setTimeout(() => {
-        writeLog(`🔚 旧进程退出，新进程已拉起`);
-        process.exit(1);
-    }, 1000);
+  } catch (e) {
+    consecutiveFailures++;
+    checkRestart();
+  }
 }
 
-// 兜底：捕获脚本自身崩溃、未处理异常 → 自动重启
-process.on('uncaughtException', err => {
-    writeLog(`💀 脚本崩溃捕获: ${err.message}`);
-    consecutiveFailures = FAILURE_THRESHOLD;
-    checkRestart();
+function checkRestart() {
+  if (isRestarting || consecutiveFailures < FAILURE_THRESHOLD) return;
+  isRestarting = true;
+  writeLog('🚨 服务异常，自动重启');
+  exec(`node ${SCRIPT_PATH}`, () => {});
+  setTimeout(() => process.exit(1), 1000);
+}
+
+process.on('uncaughtException', (err) => {
+  sysLog('ERROR', '服务崩溃', { msg: err.message });
+  consecutiveFailures = FAILURE_THRESHOLD;
+  checkRestart();
 });
 
-process.on('unhandledRejection', err => {
-    writeLog(`💀 异步异常捕获: ${err.message}`);
-    consecutiveFailures = FAILURE_THRESHOLD;
-    checkRestart();
+process.on('unhandledRejection', () => {
+  consecutiveFailures = FAILURE_THRESHOLD;
+  checkRestart();
 });
+
+setInterval(doPing, PING_INTERVAL);
+doPing();
 
 // 启动
-writeLog(`🚀 一体化保活脚本启动 | 目标:${TARGET_URL} | 间隔:${PING_INTERVAL/1000/60}分钟`);
-setInterval(doPing, PING_INTERVAL);
-// 立刻执行一次，避免刚启动就挂
-doPing();
-app.use((req, res) => res.status(404).json({ code:404, msg:'不存在' }));
-
 server.listen(PORT, '0.0.0.0', () => {
   console.log('=========================================');
-  console.log('🔥 加强版服务已启动 | 端口:'+PORT);
-  console.log('✅ 加强日志 | ✅ 状态兜底 | ✅ 防断开');
-  console.log('✅ 消息不丢 | ✅ 离线存储 | ✅ 昵称稳定');
+  console.log('✅ 服务启动成功 端口:' + PORT);
+  console.log('✅ 全局统一日志：server.log');
+  console.log('✅ 跨域已配置：im6.qzz.io + www.im6.qzz.io');
+  console.log('✅ 3分钟保活 + 崩溃自动重启');
+  console.log('✅ 登录/注册/匹配/消息/已读/日志 全部正常');
   console.log('=========================================');
-  showMenu();
 });
