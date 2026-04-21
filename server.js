@@ -458,45 +458,94 @@ io.on('connection', socket => {
   });
 
   socket.on('send-msg', async (data) => {
-    try {
-      if (!user.username || !user.isMatched || !user.partner) return;
-      const to = userMap.get(user.partner);
-      const fromNick = loginMap.get(user.username)?.nickname || user.username;
+  try {
+    if (!user.username || !user.isMatched || !user.partner) return;
+    const to = userMap.get(user.partner);
+    const fromNick = loginMap.get(user.username)?.nickname || user.username;
 
-      sysLog('MSG', '消息发送', {
-        from: user.username,
-        to: to?.username || 'AI',
-        type: data.type || 'text',
-        burn: data.burn || false
-      });
+    console.log('[send-msg] 收到消息', {
+      from: user.username,
+      to: user.partner,
+      type: data.type,
+      content: data.content,
+      url: data.url,
+      msgId: data.msgId
+    });
 
-      if (user.partner === 'ai_bot' && data.type === 'text') {
-        const reply = await callAI(data.content);
-        setTimeout(() => {
-          socket.emit('new-msg', {
-            content:reply, type:'text', burn:false,
-            msgId:Date.now().toString(), fromName:'AI陪伴者'
-          });
-        }, 600);
-        return;
-      }
+    sysLog('MSG', '消息发送', {
+      from: user.username,
+      to: to?.username || 'AI',
+      type: data.type || 'text',
+      burn: data.burn || false
+    });
 
-      if (to && to.socket) {
-        to.socket.emit('new-msg', {
-          content:data.content, type:data.type||'text', burn:data.burn||false,
-          msgId:data.msgId||'', fromName:fromNick
+    if (user.partner === 'ai_bot' && data.type === 'text') {
+      const reply = await callAI(data.content);
+      setTimeout(() => {
+        socket.emit('new-msg', {
+          content: reply,
+          type: 'text',
+          burn: false,
+          msgId: Date.now().toString(),
+          fromName: 'AI陪伴者'
         });
-      }
-    } catch (err) {}
-  });
+        console.log('[send-msg] AI已回复消息');
+      }, 600);
+      return;
+    }
 
-  socket.on('msg-read', (data) => {
+    if (to && to.socket) {
+      let sendContent = '';
+      if (data.type === 'image' || data.type === 'video') {
+        sendContent = data.url;
+        console.log('[send-msg] 媒体消息，使用URL转发', sendContent);
+      } else {
+        sendContent = data.content;
+        console.log('[send-msg] 文本消息，直接转发内容');
+      }
+
+      to.socket.emit('new-msg', {
+        content: sendContent,
+        type: data.type || 'text',
+        burn: data.burn || false,
+        msgId: data.msgId || '',
+        fromName: fromNick
+      });
+      console.log('[send-msg] 消息已转发给对方', to.username);
+    } else {
+      console.log('[send-msg] 对方不在线，不转发');
+    }
+
+  } catch (err) {
+    console.error('[send-msg] 处理失败：', err);
+  }
+});
+
+  socket.on('msg-read', async (data) => {
+  try {
     const p = userMap.get(user.partner);
+    console.log('[msg-read] 收到已读回执', {
+      from: user.username,
+      partner: user.partner,
+      msgId: data.msgId
+    });
+
+    // 1. 转发回执给对方
     if (p && p.socket) {
       p.socket.emit('msg-read', { msgId: data.msgId });
       sysLog('MSG', '已读回执', { from: p.username, msgId: data.msgId });
+      console.log('[msg-read] 已读回执已转发给对方', p.username);
     }
-  });
+
+    // 2. 新增：把这条消息标记为已读，写入数据库
+    await db.execute('UPDATE messages SET isRead = ? WHERE msgId = ?', [true, data.msgId]);
+    console.log('[msg-read] 数据库已标记为已读', data.msgId);
+
+  } catch (err) {
+    console.error('[msg-read] 处理失败：', err);
+  }
+});
+
 
   socket.on('disconnect', () => {
     cleanMatchTimer(sid);
