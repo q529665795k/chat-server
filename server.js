@@ -508,18 +508,22 @@ socket.on('match-chat', () => {
 socket.on('stop-chat', () => stopChat(sid, true));
 
 // 🔥 【修复】心跳加强：永不掉线 + 双向回应 + 强制在线
+// 🔥 心跳加强：60秒超长容错，永不误判离线
 socket.on('HEARTBEAT', () => {
     if (!user.username) return;
-    // ✅ 每次心跳强制拉回在线状态，杜绝误判离线
     user.isOnline = true;
+    // ✅ 改成60秒超时兜底
     user.lastKeepAlive = Date.now();
     user.lastActive = Date.now();
     if (user.isMatched && user.partner) {
-        keepAliveMap.set(sid, { partnerId: user.partner, expire: Date.now() + 300000 });
+        keepAliveMap.set(sid, { 
+            partnerId: user.partner, 
+            expire: Date.now() + 60000  // ✅ 60秒 = 60000毫秒
+        });
     }
-    // ✅ 关键：必须给前端回包！前端收到回应才认为连接活着
     socket.emit('HEARTBEAT-ACK');
 });
+
 
 socket.on('clear-chat', async () => {
     if (user.username) await clearUserChatRecords(user.username);
