@@ -480,18 +480,21 @@ io.on('connection', socket => {
   });
 
   // 用户上线（加强状态兜底）
-  socket.on('user-online', (data) => {
+  // 用户上线（加强状态兜底）
+socket.on('user-online', (data) => {
     const { username } = data;
     if (!username || !loginMap.has(username)) return;
     user.username = username;
+    // ✅ 强制标记永久在线，杜绝乱判离线
+    user.isOnline = true;
     userSessionMap.set(username, sid);
     usernameToSocket.set(username, socket);
     user.lastActive = Date.now();
     sysLog('ONLINE', '用户上线', { username, sid });
     autoJoinMatchPool(sid);
-  });
+});
 
-  socket.on('match-chat', () => {
+socket.on('match-chat', () => {
     if (!user.username) return socket.emit('match-error');
     if (user.isMatched) stopChat(sid, false);
     if (waitingUsers.has(sid)) return socket.emit('match-error');
@@ -500,26 +503,30 @@ io.on('connection', socket => {
     userMatchTimer.set(sid, t);
     sysLog('MATCH', '用户发起匹配', { user: user.username });
     tryMatch();
-  });
+});
 
-  socket.on('stop-chat', () => stopChat(sid, true));
+socket.on('stop-chat', () => stopChat(sid, true));
 
-  // 🔥 心跳加强：永不掉线
-  socket.on('HEARTBEAT', () => {
+// 🔥 【修复】心跳加强：永不掉线 + 双向回应 + 强制在线
+socket.on('HEARTBEAT', () => {
     if (!user.username) return;
+    // ✅ 每次心跳强制拉回在线状态，杜绝误判离线
+    user.isOnline = true;
     user.lastKeepAlive = Date.now();
     user.lastActive = Date.now();
     if (user.isMatched && user.partner) {
-      keepAliveMap.set(sid, { partnerId:user.partner, expireTime: Date.now() + KEEP_ALIVE_EXPIRE });
+        keepAliveMap.set(sid, { partnerId: user.partner, expire: Date.now() + 300000 });
     }
-    // sysLog('HEARTBEAT', '心跳正常', { user: user.username });
-  });
+    // ✅ 关键：必须给前端回包！前端收到回应才认为连接活着
+    socket.emit('HEARTBEAT-ACK');
+});
 
-  socket.on('clear-chat', async () => {
+socket.on('clear-chat', async () => {
     if (user.username) await clearUserChatRecords(user.username);
     socket.emit('clear-chat-record', { msg: '清空成功' });
     sysLog('CHAT', '清空聊天记录', { user: user.username });
-  });
+});
+
 
   // 修改昵称（稳定版）
   socket.on('change-nick', async (newNick) => {
