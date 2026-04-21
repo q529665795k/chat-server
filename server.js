@@ -475,10 +475,11 @@ startKeepAliveCheck();
 loadPwd();
 
 // ==============================
-// 3分钟自我保活 + 崩溃自动重启
+// 3分钟自我保活 + 崩溃自动重启（优化版：首次延迟30秒）
 // ==============================
-const TARGET_URL = 'http://127.0.0.1:' + PORT;
-const PING_INTERVAL = 3 * 60 * 1000;
+const TARGET_URL = `http://127.0.0.1:${PORT}`;
+const PING_INTERVAL = 3 * 60 * 1000; // 3分钟
+const FIRST_DELAY = 30 * 1000;       // 首次延迟30秒
 const FAILURE_THRESHOLD = 3;
 const LOG_FILE = path.join(__dirname, 'keepalive.log');
 const SCRIPT_PATH = __filename;
@@ -488,49 +489,66 @@ let isRestarting = false;
 
 function writeLog(msg) {
   const t = new Date().toLocaleString('zh-CN');
-  fs.appendFileSync(LOG_FILE, `[${t}] ${msg}\n`, { flag: 'a' });
-  console.log(msg);
+  const logStr = `[${t}] ${msg}`;
+  fs.appendFileSync(LOG_FILE, logStr + '\n', { flag: 'a' });
+  console.log(logStr);
 }
 
-function doPing() {
+// 健康检查：服务 + MySQL 双检测
+async function doHealthCheck() {
   if (isRestarting) return;
+
   try {
-    http.get(TARGET_URL, { timeout: 5000 }, (res) => {
-      consecutiveFailures = 0;
-    }).on('error', () => {
-      consecutiveFailures++;
-      checkRestart();
-    }).on('timeout', () => {
-      consecutiveFailures++;
-      checkRestart();
+    // 1. 检查服务端口
+    await new Promise((resolve, reject) => {
+      const req = http.get(TARGET_URL, { timeout: 5000 }, (res) => {
+        if (res.statusCode === 200) resolve();
+        else reject(new Error('服务异常'));
+      });
+      req.on('error', reject);
+      req.on('timeout', () => {
+        req.destroy();
+        reject(new Error('请求超时'));
+      });
     });
-  } catch (e) {
+
+    // 2. 检查MySQL
+    if (db) {
+      await db.execute('SELECT 1');
+    }
+
+    consecutiveFailures = 0;
+    writeLog('✅ 健康检查正常：服务+MySQL在线');
+  } catch (err) {
     consecutiveFailures++;
-    checkRestart();
+    writeLog(`⚠️ 健康检查失败 ${consecutiveFailures}/${FAILURE_THRESHOLD}：${err.message}`);
+
+    if (consecutiveFailures >= FAILURE_THRESHOLD && !isRestarting) {
+      isRestarting = true;
+      writeLog('🚨 连续异常，自动重启服务');
+      const child = require('child_process').exec;
+      child(`node ${SCRIPT_PATH}`, () => {});
+      setTimeout(() => process.exit(1), 1500);
+    }
   }
 }
 
-function checkRestart() {
-  if (isRestarting || consecutiveFailures < FAILURE_THRESHOLD) return;
-  isRestarting = true;
-  writeLog('🚨 服务异常，自动重启');
-  exec(`node ${SCRIPT_PATH}`, () => {});
-  setTimeout(() => process.exit(1), 1000);
-}
+// 首次延迟30秒执行，之后每3分钟一次
+setTimeout(() => {
+  doHealthCheck();
+  setInterval(doHealthCheck, PING_INTERVAL);
+}, FIRST_DELAY);
 
+// 全局异常捕获
 process.on('uncaughtException', (err) => {
   sysLog('ERROR', '服务崩溃', { msg: err.message });
   consecutiveFailures = FAILURE_THRESHOLD;
-  checkRestart();
+  doHealthCheck();
 });
-
 process.on('unhandledRejection', () => {
   consecutiveFailures = FAILURE_THRESHOLD;
-  checkRestart();
+  doHealthCheck();
 });
-
-setInterval(doPing, PING_INTERVAL);
-doPing();
 
 // 启动
 server.listen(PORT, '0.0.0.0', () => {
