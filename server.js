@@ -300,34 +300,72 @@ app.get('/', (req, res) => {
 // 注册
 app.post('/register', async (req, res) => {
   try {
+    // 先判断数据库是否就绪
+    if (!db) {
+      return res.json({ code: 500, msg: "数据库初始化中，请稍候重试" });
+    }
+
     const { username, password } = req.body;
-    if (!username || !password) return res.json({ code: 400, msg: '请输入账号密码' });
+    if (!username || !password) {
+      return res.json({ code: 400, msg: '请输入账号密码' });
+    }
+
     const [rows] = await db.execute('SELECT id FROM users WHERE username=?', [username]);
-    if (rows.length > 0) return res.json({ code: 400, msg: '账号已存在' });
+    if (rows.length > 0) {
+      return res.json({ code: 400, msg: '账号已存在' });
+    }
+
     await db.execute('INSERT INTO users (username, password, nickname) VALUES (?,?,?)', [username, password, username]);
     loginMap.set(username, { nickname: username, password });
     sysLog('USER', '新用户注册', { username });
+
     return res.json({ code: 200, msg: '注册成功' });
   } catch (err) {
+    console.error('注册异常：', err); // 后台打印真实错误，方便排查
     return res.json({ code: 500, msg: '注册失败' });
   }
 });
 
+
 // 登录
 app.post('/login', async (req, res) => {
   try {
+    // 👇 先判断数据库就绪没有（最关键）
+    if (!db) {
+      return res.json({ code: 500, msg: "数据库初始化中，请稍候重试" });
+    }
+
     const { username, password } = req.body;
-    if (!username || !password) return res.json({ code: 400, msg: '请输入账号密码' });
+    if (!username || !password) {
+      return res.json({ code: 400, msg: '请输入账号密码' });
+    }
+
     const [rows] = await db.execute('SELECT password,nickname FROM users WHERE username=?', [username]);
-    if (!rows || rows.length === 0) return res.json({ code: 404, msg: '账号不存在' });
-    if (rows[0].password !== password) return res.json({ code: 400, msg: '密码错误' });
-    loginMap.set(username, { nickname: rows[0].nickname || username, password });
+
+    if (!rows || rows.length === 0) {
+      return res.json({ code: 404, msg: '账号不存在' });
+    }
+
+    if (rows[0].password !== password) {
+      return res.json({ code: 400, msg: '密码错误' });
+    }
+
+    // 登录成功，缓存信息
+    loginMap.set(username, {
+      nickname: rows[0].nickname || username,
+      password: password
+    });
+
     sysLog('USER', '用户登录', { username });
     return res.json({ code: 200, msg: '登录成功' });
+
   } catch (err) {
-    return res.json({ code: 500, msg: '服务器错误' });
+    // 打印真实错误，方便你看问题
+    console.error("登录异常:", err);
+    return res.json({ code: 500, msg: '服务器异常，请稍后再试' });
   }
 });
+
 
 // Socket
 const io = new Server(server, {
