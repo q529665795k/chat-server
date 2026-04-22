@@ -508,10 +508,7 @@ io.on('connection', socket => {
     socket.emit('clear-chat-record');
   });
 
-  socket.on('change-nick', async (newNick) => {
-  socket.on('change-nick', async (newNick) => {
-  const now = new Date().toLocaleString();
-
+  
   // 1. 校验登录状态
   socket.on('change-nick', async (newNick) => {
   const now = new Date().toLocaleString();
