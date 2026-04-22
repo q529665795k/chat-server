@@ -34,7 +34,7 @@ async function callAI(prompt) {
 let db;
 (async () => {
   try {
-    const D1_DB_ID = "584cf375e1b82b17d54d67b4f2f4fa7db";
+    const D1_DB_ID = "f5d94c67-cc62-451f-8038-21cfe66aace7";
     const CF_API_TOKEN = process.env.CLOUDFLARE_API_TOKEN;
 
     const dbCore = {
