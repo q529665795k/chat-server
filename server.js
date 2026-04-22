@@ -644,8 +644,7 @@ startKeepAliveCheck();
 loadPwd();
 
 // ===================== 3分钟自我保活 + 精准重启逻辑 =====================
-// 规则：只有Ping自己失败才重启，数据库异常只警告不重启
-conconst http = require('http');
+// 规则：只有Ping自己失败才重启，数据库异常只警告不重启const http = require('http');
 const fs = require('fs');
 const path = require('path');
 
