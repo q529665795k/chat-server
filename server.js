@@ -311,50 +311,58 @@ app.use((err, req, res, next) => {
   res.status(500).json({ code: 500, msg: "服务器异常：" + err.message });
 });
 
-// 注册接口
 app.post('/register', async (req, res, next) => {
   try {
     const { username, password, nickname } = req.body;
     const now = new Date().toLocaleString();
-    console.log(`📝【注册请求】[${now}] 接收参数 -> 账号:${username} | 明文密码:${password} | 昵称:${nickname}`);
+    console.log(`📝【注册请求】[${now}] 账号:${username} | 明文密码:${password} | 昵称:${nickname}`);
 
     // 基础校验
     if (!username || !password) {
       console.log(`❌【注册失败】[${now}] 账号或密码不能为空`);
-      return res.json({ code: 400, msg: '❌ 账号密码不能为空' });
+      return res.json({ code: 400, msg: '账号密码不能为空' });
     }
 
     // 查重
-    const existUser = await db.get("SELECT * FROM users WHERE username = ?", [username]);
+    const existUser = await db.prepare("SELECT * FROM users WHERE username = ?").bind(username).first();
     if (existUser) {
-      console.log(`❌【注册失败】[${now}] 账号已存在 -> ${username}`);
-      return res.json({ code: 409, msg: '❌ 账号已存在，换一个试试' });
+      console.log(`❌【注册失败】[${now}] 账号已存在:${username}`);
+      return res.json({ code: 409, msg: '账号已存在' });
     }
 
-    // 生成用户唯一ID & 默认昵称
-    const userId = Date.now().toString();
+    // 生成参数
+    const userId = String(Date.now());
     const finalNick = nickname || username;
     const createTime = new Date().toISOString();
 
-    // 100% 匹配D1语法 + 表结构一字不差
-    console.log(`📤【执行插入】[${now}] SQL参数 -> ID:${userId} | 账号:${username} | 明文密码:${password} | 昵称:${finalNick}`);
-    const insertResult = await db.run(
-      `INSERT INTO users (id,username,password,nickname,avatar,created_at) VALUES (?,?,?,?,?,?)`,
-      [userId, username, password, finalNick, '', createTime]
-    );
+    // ✅ 【致命修复】和数据库真实字段顺序完全一致
+    // id → username → nickname → password → avatar → created_at
+    const insertSql = `
+      INSERT INTO users 
+      (id, username, nickname, password, avatar, created_at) 
+      VALUES (?, ?, ?, ?, ?, ?)
+    `;
 
-    // ✅ 修复关键：D1正确读取影响行数
-    const affectRows = insertResult.meta?.changes || 0;
-    console.log(`📊【插入结果】[${now}] D1返回成功:${insertResult.success} | 影响行数:${affectRows}`);
+    // ✅ 参数顺序严格对应上面字段，一个都不能错
+    console.log(`📤【执行插入】参数顺序 -> ID:${userId} | 账号:${username} | 昵称:${finalNick} | 密码:${password} | 头像:'' | 创建时间:${createTime}`);
+    
+    // D1 标准执行
+    const insertResult = await db.prepare(insertSql)
+      .bind(userId, username, finalNick, password, '', createTime)
+      .run();
 
-    if (insertResult.success && affectRows > 0) {
-      console.log(`✅【注册成功】[${now}] 账号:${username} | 用户ID:${userId} | 已写入D1数据库`);
-      return res.json({ code: 200, msg: '✅ 注册成功' });
+    // 打印 D1 原生返回
+    console.log(`📊【D1完整返回】`, JSON.stringify(insertResult, null, 2));
+
+    if (insertResult.success && insertResult.meta.changes > 0) {
+      console.log(`✅【注册成功】[${now}] 用户ID:${userId} | 账号:${username} 已写入D1数据库`);
+      return res.json({ code: 200, msg: '注册成功' });
     } else {
-      throw new Error(`数据库执行失败，影响行数:${affectRows}`);
+      throw new Error(`D1执行失败: ${JSON.stringify(insertResult)}`);
     }
+
   } catch (err) {
-    console.error(`❌【注册失败】详细错误:`, err);
+    console.error(`❌【注册致命错误】`, err);
     next(err);
   }
 });
