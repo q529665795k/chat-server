@@ -33,23 +33,22 @@ async function callAI(prompt) {
 // ===== D1 数据库连接【定稿版】=====
 
 
-// ===== D1 数据库【最终修复版】补全所有方法，解决 db.get 报错 =====
+// ===== D1 数据库【根治版】修复异步赋值 + 全方法补全 =====
 let db = null;
 
-async function initDatabase() {
+// 初始化数据库（同步初始化，保证db是真实对象）
+(async function initDatabase() {
     try {
         const cfToken = process.env.CLOUDFLARE_API_TOKEN;
         const d1DbId = process.env.D1_DATABASE_ID;
 
         if (!cfToken || !d1DbId) {
-            console.log("⚠️ 数据库环境变量缺失");
-            return null;
+            console.log("⚠️ D1数据库：环境变量缺失");
+            return;
         }
 
-        console.log("✅ D1 数据库连接成功");
-        
-        return {
-            // 补全你后端必须用到的 3 个核心方法
+        // 完整数据库实例，四个核心方法全齐
+        db = {
             query: async (sql, params = []) => {
                 try {
                     const res = await fetch(
@@ -68,26 +67,27 @@ async function initDatabase() {
                     return { success: false, result: [] };
                 }
             },
-            execute: async function(sql, params = []) {
+            execute: function(sql, params = []) {
                 return this.query(sql, params);
             },
-            run: async function(sql, params = []) {
+            run: function(sql, params = []) {
                 return this.query(sql, params);
             },
-            // 就是这个！之前漏了，现在补上！注册登录全靠它
             get: async function(sql, params = []) {
                 const r = await this.query(sql, params);
                 return r?.result?.[0] || null;
             }
         };
-    } catch (error) {
-        console.error("❌ D1连接失败：", error.message);
-        return null;
-    }
-}
 
-db = initDatabase();
+        console.log("✅ D1数据库：连接成功，所有方法就绪");
+    } catch (error) {
+        console.error("❌ D1数据库：连接失败", error.message);
+        db = null;
+    }
+})();
+
 module.exports = { db };
+
 
 
 
