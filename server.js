@@ -295,84 +295,128 @@ app.get('/', (req, res) => {
   res.send('✅ 服务运行正常 · 全局日志已开启');
 });
 
-// 注册
+// ====================== 【注册接口 · 独立完整段】 ======================
 app.post('/register', async (req, res) => {
+  const now = new Date().toLocaleString();
+  const { username, password, nickname } = req.body;
+
+  // 🔍 打印原始注册请求（明文带密码）
+  console.log(`\n[${now}] 【注册请求】收到新注册数据`);
+  console.log(`[${now}] 【注册请求】用户名: ${username}`);
+  console.log(`[${now}] 【注册请求】明文密码: ${password}`);
+  console.log(`[${now}] 【注册请求】昵称: ${nickname}`);
+
+  // 基础非空校验
+  if (!username || !password) {
+    console.log(`[${now}] 【注册失败】用户名或密码为空`);
+    return res.json({ code: 400, msg: '用户名和密码不能为空' });
+  }
+
   try {
-    // 先判断数据库是否就绪
-    if (!db) {
-      return res.json({ code: 500, msg: "数据库初始化中，请稍候重试" });
+    // 📊 第一步：先查数据库，判断账号是否已存在
+    console.log(`[${now}] 【注册步骤】查询数据库，检查账号是否已存在: ${username}`);
+    const [existUser] = await db.query('SELECT * FROM users WHERE username = ?', [username]);
+
+    if (existUser.length > 0) {
+      console.log(`[${now}] 【注册失败】❌ 账号已存在，注册终止 → ${username}`);
+      return res.json({ code: 400, msg: '账号已存在，换个用户名试试' });
     }
 
-    const { username, password } = req.body;
-    if (!username || !password) {
-      return res.json({ code: 400, msg: '请输入账号密码' });
-    }
+    // ✅ 账号不存在，写入数据库
+    console.log(`[${now}] 【注册步骤】✅ 账号不存在，准备写入数据库`);
+    await db.query(
+      'INSERT INTO users (username, password, nickname) VALUES (?, ?, ?)',
+      [username, password, nickname || username]
+    );
 
-    const [rows] = await db.execute('SELECT id FROM users WHERE username=?', [username]);
-    if (rows.length > 0) {
-      return res.json({ code: 400, msg: '账号已存在' });
-    }
-
-    await db.execute('INSERT INTO users (username, password, nickname) VALUES (?,?,?)', [username, password, username]);
-    loginMap.set(username, { nickname: username, password });
-    sysLog('USER', '新用户注册', { username });
+    // 🎉 注册成功，打印入库日志
+    console.log(`[${now}] 【注册成功】✅ 新账号已成功存入数据库`);
+    console.log(`[${now}] 【注册成功】入库用户名: ${username}`);
+    console.log(`[${now}] 【注册成功】入库明文密码: ${password}`);
+    console.log(`[${now}] 【注册成功】入库昵称: ${nickname || username}`);
 
     return res.json({ code: 200, msg: '注册成功' });
+
   } catch (err) {
-    console.error('注册异常：', err);
-    return res.json({ code: 500, msg: '注册失败' });
+    console.log(`[${now}] 【注册异常】❌ 数据库操作失败:`, err);
+    return res.json({ code: 500, msg: '注册失败，服务器异常' });
   }
 });
 
+
 // 登录
-// 登录
+// ====================== 【登录接口 · 完整保留你的缓存+昵称逻辑 + 全流程详细日志】 ======================
 app.post('/login', async (req, res) => {
+  const now = new Date().toLocaleString();
+  const { username, password } = req.body;
+
+  // ========== 1. 打印原始登录请求（明文带密码） ==========
+  console.log(`\n[${now}] 【登录请求】收到登录数据`);
+  console.log(`[${now}] 【登录请求】尝试登录用户名: ${username}`);
+  console.log(`[${now}] 【登录请求】尝试登录明文密码: ${password}`);
+
+  // ========== 2. 基础校验 ==========
+  if (!username || !password) {
+    console.log(`[${now}] 【登录失败】用户名或密码为空`);
+    return res.json({ code: 400, msg: '用户名和密码不能为空' });
+  }
+
   try {
-    // 先判断数据库就绪没有（最关键）
-    if (!db) {
-      return res.json({ code: 500, msg: '数据库初始化中，请稍后重试' });
+    // ========== 3. 第一步：先查询数据库，找该用户名 ==========
+    console.log(`[${now}] 【登录步骤】第一步：查询数据库，查找用户名 → ${username}`);
+    const [rows] = await db.query('SELECT * FROM users WHERE username = ?', [username]);
+
+    // ========== 4. 判断：账号不存在 ==========
+    if (rows.length === 0) {
+      console.log(`[${now}] 【登录结果】❌ 账号不存在，数据库无匹配记录 → ${username}`);
+      return res.json({ code: 400, msg: '账号不存在，请先注册' });
     }
 
-    const { username, password } = req.body;
-    if (!username || !password) {
-      return res.json({ code: 400, msg: '请输入账号密码' });
-    }
+    // ========== 5. 账号存在，对比密码 ==========
+    console.log(`[${now}] 【登录步骤】账号存在，开始校验密码`);
+    console.log(`[${now}] 【登录步骤】数据库中存储的密码: ${rows[0].password}`);
+    console.log(`[${now}] 【登录步骤】用户输入的明文密码: ${password}`);
 
-    const [rows] = await db.execute('SELECT password,nickname FROM users WHERE username=?', [username]);
-    if (!rows || rows.length === 0) {
-      return res.json({ code: 404, msg: '账号不存在' });
-    }
-
+    // ========== 6. 判断：密码错误 ==========
     if (rows[0].password !== password) {
+      console.log(`[${now}] 【登录结果】❌ 密码错误，登录失败 → 用户名: ${username}`);
       return res.json({ code: 400, msg: '密码错误' });
     }
 
-    // ✅ 内存缓存最新昵称
+    // ========== ✅ 这里完全保留你原来的【内存缓存最新昵称】逻辑 ==========
+    console.log(`[${now}] 【登录步骤】✅ 密码校验通过，开始缓存用户信息`);
     loginMap.set(username, {
       nickname: rows[0].nickname || username,
       password: password
     });
 
-    // 🔥 新增你要的日志
-    console.log('[LOGIN] 已从数据库读取最新昵称', {
+    // ========== ✅ 这里完全保留你原来的【昵称读取日志】 ==========
+    console.log(`[${now}] 【登录步骤】✅ 已从数据库读取最新昵称`, {
       username: username,
       latestNickname: rows[0].nickname || username
     });
 
+    // ========== 原有系统日志 ==========
     sysLog('USER', '用户登录', { username });
 
-    // ✅ 把最新昵称返回给前端
-    return res.json({ 
-      code: 200, 
+    // ========== 登录成功日志 ==========
+    console.log(`[${now}] 【登录结果】✅ 登录成功！`);
+    console.log(`[${now}] 【登录结果】登录账号: ${username}`);
+    console.log(`[${now}] 【登录结果】登录昵称: ${rows[0].nickname || username}`);
+
+    // ========== ✅ 完全保留你原来的返回前端逻辑 ==========
+    return res.json({
+      code: 200,
       msg: '登录成功',
       nickname: rows[0].nickname || username
     });
 
   } catch (err) {
-    console.error('登录异常：', err);
-    return res.json({ code: 500, msg: '服务器异常，请稍后再试' });
+    console.log(`[${now}] 【登录异常】❌ 数据库查询失败:`, err);
+    return res.json({ code: 500, msg: '服务器异常' });
   }
 });
+
 
 
 
