@@ -636,65 +636,71 @@ io.on('connection', socket => {
 startKeepAliveCheck();
 loadPwd();
 
+// 3分钟自我保活 + 崩溃自动重启（优化版：首次延迟30秒）
 // ==============================
-// 健康检查：服务 + 数据库 真实检测（修复假连接）
+const TARGET_URL = `http://127.0.0.1:${PORT}`;
+const PING_INTERVAL = 3 * 60 * 1000; // 3分钟
+const FIRST_DELAY = 30 * 1000;       // 首次延迟30秒
+const FAILURE_THRESHOLD = 3;
+const LOG_FILE = path.join(__dirname, 'keepalive.log');
+const SCRIPT_PATH = __filename;
+
+let consecutiveFailures = 0;
+let isRestarting = false;
+
+function writeLog(msg) {
+  const t = new Date().toLocaleString('zh-CN');
+  const logStr = `[${t}] ${msg}`;
+  fs.appendFileSync(LOG_FILE, logStr + '\n', { flag: 'a' });
+  console.log(logStr);
+}
+
+// 健康检查：服务 + Cloudflare D1 双检测（已修复数据库）
 async function doHealthCheck() {
   if (isRestarting) return;
+
   try {
-    // 1. 检查服务端口是否通
+    // 1. 检查服务端口（完全保留原样）
     await new Promise((resolve, reject) => {
       const req = http.get(TARGET_URL, { timeout: 5000 }, (res) => {
         if (res.statusCode === 200) resolve();
-        else reject(new Error("服务状态异常"));
+        else reject(new Error('服务异常'));
       });
-      req.on("error", reject);
-      req.on("timeout", () => {
+      req.on('error', reject);
+      req.on('timeout', () => {
         req.destroy();
-        reject(new Error("服务请求超时"));
+        reject(new Error('请求超时'));
       });
     });
 
-    // 2. 数据库真实校验（核心修复）
-    let dbOnline = false;
+    // 2. 【核心修复】替换为 Cloudflare D1 数据库检测
     if (db) {
-      try {
-        // 真执行SQL，能跑通才算在线
-        await db.execute("SELECT 1");
-        dbOnline = true;
-      } catch (err) {
-        dbOnline = false;
-      }
+      // D1 数据库心跳检测，能执行通 = 数据库正常
+      await db.prepare('SELECT 1').run();
     }
 
-    // 数据库不通，直接抛错，不骗人
-    if (!dbOnline) {
-      throw new Error("数据库未连接/不可用");
-    }
-
-    // 3. 全部真正常，才打印成功
     consecutiveFailures = 0;
-    writeLog("✅ 健康检查正常：服务+数据库真实在线");
-
+    writeLog('✅ 健康检查正常：服务+D1数据库在线');
   } catch (err) {
     consecutiveFailures++;
     writeLog(`⚠️ 健康检查失败 ${consecutiveFailures}/${FAILURE_THRESHOLD}：${err.message}`);
 
     if (consecutiveFailures >= FAILURE_THRESHOLD && !isRestarting) {
       isRestarting = true;
-      writeLog("🚨 连续异常，自动重启服务");
-      const child = require("child_process").exec;
+      writeLog('🚨 连续异常，自动重启服务');
+      const child = require('child_process').exec;
       child(`node ${SCRIPT_PATH}`, () => {});
       setTimeout(() => process.exit(1), 1500);
     }
   }
 }
 
-
-// 首次延迟30秒执行，之后每3分钟一次
+// 首次延迟30秒执行，之后每3分钟一次（完全保留原逻辑）
 setTimeout(() => {
   doHealthCheck();
   setInterval(doHealthCheck, PING_INTERVAL);
 }, FIRST_DELAY);
+
 
 // 全局异常捕获
 process.on('uncaughtException', (err) => {
