@@ -687,15 +687,54 @@ async function doHealthCheck() {
       await db.prepare('SELECT 1').run();
       writeLog('✅ D1数据库连接正常');
     } catch (dbErr) {
-      writeLog('⚠️ D1数据库连接异常，但服务正常运行');
+// 3分钟自我保活 + 崩溃自动重启（优化版：首次延迟30秒）
+// ==============================
+const TARGET_URL = `http://127.0.0.1:${PORT}`;
+const PING_INTERVAL = 3 * 60 * 1000; // 3分钟
+const FIRST_DELAY = 30 * 1000;       // 首次延迟30秒
+const FAILURE_THRESHOLD = 3;
+const LOG_FILE = path.join(__dirname, 'keepalive.log');
+const SCRIPT_PATH = __filename;
+
+let consecutiveFailures = 0;
+let isRestarting = false;
+
+function writeLog(msg) {
+  const t = new Date().toLocaleString('zh-CN');
+  const logStr = `[${t}] ${msg}`;
+  fs.appendFileSync(LOG_FILE, logStr + '\n', { flag: 'a' });
+  console.log(logStr);
+}
+
+// 健康检查：服务 + MySQL 双检测
+async function doHealthCheck() {
+  if (isRestarting) return;
+
+  try {
+    // 1. 检查服务端口
+    await new Promise((resolve, reject) => {
+      const req = http.get(TARGET_URL, { timeout: 5000 }, (res) => {
+        if (res.statusCode === 200) resolve();
+        else reject(new Error('服务异常'));
+      });
+      req.on('error', reject);
+      req.on('timeout', () => {
+        req.destroy();
+        reject(new Error('请求超时'));
+      });
+    });
+
+    // 2. 检查MySQL
+    if (db) {
+      await db.execute('SELECT 1');
     }
 
+    consecutiveFailures = 0;
+    writeLog('✅ 健康检查正常：服务+MySQL在线');
   } catch (err) {
-    // ❌ 只有Ping失败 才判定服务异常 累加次数
     consecutiveFailures++;
     writeLog(`⚠️ 健康检查失败 ${consecutiveFailures}/${FAILURE_THRESHOLD}：${err.message}`);
 
-    // 🔴 只有连续Ping失败 才执行重启
     if (consecutiveFailures >= FAILURE_THRESHOLD && !isRestarting) {
       isRestarting = true;
       writeLog('🚨 连续异常，自动重启服务');
@@ -706,12 +745,11 @@ async function doHealthCheck() {
   }
 }
 
-// 启动定时器 保留你原来的逻辑
+// 首次延迟30秒执行，之后每3分钟一次
 setTimeout(() => {
   doHealthCheck();
   setInterval(doHealthCheck, PING_INTERVAL);
 }, FIRST_DELAY);
-
 // 全局异常兜底
 process.on('uncaughtException', (err) => {
   sysLog('ERROR', '服务崩溃', { msg: err.message });
