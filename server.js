@@ -30,13 +30,14 @@ async function callAI(prompt) {
 // ===== D1 数据库连接（只改这里，别的不动）=====
  
  // D1 数据库连接（修复版，保证 db.execute 可用）
+// ===== D1 数据库连接（只改这里，别的不动）=====
 let db;
 (async () => {
   try {
     const D1_DB_ID = process.env.MYSQL_DATABASE;
     const CF_API_TOKEN = process.env.CLOUDFLARE_API_TOKEN;
-
-    // 正确封装：直接给 db 挂 execute 方法，和你原来 MySQL 用法完全一致
+    
+    // 兼容 mysql2 风格：返回 [rows] 结构
     db = {
       execute: async (sql, ...params) => {
         const res = await fetch(
@@ -51,15 +52,17 @@ let db;
           }
         );
         const data = await res.json();
-        return data;
+        // D1 返回结果 => 包装成 mysql2 格式
+        const results = data.result?.[0]?.results || [];
+        return [results];
       }
     };
-
-    sysLog("DB", "✅ D1 数据库连接成功，execute 方法已就绪");
+    sysLog("DB", "✅ D1 数据库连接成功，execute 已兼容 mysql2 格式");
   } catch (err) {
     sysLog("DB", "❌ D1 数据库连接失败：" + err.message);
   }
 })();
+
 
 
 const PWD_FILE = path.join(__dirname, 'admin.pwd');
