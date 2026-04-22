@@ -31,8 +31,7 @@ async function callAI(prompt) {
 }
 
 // ===== D1 数据库连接【定稿版】=====
-let db;
-let db = null;
+
 
 async function initDatabase() {
     try {
