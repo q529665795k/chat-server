@@ -332,27 +332,38 @@ function startKeepAliveCheck() {
 }
 
 // 跨域
+// 精准白名单：只允许你的两个域名
+const allowOrigins = [
+  "https://im6.qzz.io",
+  "https://www.im6.qzz.io"
+];
+
+// 全局跨域 + API 403 拦截修复（无 * 号）
 app.use((req, res, next) => {
   const origin = req.headers.origin;
-  const allowList = ["https://im6.qzz.io", "https://www.im6.qzz.io"];
-  if (allowList.includes(origin)) {
-    res.header("Access-Control-Allow-Origin", origin);
+
+  // 只放行白名单里的域名
+  if (allowOrigins.includes(origin)) {
+    res.setHeader("Access-Control-Allow-Origin", origin);
   }
-  res.header("Access-Control-Allow-Methods", "GET, POST, OPTIONS");
-  res.header("Access-Control-Allow-Headers", "Content-Type");
-  res.header("Access-Control-Allow-Credentials", "true");
-  if (req.method === "OPTIONS") return res.sendStatus(200);
+
+  // 精准配置，不用 *
+  res.setHeader("Access-Control-Allow-Methods", "GET, POST, PUT, DELETE, OPTIONS");
+  res.setHeader("Access-Control-Allow-Headers", "Content-Type, Authorization, X-Requested-With");
+  res.setHeader("Access-Control-Allow-Credentials", "true");
+
+  // 预检请求直接放行，解决 403
+  if (req.method === "OPTIONS") {
+    return res.sendStatus(200);
+  }
+
   next();
 });
 
+// 保留你原来的解析配置，不动
 app.use(express.json({ limit: '10mb' }));
 app.use(express.urlencoded({ extended: true, limit: '10mb' }));
 
-// 全局异常捕获
-app.use((err, req, res, next) => {
-  console.error("❌【全局异常】", err.message);
-  res.status(500).json({ code: 500, msg: "服务器异常：" + err.message });
-});
 
 // ====================== 用户注册接口（MySQL完整版｜明文密码｜日志含密码） ======================
 app.post('/api/register', async (req, res) => {
@@ -459,13 +470,15 @@ app.post('/api/login', async (req, res) => {
 // Socket.io
 const io = new Server(server, {
   cors: {
-    origin: ["https://im6.qzz.io", "https://www.im6.qzz.io"],
+    origin: [
+      "https://im6.qzz.io",
+      "https://www.im6.qzz.io"
+    ],
+    methods: ["GET", "POST"],
     credentials: true
-  },
-  transports: ['websocket','polling'],
-  pingTimeout:60000,
-  pingInterval:25000
+  }
 });
+
 
 io.on('connection', socket => {
   const sid = socket.id;
