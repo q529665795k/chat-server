@@ -315,43 +315,50 @@ app.use((err, req, res, next) => {
 app.post('/register', async (req, res, next) => {
   try {
     const { username, password, nickname } = req.body;
-    console.log(`📝【注册请求】接收参数 -> 账号:${username} | 密码:${password} | 昵称:${nickname}`);
+    const now = new Date().toLocaleString();
+    console.log(`📝【注册请求】[${now}] 接收参数 -> 账号:${username} | 明文密码:${password} | 昵称:${nickname}`);
 
+    // 基础校验
     if (!username || !password) {
-      console.log(`❌【注册失败】账号或密码为空`);
+      console.log(`❌【注册失败】[${now}] 账号或密码不能为空`);
       return res.json({ code: 400, msg: '❌ 账号密码不能为空' });
     }
 
+    // 查重
     const existUser = await db.get("SELECT * FROM users WHERE username = ?", [username]);
     if (existUser) {
-      console.log(`❌【注册失败】账号已存在 -> ${username}`);
+      console.log(`❌【注册失败】[${now}] 账号已存在 -> ${username}`);
       return res.json({ code: 409, msg: '❌ 账号已存在，换一个试试' });
     }
 
-    // 修复：和数据库users表字段100%匹配 + 补全所有字段
+    // 生成用户唯一ID & 默认昵称
     const userId = Date.now().toString();
-    const userNick = nickname || username;
+    const finalNick = nickname || username;
+    const createTime = new Date().toISOString();
+
+    // 100% 匹配D1语法 + 表结构一字不差
+    console.log(`📤【执行插入】[${now}] SQL参数 -> ID:${userId} | 账号:${username} | 明文密码:${password} | 昵称:${finalNick}`);
     const insertResult = await db.run(
-      `INSERT INTO users
-      (id, username, password, nickname, avatar, created_at)
-      VALUES (?, ?, ?, ?, ?, ?)`,
-      [userId, username, password, userNick, '', new Date().toISOString()]
+      `INSERT INTO users (id,username,password,nickname,avatar,created_at) VALUES (?,?,?,?,?,?)`,
+      [userId, username, password, finalNick, '', createTime]
     );
 
-    console.log(`📤【执行插入】SQL参数 -> ID:${userId} | 账号:${username} | 明文密码:${password} | 昵称:${userNick}`);
-    console.log(`📊【插入结果】影响行数:${insertResult.changes}`);
+    // ✅ 修复关键：D1正确读取影响行数
+    const affectRows = insertResult.meta?.changes || 0;
+    console.log(`📊【插入结果】[${now}] D1返回成功:${insertResult.success} | 影响行数:${affectRows}`);
 
-    if (insertResult.changes > 0) {
-      console.log(`✅【注册成功】账号:${username} | 用户ID:${userId}`);
+    if (insertResult.success && affectRows > 0) {
+      console.log(`✅【注册成功】[${now}] 账号:${username} | 用户ID:${userId} | 已写入D1数据库`);
       return res.json({ code: 200, msg: '✅ 注册成功' });
     } else {
-      throw new Error('注册写入失败：数据库无插入行数');
+      throw new Error(`数据库执行失败，影响行数:${affectRows}`);
     }
   } catch (err) {
     console.error(`❌【注册失败】详细错误:`, err);
     next(err);
   }
 });
+
 
 
 // 登录接口
