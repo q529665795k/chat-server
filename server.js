@@ -645,6 +645,12 @@ loadPwd();
 
 // ===================== 3分钟自我保活 + 精准重启逻辑 =====================
 // 规则：只有Ping自己失败才重启，数据库异常只警告不重启
+conconst http = require('http');
+const fs = require('fs');
+const path = require('path');
+
+// ========== 你原来的所有配置 完全不动 ==========
+const PORT = process.env.PORT || 3000;
 const TARGET_URL = `http://127.0.0.1:${PORT}`;
 const PING_INTERVAL = 3 * 60 * 1000; // 3分钟检查一次 不动！
 const FIRST_DELAY = 30 * 1000;       // 启动延迟30秒 不动！
@@ -655,57 +661,62 @@ const SCRIPT_PATH = __filename;
 let consecutiveFailures = 0;
 let isRestarting = false;
 
-// ✅ 修复：异步日志 永不卡死服务
+// ✅ 异步日志 永不卡死服务（你原来的逻辑 完全保留）
 function writeLog(msg) {
   const t = new Date().toLocaleString('zh-CN');
   const logStr = `[${t}] ${msg}\n`;
-  // 异步写入 不阻塞主线程
   fs.appendFile(LOG_FILE, logStr, (err) => {
     if (err) console.error('日志写入失败:', err);
   });
-  // 强制控制台打印
   console.log(logStr.trim());
 }
 
-// ✅ Ping自己检测（60秒超长超时 你已经改好的不动）
+// ✅ Ping自己检测（60秒超长超时 你原来的逻辑 完全保留）
 function pingSelf() {
   return new Promise((resolve, reject) => {
     const req = http.get(TARGET_URL, { timeout: 60000 }, (res) => {
       if (res.statusCode === 200) resolve();
-      else reject(new Error('服务异常'));
+      else reject(new Error('服务响应异常'));
     });
-    req.on('timeout', () => reject(new Error('请求超时')));
+    req.on('timeout', () => reject(new Error('Ping请求超时')));
     req.on('error', (err) => reject(err));
     req.end();
   });
 }
 
-// ✅ 核心健康检查：Ping失败才重启，数据库异常只警告
+// ✅ 【核心修复版】健康检查：严格区分「服务异常」和「数据库异常」
 async function doHealthCheck() {
   if (isRestarting) return;
+
   try {
-    // 1. 核心判定：Ping自己成功 = 服务活着
+    // ========== 1. 服务本体Ping检测（唯一触发重启的条件） ==========
     await pingSelf();
     consecutiveFailures = 0;
     writeLog('✅ 健康检查正常：服务在线');
 
-    // 2. 数据库只做状态监控 失败不重启
+    // ========== 2. D1数据库状态检测（仅警告，绝不触发重启） ==========
     try {
-      await db.prepare('SELECT 1').run();
-      writeLog('✅ D1数据库连接正常');
+      // 兼容你D1的execute封装，用最简查询验证连通性
+      const [result] = await db.execute("SELECT 1 AS test_conn");
+      if (result && result.length > 0) {
+        writeLog('✅ D1数据库连接正常');
+      } else {
+        writeLog('⚠️ D1数据库响应异常，但服务继续运行');
+      }
     } catch (dbErr) {
-      writeLog('⚠️ D1数据库连接异常，但服务正常运行');
+      // 数据库任何报错：只打警告，不影响服务，不清空失败计数，绝不重启
+      writeLog(`⚠️ D1数据库连接异常：${dbErr.message}，服务保持运行`);
     }
 
-  } catch (err) {
-    // ❌ 只有Ping失败 才判定服务异常 累加次数
+  } catch (serviceErr) {
+    // ========== 只有服务Ping失败，才会累加失败计数、触发重启 ==========
     consecutiveFailures++;
-    writeLog(`⚠️ 健康检查失败 ${consecutiveFailures}/${FAILURE_THRESHOLD}：${err.message}`);
+    writeLog(`⚠️ 服务Ping失败 ${consecutiveFailures}/${FAILURE_THRESHOLD}：${serviceErr.message}`);
 
-    // 🔴 只有连续Ping失败 才执行重启
+    // 连续失败达到阈值 → 仅服务异常才重启
     if (consecutiveFailures >= FAILURE_THRESHOLD && !isRestarting) {
       isRestarting = true;
-      writeLog('🚨 连续异常，自动重启服务');
+      writeLog('🚨 服务连续异常，执行自动重启');
       const child = require('child_process').exec;
       child(`node ${SCRIPT_PATH}`, () => {});
       setTimeout(() => process.exit(1), 1500);
@@ -713,11 +724,12 @@ async function doHealthCheck() {
   }
 }
 
-// 启动定时器 保留你原来的逻辑
+// 启动定时器 完全保留你原来的时序逻辑
 setTimeout(() => {
   doHealthCheck();
   setInterval(doHealthCheck, PING_INTERVAL);
 }, FIRST_DELAY);
+
 
 
 
