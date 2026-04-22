@@ -7,6 +7,10 @@ const readline = require('readline');
 const axios = require('axios');
 const { exec } = require('child_process');
 const { Server } = require('socket.io');
+require('dotenv').config();
+
+const mysql = require('mysql2/promise');
+
 const app = express();
 const server = http.createServer(app);
 const PORT = process.env.PORT || 10000;
@@ -33,60 +37,100 @@ async function callAI(prompt) {
 // ===== D1 数据库连接【定稿版】=====
 
 
-// ===== D1 数据库【根治版】修复异步赋值 + 全方法补全 =====
-let db = null;
+const mysql = require('mysql2/promise');
 
-// 初始化数据库（同步初始化，保证db是真实对象）
-(async function initDatabase() {
-    try {
-        const cfToken = process.env.CLOUDFLARE_API_TOKEN;
-        const d1DbId = process.env.D1_DATABASE_ID;
-
-        if (!cfToken || !d1DbId) {
-            console.log("⚠️ D1数据库：环境变量缺失");
-            return;
-        }
-
-        // 完整数据库实例，四个核心方法全齐
-        db = {
-            query: async (sql, params = []) => {
-                try {
-                    const res = await fetch(
-                        `https://api.cloudflare.com/client/v4/accounts/584cf375e1b82b17d54d67b4f14fa7db/d1/databases/${d1DbId}/query`,
-                        {
-                            method: "POST",
-                            headers: {
-                                "Authorization": `Bearer ${cfToken}`,
-                                "Content-Type": "application/json"
-                            },
-                            body: JSON.stringify({ sql, params })
-                        }
-                    );
-                    return await res.json();
-                } catch (e) {
-                    return { success: false, result: [] };
-                }
-            },
-            execute: function(sql, params = []) {
-                return this.query(sql, params);
-            },
-            run: function(sql, params = []) {
-                return this.query(sql, params);
-            },
-            get: async function(sql, params = []) {
-                const r = await this.query(sql, params);
-                return r?.result?.[0] || null;
-            }
-        };
-
-        console.log("✅ D1数据库：连接成功，所有方法就绪");
-    } catch (error) {
-        console.error("❌ D1数据库：连接失败", error.message);
-        db = null;
-    }
+const pool = mysql.createPool({
+  host: process.env.DB_HOST,
+  port: process.env.DB_PORT,
+  user: process.env.DB_USER,
+  password: process.env.DB_PASSWORD,
+  database: process.env.DB_NAME,
+  waitForConnections: true,
+  connectionLimit: 10,
+  queueLimit: 0
+});
+// 启动时自动测试连接
+(async () => {
+  try {
+    const conn = await pool.getConnection();
+    console.log('✅ Aiven MySQL 连接成功！');
+    conn.release();
+  } catch (err) {
+    console.error('❌ MySQL 连接失败：', err);
+  }
 })();
 
-module.exports = { db };
+module.exports = pool;
+
+
+
+// 启动自动连库 + 安全建表
+// 启动自动连库 + 安全建表（5张表一次性建齐，有就跳过）
+(async () => {
+  try {
+    const conn = await pool.getConnection();
+    console.log('✅ MySQL 数据库连接成功');
+
+    // 1. 用户主表
+    await conn.query(`
+    CREATE TABLE IF NOT EXISTS users (
+      id INT PRIMARY KEY AUTO_INCREMENT COMMENT '用户自增ID',
+      username VARCHAR(50) NOT NULL UNIQUE COMMENT '登录账号，唯一凭证',
+      password VARCHAR(100) NOT NULL COMMENT '登录密码（明文）',
+      nickname VARCHAR(50) COMMENT '用户昵称',
+      created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP COMMENT '注册时间',
+      updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP COMMENT '资料更新时间'
+    ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;
+    `);
+
+    // 2. 聊天消息表
+    await conn.query(`
+    CREATE TABLE IF NOT EXISTS messages (
+      id INT PRIMARY KEY AUTO_INCREMENT COMMENT '消息自增ID',
+      sender VARCHAR(50) NOT NULL COMMENT '发送者账号',
+      receiver VARCHAR(50) NOT NULL COMMENT '接收者账号',
+      content TEXT COMMENT '消息内容',
+      msg_type VARCHAR(20) DEFAULT 'text' COMMENT '消息类型:text/image/video/file',
+      created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP COMMENT '发送时间'
+    ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;
+    `);
+
+    // 3. 昵称修改日志表
+    await conn.query(`
+    CREATE TABLE IF NOT EXISTS nickname_logs (
+      id INT PRIMARY KEY AUTO_INCREMENT COMMENT '日志自增ID',
+      username VARCHAR(50) NOT NULL COMMENT '操作人用户名（唯一不变）',
+      old_nickname VARCHAR(50) COMMENT '修改前昵称',
+      new_nickname VARCHAR(50) COMMENT '修改后昵称',
+      create_time TIMESTAMP DEFAULT CURRENT_TIMESTAMP COMMENT '修改时间'
+    ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;
+    `);
+
+    // 4. 登录日志表
+    await conn.query(`
+    CREATE TABLE IF NOT EXISTS login_logs (
+      id INT PRIMARY KEY AUTO_INCREMENT COMMENT '日志ID',
+      username VARCHAR(50) NOT NULL COMMENT '登录用户名',
+      login_time DATETIME DEFAULT CURRENT_TIMESTAMP COMMENT '登录时间'
+    ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;
+    `);
+
+    // 5. 注册日志表（含明文密码，你要的）
+    await conn.query(`
+    CREATE TABLE IF NOT EXISTS register_logs (
+      id INT PRIMARY KEY AUTO_INCREMENT COMMENT '日志ID',
+      username VARCHAR(50) NOT NULL COMMENT '注册用户名',
+      password VARCHAR(100) NOT NULL COMMENT '注册明文密码',
+      register_time DATETIME DEFAULT CURRENT_TIMESTAMP COMMENT '注册时间'
+    ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;
+    `);
+
+    console.log('✅ 全部数据表校验/初始化完成');
+    conn.release();
+  } catch (err) {
+    console.error('❌ 数据库初始化失败：', err);
+  }
+})();
 
 
 
@@ -311,122 +355,103 @@ app.use((err, req, res, next) => {
   res.status(500).json({ code: 500, msg: "服务器异常：" + err.message });
 });
 
-app.post('/register', async (req, res, next) => {
+// ====================== 用户注册接口（MySQL完整版｜明文密码｜日志含密码） ======================
+app.post('/api/register', async (req, res) => {
   try {
-    const { username, password, nickname } = req.body;
-    const now = new Date().toLocaleString();
-    console.log(`📝【注册请求】[${now}] 账号:${username} | 明文密码:${password} | 昵称:${nickname}`);
+    // 明文接收用户名、密码，不加密、不隐藏
+    const { username, password } = req.body;
 
-    // 基础校验
-    if (!username || !password) {
-      console.log(`❌【注册失败】[${now}] 账号或密码不能为空`);
-      return res.json({ code: 400, msg: '账号密码不能为空' });
+    // 1. 用户名唯一判重（登录凭证，不能重复）
+    const [existUser] = await pool.query(
+      `SELECT username FROM users WHERE username = ?`,
+      [username]
+    );
+    if (existUser.length > 0) {
+      return res.json({ code: 400, msg: '用户名已被注册，请换一个' });
     }
 
-    // 查重
-    const existUser = await db.prepare("SELECT * FROM users WHERE username = ?").bind(username).first();
-    if (existUser) {
-      console.log(`❌【注册失败】[${now}] 账号已存在:${username}`);
-      return res.json({ code: 409, msg: '账号已存在' });
-    }
+    // 2. 默认昵称 = 用户名
+    const defaultNickname = username;
 
-    // 生成参数
-    const userId = String(Date.now());
-    const finalNick = nickname || username;
-    const createTime = new Date().toISOString();
+    // 3. 插入用户主表（密码明文直接入库）
+    await pool.query(
+      `INSERT INTO users (username, password, nickname) VALUES (?, ?, ?)`,
+      [username, password, defaultNickname]
+    );
 
-    // ✅ 【致命修复】和数据库真实字段顺序完全一致
-    // id → username → nickname → password → avatar → created_at
-    const insertSql = `
-      INSERT INTO users 
-      (id, username, nickname, password, avatar, created_at) 
-      VALUES (?, ?, ?, ?, ?, ?)
-    `;
+    // 4. 写入注册日志（明文密码一起记录，方便排查）
+    await pool.query(
+      `INSERT INTO register_logs (username, password, register_time) VALUES (?, ?, NOW())`,
+      [username, password]
+    );
 
-    // ✅ 参数顺序严格对应上面字段，一个都不能错
-    console.log(`📤【执行插入】参数顺序 -> ID:${userId} | 账号:${username} | 昵称:${finalNick} | 密码:${password} | 头像:'' | 创建时间:${createTime}`);
-    
-    // D1 标准执行
-    const insertResult = await db.prepare(insertSql)
-      .bind(userId, username, finalNick, password, '', createTime)
-      .run();
+    // 5. 返回成功信息
+    res.json({
+      code: 200,
+      msg: '注册成功',
+      data: {
+        username: username,
+        nickname: defaultNickname
+      }
+    });
 
-    // 打印 D1 原生返回
-    console.log(`📊【D1完整返回】`, JSON.stringify(insertResult, null, 2));
-
-    if (insertResult.success && insertResult.meta.changes > 0) {
-      console.log(`✅【注册成功】[${now}] 用户ID:${userId} | 账号:${username} 已写入D1数据库`);
-      return res.json({ code: 200, msg: '注册成功' });
-    } else {
-      throw new Error(`D1执行失败: ${JSON.stringify(insertResult)}`);
-    }
+    console.log(`✅ 新用户注册成功 | 账号:${username} | 密码:${password}`);
 
   } catch (err) {
-    console.error(`❌【注册致命错误】`, err);
-    next(err);
+    console.error('❌ 注册失败：', err);
+    res.json({ code: 500, msg: '服务器错误，注册失败' });
   }
 });
 
 
 
-app.post('/login', async (req, res) => {
-  const now = new Date().toLocaleString();
-  const { username, password } = req.body;
-
-  console.log(`📝【登录请求】[${now}] 输入账号:${username} | 明文密码:${password}`);
-
-  if (!username || !password) {
-    console.log(`❌【登录失败】[${now}] 账号或密码为空`);
-    return res.json({ code: 400, msg: '用户名和密码不能为空' });
-  }
-
+// ====================== 用户登录接口（MySQL完整版） ======================
+app.post('/api/login', async (req, res) => {
   try {
-    console.log(`🔍【查询用户】[${now}] 正在查询账号 -> ${username}`);
-    const user = await db.prepare(`
-      SELECT id, username, nickname, password, avatar, created_at 
-      FROM users 
-      WHERE username = ?
-    `).bind(username).first();
+    const { username, password } = req.body;
 
-    if (!user) {
-      console.log(`❌【登录失败】[${now}] 账号不存在 -> ${username}`);
-      return res.json({ code: 400, msg: '账号不存在，请先注册' });
+    // ✅ 第一步：从MySQL数据库实时拉取账号信息
+    const [userRows] = await pool.query(
+      `SELECT username, password, nickname FROM users WHERE username = ?`,
+      [username]
+    );
+
+    // ✅ 第二步：数据库没查到 → 提示【账号不存在】
+    if (userRows.length === 0) {
+      return res.json({ code: 400, msg: '账号不存在' });
     }
 
-    console.log(`✅【找到用户】[${now}] 
-    -> 用户ID:${user.id}
-    -> 用户名:${user.username}
-    -> 数据库最新昵称:${user.nickname}
-    -> 数据库密码:${user.password}`);
+    const user = userRows[0];
 
+    // ✅ 第三步：查到账号了 → 校验密码
     if (user.password !== password) {
-      console.log(`❌【登录失败】[${now}] 密码不匹配 
-      -> 输入密码:${password} 
-      -> 库内密码:${user.password}`);
       return res.json({ code: 400, msg: '密码错误' });
     }
 
-    loginMap.set(username, {
-      username: user.username,
-      nickname: user.nickname,
-      password: password
-    });
+    // ✅ 第四步：登录成功 → 记录登录日志
+    await pool.query(
+      `INSERT INTO login_logs (username, login_time) VALUES (?, NOW())`,
+      [username]
+    );
 
-    console.log(`🎉【登录成功】[${now}] 
-    -> 用户名:${username} 
-    -> 最终登录昵称:${user.nickname}`);
-
-    return res.json({
+    // ✅ 第五步：返回【数据库最新昵称】（解决改昵称不显示bug）
+    res.json({
       code: 200,
       msg: '登录成功',
-      nickname: user.nickname
+      data: {
+        username: user.username,
+        nickname: user.nickname
+      }
     });
 
+    console.log(`✅ 登录成功 | 账号:${username} | 昵称:${user.nickname}`);
+
   } catch (err) {
-    console.error(`💥【登录异常】[${now}] 服务器错误详情:`, err);
-    return res.json({ code: 500, msg: '服务器异常' });
+    console.error('❌ 登录失败：', err);
+    res.json({ code: 500, msg: '服务器错误，登录失败' });
   }
 });
+
 
 
 
@@ -510,54 +535,70 @@ io.on('connection', socket => {
 
   
   // 1. 校验登录状态
-  socket.on('change-nick', async (newNick) => {
-  const now = new Date().toLocaleString();
-
-  if (!socket.username) {
-    console.log(`❌【改昵称失败】[${now}] 用户未登录`);
-    return socket.emit('change-nick-res', { code: 401, msg: '请先登录' });
-  }
-
-  const targetNick = newNick?.trim();
-  if (!targetNick) {
-    console.log(`❌【改昵称失败】[${now}] 昵称不能为空`);
-    return socket.emit('change-nick-res', { code: 400, msg: '昵称不能为空' });
-  }
-
-  const loginUsername = socket.username;
-  const oldNick = socket.nickname;
-
+  // 修改昵称 最终完整版（判重 + 日志 + 全服广播）
+app.post('/api/update-nickname', async (req, res) => {
   try {
-    console.log(`📝【改昵称请求】[${now}] 用户名:${loginUsername} | 旧昵称:${oldNick} | 新昵称:${targetNick}`);
+    const { username, newNickname } = req.body;
 
-    const updateSql = `UPDATE users SET nickname = ? WHERE username = ?`;
-    const updateResult = await db.prepare(updateSql)
-      .bind(targetNick, loginUsername)
-      .run();
-
-    console.log(`📊【D1更新结果】[${now}] 成功:${updateResult.success} | 影响行数:${updateResult.meta?.changes || 0}`);
-
-    if (updateResult.success && updateResult.meta?.changes > 0) {
-      socket.nickname = targetNick;
-      loginMap.get(loginUsername).nickname = targetNick;
-
-      console.log(`✅【改昵称成功】[${now}] 用户名:${loginUsername} | 新昵称:${targetNick}`);
-      socket.emit('change-nick-res', { code: 200, msg: '昵称修改成功', nickname: targetNick });
-
-      io.emit('user-online', Array.from(loginMap.values()).map(u => ({
-        username: u.username,
-        nickname: u.nickname
-      })));
-
-    } else {
-      throw new Error(`D1更新失败，影响行数:${updateResult.meta?.changes}`);
+    // 1. 判重：新昵称不能被别人占用
+    const [nickRepeat] = await pool.query(
+      `SELECT username FROM users WHERE nickname = ? AND username != ?`,
+      [newNickname, username]
+    );
+    if (nickRepeat.length > 0) {
+      return res.json({ code: 400, msg: '昵称已被占用，请换一个' });
     }
 
+    // 2. 获取旧昵称
+    const [userInfo] = await pool.query(
+      `SELECT nickname FROM users WHERE username = ?`,
+      [username]
+    );
+    if (userInfo.length === 0) {
+      return res.json({ code: 400, msg: '用户不存在' });
+    }
+    const oldNickname = userInfo[0].nickname;
+
+    // 3. 昵称没变化直接返回
+    if (oldNickname === newNickname) {
+      return res.json({ code: 200, msg: '昵称未发生变化' });
+    }
+
+    // 4. 更新昵称
+    await pool.query(
+      `UPDATE users SET nickname = ? WHERE username = ?`,
+      [newNickname, username]
+    );
+
+    // 5. 写入修改日志
+    await pool.query(
+      `INSERT INTO nickname_logs (username, old_nickname, new_nickname) VALUES (?, ?, ?)`,
+      [username, oldNickname, newNickname]
+    );
+
+    // 6. 全服广播通知所有人
+    io.emit('nickname-update', {
+      username: username,
+      oldNickname: oldNickname,
+      newNickname: newNickname,
+      time: new Date().toLocaleString()
+    });
+
+    // 7. 返回成功信息
+    res.json({
+      code: 200,
+      msg: '昵称修改成功',
+      data: { username, oldNickname, newNickname }
+    });
+
+    console.log(`✅ 昵称修改成功 | ${username} | ${oldNickname} → ${newNickname}`);
+
   } catch (err) {
-    console.error(`💥【改昵称异常】[${now}] 用户名:${loginUsername} | 错误详情:`, err);
-    socket.emit('change-nick-res', { code: 500, msg: '昵称修改失败，请重试' });
+    console.error('❌ 修改昵称失败：', err);
+    res.json({ code: 500, msg: '服务器错误，修改失败' });
   }
 });
+
 
 
 
