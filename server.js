@@ -667,7 +667,7 @@ app.post('/api/update-nickname', async (req, res) => {
 startKeepAliveCheck();
 loadPwd();
 
-// 3分钟自我保活
+// 3分钟自我保活（已改成 MySQL 数据库健康检查）
 const TARGET_URL = `http://127.0.0.1:${PORT}`;
 const PING_INTERVAL = 3 * 60 * 1000;
 const FIRST_DELAY = 30 * 1000;
@@ -702,11 +702,12 @@ async function doHealthCheck() {
     await pingSelf();
     consecutiveFailures = 0;
     writeLog('✅ 健康检查正常：服务在线');
+    // ✅ 这里改成 MySQL 测试语句
     try {
-      await db.execute("SELECT 1 AS test");
-      writeLog('✅ D1数据库正常');
+      await pool.query("SELECT 1 AS test");
+      writeLog('✅ MySQL数据库正常');
     } catch (e) {
-      writeLog('⚠️ D1异常，但服务正常运行');
+      writeLog('⚠️ MySQL异常，但服务正常运行');
     }
   } catch (err) {
     consecutiveFailures++;
@@ -724,6 +725,7 @@ setTimeout(() => {
   doHealthCheck();
   setInterval(doHealthCheck, PING_INTERVAL);
 }, FIRST_DELAY);
+
 
 // 启动服务
 server.listen(PORT, '0.0.0.0', () => {
