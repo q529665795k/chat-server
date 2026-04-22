@@ -296,57 +296,68 @@ app.use((req, res, next) => {
 app.use(express.json({ limit: '10mb' }));
 app.use(express.urlencoded({ extended: true, limit: '10mb' }));
 
-app.get('/', (req, res) => {
-  res.send('✅ 服务运行正常 · 全局日志已开启');
+// ====================== 全局异常捕获中间件 ======================
+app.post('/register', async (req, res, next) => {
+
+  // 打印完整错误信息
+  console.error("❌【全局异常捕获】", {
+    path: req.path,
+    method: req.method,
+    error: err.message,
+    stack: err.stack
+  });
+
+  // 统一返回格式
+  res.status(500).json({
+    code: 500,
+    msg: "服务器异常：" + err.message,
+    data: null
+  });
 });
 
+
 // ====================== 【注册接口 · 独立完整段】 ======================
-app.post('/register', async (req, res) => {
-  const now = new Date().toLocaleString();
-  const { username, password, nickname } = req.body;
-
-  // 🔍 打印原始注册请求（明文带密码）
-  console.log(`\n[${now}] 【注册请求】收到新注册数据`);
-  console.log(`[${now}] 【注册请求】用户名: ${username}`);
-  console.log(`[${now}] 【注册请求】明文密码: ${password}`);
-  console.log(`[${now}] 【注册请求】昵称: ${nickname}`);
-
-  // 基础非空校验
-  if (!username || !password) {
-    console.log(`[${now}] 【注册失败】用户名或密码为空`);
-    return res.json({ code: 400, msg: '用户名和密码不能为空' });
-  }
-
+// ====================== 【修复版·注册接口】带双重异常捕获 · 真入库 ======================
+app.post('/register', async (req, res, next) => {
   try {
-    // 📊 第一步：先查数据库，判断账号是否已存在
-    console.log(`[${now}] 【注册步骤】查询数据库，检查账号是否已存在: ${username}`);
-    const [existUser] = await db.query('SELECT * FROM users WHERE username = ?', [username]);
+    // 1. 接收前端参数
+    const { username, password, nickname } = req.body;
 
-    if (existUser.length > 0) {
-      console.log(`[${now}] 【注册失败】❌ 账号已存在，注册终止 → ${username}`);
-      return res.json({ code: 400, msg: '账号已存在，换个用户名试试' });
+    // 2. 基础参数校验
+    if (!username || !password) {
+      return res.json({ code: 400, msg: '❌ 账号密码不能为空' });
     }
 
-    // ✅ 账号不存在，写入数据库
-    console.log(`[${now}] 【注册步骤】✅ 账号不存在，准备写入数据库`);
-    await db.query(
-      'INSERT INTO users (username, password, nickname) VALUES (?, ?, ?)',
+    // 3. 先查账号是否已存在（防止重复注册）
+    const existUser = await db.get("SELECT * FROM users WHERE username = ?", [username]);
+    if (existUser) {
+      return res.json({ code: 409, msg: '❌ 账号已存在，换一个试试' });
+    }
+
+    // 4. 【核心】真实写入数据库（带执行结果校验）
+    const insertResult = await db.run(
+      `INSERT INTO users 
+      (username, password, nickname, create_time) 
+      VALUES (?, ?, ?, datetime('now'))`,
       [username, password, nickname || username]
     );
 
-    // 🎉 注册成功，打印入库日志
-    console.log(`[${now}] 【注册成功】✅ 新账号已成功存入数据库`);
-    console.log(`[${now}] 【注册成功】入库用户名: ${username}`);
-    console.log(`[${now}] 【注册成功】入库明文密码: ${password}`);
-    console.log(`[${now}] 【注册成功】入库昵称: ${nickname || username}`);
-
-    return res.json({ code: 200, msg: '注册成功' });
+    // 5. 强制校验：只有数据库真的新增成功，才返回成功
+    if (insertResult.changes > 0) {
+      console.log(`✅【注册成功】真实入库账号：${username}`);
+      return res.json({ code: 200, msg: '✅ 注册成功' });
+    } else {
+      // SQL执行了但没写入，直接抛错
+      throw new Error('SQL执行完成，但数据未写入数据库');
+    }
 
   } catch (err) {
-    console.log(`[${now}] 【注册异常】❌ 数据库操作失败:`, err);
-    return res.json({ code: 500, msg: '注册失败，服务器异常' });
+    // 6. 局部异常捕获 + 交给全局异常兜底
+    console.error(`❌【注册失败】${err.message}`);
+    next(err); // 把错误传给上面的全局异常中间件
   }
 });
+
 
 
 // 登录
@@ -626,63 +637,58 @@ startKeepAliveCheck();
 loadPwd();
 
 // ==============================
-// 3分钟自我保活 + 崩溃自动重启（优化版：首次延迟30秒）
-// ==============================
-const TARGET_URL = `http://127.0.0.1:${PORT}`;
-const PING_INTERVAL = 3 * 60 * 1000; // 3分钟
-const FIRST_DELAY = 30 * 1000;       // 首次延迟30秒
-const FAILURE_THRESHOLD = 3;
-const LOG_FILE = path.join(__dirname, 'keepalive.log');
-const SCRIPT_PATH = __filename;
-
-let consecutiveFailures = 0;
-let isRestarting = false;
-
-function writeLog(msg) {
-  const t = new Date().toLocaleString('zh-CN');
-  const logStr = `[${t}] ${msg}`;
-  fs.appendFileSync(LOG_FILE, logStr + '\n', { flag: 'a' });
-  console.log(logStr);
-}
-
-// 健康检查：服务 + MySQL 双检测
+// 健康检查：服务 + 数据库 真实检测（修复假连接）
 async function doHealthCheck() {
   if (isRestarting) return;
-
   try {
-    // 1. 检查服务端口
+    // 1. 检查服务端口是否通
     await new Promise((resolve, reject) => {
       const req = http.get(TARGET_URL, { timeout: 5000 }, (res) => {
         if (res.statusCode === 200) resolve();
-        else reject(new Error('服务异常'));
+        else reject(new Error("服务状态异常"));
       });
-      req.on('error', reject);
-      req.on('timeout', () => {
+      req.on("error", reject);
+      req.on("timeout", () => {
         req.destroy();
-        reject(new Error('请求超时'));
+        reject(new Error("服务请求超时"));
       });
     });
 
-    // 2. 检查MySQL
+    // 2. 数据库真实校验（核心修复）
+    let dbOnline = false;
     if (db) {
-      await db.execute('SELECT 1');
+      try {
+        // 真执行SQL，能跑通才算在线
+        await db.execute("SELECT 1");
+        dbOnline = true;
+      } catch (err) {
+        dbOnline = false;
+      }
     }
 
+    // 数据库不通，直接抛错，不骗人
+    if (!dbOnline) {
+      throw new Error("数据库未连接/不可用");
+    }
+
+    // 3. 全部真正常，才打印成功
     consecutiveFailures = 0;
-    writeLog('✅ 健康检查正常：服务+MySQL在线');
+    writeLog("✅ 健康检查正常：服务+数据库真实在线");
+
   } catch (err) {
     consecutiveFailures++;
     writeLog(`⚠️ 健康检查失败 ${consecutiveFailures}/${FAILURE_THRESHOLD}：${err.message}`);
 
     if (consecutiveFailures >= FAILURE_THRESHOLD && !isRestarting) {
       isRestarting = true;
-      writeLog('🚨 连续异常，自动重启服务');
-      const child = require('child_process').exec;
+      writeLog("🚨 连续异常，自动重启服务");
+      const child = require("child_process").exec;
       child(`node ${SCRIPT_PATH}`, () => {});
       setTimeout(() => process.exit(1), 1500);
     }
   }
 }
+
 
 // 首次延迟30秒执行，之后每3分钟一次
 setTimeout(() => {
