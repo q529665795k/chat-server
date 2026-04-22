@@ -712,19 +712,12 @@ setTimeout(() => {
   setInterval(doHealthCheck, PING_INTERVAL);
 }, FIRST_DELAY);
 
-// 全局异常兜底
-process.on('uncaughtException', (err) => {
-  sysLog('ERROR', '服务崩溃', { msg: err.message });
-  consecutiveFailures = FAILURE_THRESHOLD;
-  doHealthCheck();
-});
 
 
+}
+ });
 
-process.on('unhandledRejection', () => {
-  consecutiveFailures = FAILURE_THRESHOLD;
-  doHealthCheck();
-});
+
 
 // 启动
 server.listen(PORT, '0.0.0.0', () => {
