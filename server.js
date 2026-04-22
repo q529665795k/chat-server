@@ -27,18 +27,15 @@ async function callAI(prompt) {
   }
 }
 
-// ===== D1 数据库连接（只改这里，别的不动）=====
- 
- // D1 数据库连接（修复版，保证 db.execute 可用）
-// ===== D1 数据库连接（只改这里，别的不动）=====
+// ===== D1 数据库连接（双兼容版：同时支持 db.execute 和 db.query）=====
 let db;
 (async () => {
   try {
     const D1_DB_ID = process.env.MYSQL_DATABASE;
     const CF_API_TOKEN = process.env.CLOUDFLARE_API_TOKEN;
     
-    // 兼容 mysql2 风格：返回 [rows] 结构
-    db = {
+    // 封装成 mysql2 风格，返回 [rows] 结构
+    const dbCore = {
       execute: async (sql, ...params) => {
         const res = await fetch(
           `https://api.cloudflare.com/client/v4/d1/databases/${D1_DB_ID}/query`,
@@ -52,16 +49,24 @@ let db;
           }
         );
         const data = await res.json();
-        // D1 返回结果 => 包装成 mysql2 格式
+        // 适配 D1 返回格式，兼容你原来的代码
         const results = data.result?.[0]?.results || [];
         return [results];
       }
     };
-    sysLog("DB", "✅ D1 数据库连接成功，execute 已兼容 mysql2 格式");
+
+    // ✅ 关键：让 db.query 和 db.execute 完全等价，兼容你所有旧代码
+    dbCore.query = dbCore.execute;
+
+    // 全局暴露 db
+    db = dbCore;
+
+    console.log(`[${new Date().toLocaleString()}] 【DB】✅ D1 数据库连接成功，execute/query 双兼容`);
   } catch (err) {
-    sysLog("DB", "❌ D1 数据库连接失败：" + err.message);
+    console.log(`[${new Date().toLocaleString()}] 【DB】❌ D1 数据库连接失败：`, err.message);
   }
 })();
+
 
 
 
