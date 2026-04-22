@@ -375,14 +375,12 @@ app.post('/login', async (req, res) => {
 
   console.log(`📝【登录请求】[${now}] 输入账号:${username} | 明文密码:${password}`);
 
-  // 1. 基础校验
   if (!username || !password) {
     console.log(`❌【登录失败】[${now}] 账号或密码为空`);
     return res.json({ code: 400, msg: '用户名和密码不能为空' });
   }
 
   try {
-    // ✅ 严格匹配数据库真实字段：id, username, nickname, password, avatar, created_at
     console.log(`🔍【查询用户】[${now}] 正在查询账号 -> ${username}`);
     const user = await db.prepare(`
       SELECT id, username, nickname, password, avatar, created_at 
@@ -390,20 +388,17 @@ app.post('/login', async (req, res) => {
       WHERE username = ?
     `).bind(username).first();
 
-    // 2. 判断账号是否存在
     if (!user) {
       console.log(`❌【登录失败】[${now}] 账号不存在 -> ${username}`);
       return res.json({ code: 400, msg: '账号不存在，请先注册' });
     }
 
-    // ✅ 打印数据库里的真实字段（完全对应你截图里的表结构）
     console.log(`✅【找到用户】[${now}] 
     -> 用户ID:${user.id}
     -> 用户名:${user.username}
     -> 数据库最新昵称:${user.nickname}
     -> 数据库密码:${user.password}`);
 
-    // 3. 密码校验
     if (user.password !== password) {
       console.log(`❌【登录失败】[${now}] 密码不匹配 
       -> 输入密码:${password} 
@@ -411,10 +406,9 @@ app.post('/login', async (req, res) => {
       return res.json({ code: 400, msg: '密码错误' });
     }
 
-    // 4. 登录成功：读取数据库最新昵称，用户名永久不变
     loginMap.set(username, {
-      username: user.username,   // 唯一登录凭证，固定不变
-      nickname: user.nickname,    // 每次登录都读数据库最新昵称
+      username: user.username,
+      nickname: user.nickname,
       password: password
     });
 
@@ -425,7 +419,7 @@ app.post('/login', async (req, res) => {
     return res.json({
       code: 200,
       msg: '登录成功',
-      nickname: user.nickname  // 返回数据库最新昵称给前端
+      nickname: user.nickname
     });
 
   } catch (err) {
@@ -433,6 +427,7 @@ app.post('/login', async (req, res) => {
     return res.json({ code: 500, msg: '服务器异常' });
   }
 });
+
 
 
 
@@ -518,43 +513,40 @@ io.on('connection', socket => {
   const now = new Date().toLocaleString();
 
   // 1. 校验登录状态
+  socket.on('change-nick', async (newNick) => {
+  const now = new Date().toLocaleString();
+
   if (!socket.username) {
-    console.log(`❌【改昵称失败】[${now}] 用户未登录，拒绝操作`);
+    console.log(`❌【改昵称失败】[${now}] 用户未登录`);
     return socket.emit('change-nick-res', { code: 401, msg: '请先登录' });
   }
 
-  // 2. 校验昵称合法性
   const targetNick = newNick?.trim();
   if (!targetNick) {
-    console.log(`❌【改昵称失败】[${now}] 昵称为空，拒绝操作`);
+    console.log(`❌【改昵称失败】[${now}] 昵称不能为空`);
     return socket.emit('change-nick-res', { code: 400, msg: '昵称不能为空' });
   }
 
-  // ✅ 锁定：用户名永久不变，只修改昵称字段
   const loginUsername = socket.username;
   const oldNick = socket.nickname;
 
   try {
     console.log(`📝【改昵称请求】[${now}] 用户名:${loginUsername} | 旧昵称:${oldNick} | 新昵称:${targetNick}`);
 
-    // ✅ SQL完全匹配你的数据库：只更新nickname，用username精准定位
     const updateSql = `UPDATE users SET nickname = ? WHERE username = ?`;
     const updateResult = await db.prepare(updateSql)
       .bind(targetNick, loginUsername)
       .run();
 
-    // 打印D1原生执行结果
     console.log(`📊【D1更新结果】[${now}] 成功:${updateResult.success} | 影响行数:${updateResult.meta?.changes || 0}`);
 
     if (updateResult.success && updateResult.meta?.changes > 0) {
-      // 更新内存缓存
       socket.nickname = targetNick;
       loginMap.get(loginUsername).nickname = targetNick;
 
-      console.log(`✅【改昵称成功】[${now}] 用户名:${loginUsername} | 新昵称已入库:${targetNick}`);
+      console.log(`✅【改昵称成功】[${now}] 用户名:${loginUsername} | 新昵称:${targetNick}`);
       socket.emit('change-nick-res', { code: 200, msg: '昵称修改成功', nickname: targetNick });
 
-      // 广播在线用户列表
       io.emit('user-online', Array.from(loginMap.values()).map(u => ({
         username: u.username,
         nickname: u.nickname
@@ -569,6 +561,7 @@ io.on('connection', socket => {
     socket.emit('change-nick-res', { code: 500, msg: '昵称修改失败，请重试' });
   }
 });
+
 
 
 
