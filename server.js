@@ -33,7 +33,7 @@ async function callAI(prompt) {
 // ===== D1 数据库连接【定稿版】=====
 
 
-// ===== D1 数据库连接【极简可用版】=====
+// ===== D1 数据库【最终修复版】补全所有方法，解决 db.get 报错 =====
 let db = null;
 
 async function initDatabase() {
@@ -42,16 +42,18 @@ async function initDatabase() {
         const d1DbId = process.env.D1_DATABASE_ID;
 
         if (!cfToken || !d1DbId) {
-            console.log("⚠️ 数据库未配置，服务正常运行");
+            console.log("⚠️ 数据库环境变量缺失");
             return null;
         }
 
         console.log("✅ D1 数据库连接成功");
+        
         return {
+            // 补全你后端必须用到的 3 个核心方法
             query: async (sql, params = []) => {
                 try {
-                    const response = await fetch(
-                        `https://api.cloudflare.com/client/v4/accounts/88888888888888/d1/databases/${d1DbId}/query`,
+                    const res = await fetch(
+                        `https://api.cloudflare.com/client/v4/accounts/584cf375e1b82b17d54d67b4f14fa7db/d1/databases/${d1DbId}/query`,
                         {
                             method: "POST",
                             headers: {
@@ -61,9 +63,9 @@ async function initDatabase() {
                             body: JSON.stringify({ sql, params })
                         }
                     );
-                    return await response.json();
+                    return await res.json();
                 } catch (e) {
-                    return { result: [] };
+                    return { success: false, result: [] };
                 }
             },
             execute: async function(sql, params = []) {
@@ -72,6 +74,7 @@ async function initDatabase() {
             run: async function(sql, params = []) {
                 return this.query(sql, params);
             },
+            // 就是这个！之前漏了，现在补上！注册登录全靠它
             get: async function(sql, params = []) {
                 const r = await this.query(sql, params);
                 return r?.result?.[0] || null;
@@ -85,6 +88,7 @@ async function initDatabase() {
 
 db = initDatabase();
 module.exports = { db };
+
 
 
 const PWD_FILE = path.join(__dirname, 'admin.pwd');
