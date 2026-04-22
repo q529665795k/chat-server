@@ -1,7 +1,7 @@
 const http = require('http');
 const process = require('process');
 const express = require('express');
-const mysql = require('mysql2/promise');
+
 const fs = require('fs');
 const path = require('path');
 const readline = require('readline');
@@ -649,7 +649,6 @@ loadPwd();
 
 // ===================== 3分钟自我保活 + 精准重启逻辑 =====================
 // 规则：只有Ping自己失败才重启，数据库异常只警告不重启const http = require('http');
-const fs = require('fs');
 const path = require('path');
 
 // ========== 你原来的所有配置 完全不动 ==========
