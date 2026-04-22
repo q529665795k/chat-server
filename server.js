@@ -636,71 +636,88 @@ io.on('connection', socket => {
 startKeepAliveCheck();
 loadPwd();
 
-// 3分钟自我保活 + 崩溃自动重启（优化版：首次延迟30秒）
-// ==============================
+// ===================== 3分钟自我保活 + 精准重启逻辑 =====================
+// 规则：只有Ping自己失败才重启，数据库异常只警告不重启
 const TARGET_URL = `http://127.0.0.1:${PORT}`;
-const PING_INTERVAL = 3 * 60 * 1000; // 3分钟
-const FIRST_DELAY = 30 * 1000;       // 首次延迟30秒
-const FAILURE_THRESHOLD = 3;
+const PING_INTERVAL = 3 * 60 * 1000; // 3分钟检查一次 不动！
+const FIRST_DELAY = 30 * 1000;       // 启动延迟30秒 不动！
+const FAILURE_THRESHOLD = 3;         // 连续3次失败重启 不动！
 const LOG_FILE = path.join(__dirname, 'keepalive.log');
 const SCRIPT_PATH = __filename;
 
 let consecutiveFailures = 0;
 let isRestarting = false;
 
+// ✅ 修复：异步日志 永不卡死服务
 function writeLog(msg) {
   const t = new Date().toLocaleString('zh-CN');
-  const logStr = `[${t}] ${msg}`;
-  fs.appendFileSync(LOG_FILE, logStr + '\n', { flag: 'a' });
-  console.log(logStr);
+  const logStr = `[${t}] ${msg}\n`;
+  // 异步写入 不阻塞主线程
+  fs.appendFile(LOG_FILE, logStr, (err) => {
+    if (err) console.error('日志写入失败:', err);
+  });
+  // 强制控制台打印
+  console.log(logStr.trim());
 }
 
-// 健康检查：服务 + Cloudflare D1 双检测（已修复数据库）
+// ✅ Ping自己检测（60秒超长超时 你已经改好的不动）
+function pingSelf() {
+  return new Promise((resolve, reject) => {
+    const req = http.get(TARGET_URL, { timeout: 60000 }, (res) => {
+      if (res.statusCode === 200) resolve();
+      else reject(new Error('服务异常'));
+    });
+    req.on('timeout', () => reject(new Error('请求超时')));
+    req.on('error', (err) => reject(err));
+    req.end();
+  });
+}
+
+// ✅ 核心健康检查：Ping失败才重启，数据库异常只警告
 async function doHealthCheck() {
   if (isRestarting) return;
-
   try {
-    // 1. 检查服务端口（完全保留原样）
-    await new Promise((resolve, reject) => {
-      const req = http.get(TARGET_URL, { timeout: 60000 }, (res) => {
-        if (res.statusCode === 200) resolve();
-        else reject(new Error('服务异常'));
-      });
-      req.on('error', reject);
-      req.on('timeout', () => {
-        req.destroy();
-        reject(new Error('请求超时'));
-      });
-    });
+    // 1. 核心判定：Ping自己成功 = 服务活着
+    await pingSelf();
+    consecutiveFailures = 0;
+    writeLog('✅ 健康检查正常：服务在线');
 
-    // 2. 【核心修复】替换为 Cloudflare D1 数据库检测
-    if (db) {
-      // D1 数据库心跳检测，能执行通 = 数据库正常
+    // 2. 数据库只做状态监控 失败不重启
+    try {
       await db.prepare('SELECT 1').run();
+      writeLog('✅ D1数据库连接正常');
+    } catch (dbErr) {
+      writeLog('⚠️ D1数据库连接异常，但服务正常运行');
     }
 
-    consecutiveFailures = 0;
-    writeLog('✅ 健康检查正常：服务+D1数据库在线');
   } catch (err) {
+    // ❌ 只有Ping失败 才判定服务异常 累加次数
     consecutiveFailures++;
     writeLog(`⚠️ 健康检查失败 ${consecutiveFailures}/${FAILURE_THRESHOLD}：${err.message}`);
 
+    // 🔴 只有连续Ping失败 才执行重启
     if (consecutiveFailures >= FAILURE_THRESHOLD && !isRestarting) {
       isRestarting = true;
       writeLog('🚨 连续异常，自动重启服务');
       const child = require('child_process').exec;
       child(`node ${SCRIPT_PATH}`, () => {});
-      setTimeout(() => process.exit(1), 3000);
+      setTimeout(() => process.exit(1), 1500);
     }
   }
 }
 
-// 首次延迟30秒执行，之后每3分钟一次（完全保留原逻辑）
+// 启动定时器 保留你原来的逻辑
 setTimeout(() => {
   doHealthCheck();
   setInterval(doHealthCheck, PING_INTERVAL);
 }, FIRST_DELAY);
 
+// 全局异常兜底
+process.on('uncaughtException', (err) => {
+  sysLog('ERROR', '服务崩溃', { msg: err.message });
+  consecutiveFailures = FAILURE_THRESHOLD;
+  doHealthCheck();
+});
 
 // 全局异常捕获
 process.on('uncaughtException', (err) => {
