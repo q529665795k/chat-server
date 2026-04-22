@@ -662,7 +662,7 @@ async function doHealthCheck() {
   try {
     // 1. 检查服务端口（完全保留原样）
     await new Promise((resolve, reject) => {
-      const req = http.get(TARGET_URL, { timeout: 5000 }, (res) => {
+      const req = http.get(TARGET_URL, { timeout: 60000 }, (res) => {
         if (res.statusCode === 200) resolve();
         else reject(new Error('服务异常'));
       });
@@ -690,7 +690,7 @@ async function doHealthCheck() {
       writeLog('🚨 连续异常，自动重启服务');
       const child = require('child_process').exec;
       child(`node ${SCRIPT_PATH}`, () => {});
-      setTimeout(() => process.exit(1), 1500);
+      setTimeout(() => process.exit(1), 3000);
     }
   }
 }
