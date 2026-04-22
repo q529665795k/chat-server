@@ -37,7 +37,6 @@ async function callAI(prompt) {
 // ===== D1 数据库连接【定稿版】=====
 
 
-const mysql = require('mysql2/promise');
 
 const pool = mysql.createPool({
   host: process.env.DB_HOST,
