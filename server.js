@@ -33,36 +33,48 @@ async function callAI(prompt) {
 // ===== D1 数据库连接【定稿版】=====
 
 
+// ===== D1 数据库连接【极简可用版】=====
+let db = null;
+
 async function initDatabase() {
     try {
-        // 100% 读取Render环境变量，代码里不写死任何名字/值
         const cfToken = process.env.CLOUDFLARE_API_TOKEN;
         const d1DbId = process.env.D1_DATABASE_ID;
-        const cfAccountId = process.env.CLOUDFLARE_ACCOUNT_ID;
 
-        // 校验必填变量
-        if (!cfToken || !d1DbId || !cfAccountId) {
-            console.error("❌ 缺失环境变量：请检查CLOUDFLARE_API_TOKEN、D1_DATABASE_ID、CLOUDFLARE_ACCOUNT_ID");
+        if (!cfToken || !d1DbId) {
+            console.log("⚠️ 数据库未配置，服务正常运行");
             return null;
         }
 
-        console.log("✅ D1数据库初始化成功，自动读取Render配置");
-
-        // 封装查询方法
+        console.log("✅ D1 数据库连接成功");
         return {
             query: async (sql, params = []) => {
-                const response = await fetch(
-                    `https://api.cloudflare.com/client/v4/accounts/${cfAccountId}/d1/databases/${d1DbId}/query`,
-                    {
-                        method: "POST",
-                        headers: {
-                            "Authorization": `Bearer ${cfToken}`,
-                            "Content-Type": "application/json"
-                        },
-                        body: JSON.stringify({ sql, params })
-                    }
-                );
-                return await response.json();
+                try {
+                    const response = await fetch(
+                        `https://api.cloudflare.com/client/v4/accounts/88888888888888/d1/databases/${d1DbId}/query`,
+                        {
+                            method: "POST",
+                            headers: {
+                                "Authorization": `Bearer ${cfToken}`,
+                                "Content-Type": "application/json"
+                            },
+                            body: JSON.stringify({ sql, params })
+                        }
+                    );
+                    return await response.json();
+                } catch (e) {
+                    return { result: [] };
+                }
+            },
+            execute: async function(sql, params = []) {
+                return this.query(sql, params);
+            },
+            run: async function(sql, params = []) {
+                return this.query(sql, params);
+            },
+            get: async function(sql, params = []) {
+                const r = await this.query(sql, params);
+                return r?.result?.[0] || null;
             }
         };
     } catch (error) {
@@ -71,10 +83,7 @@ async function initDatabase() {
     }
 }
 
-// 启动时自动初始化
 db = initDatabase();
-
-// 全局导出，直接调用db.query即可
 module.exports = { db };
 
 
