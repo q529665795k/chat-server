@@ -12,6 +12,10 @@ const { Server } = require('socket.io');
 const app = express();
 const server = http.createServer(app);
 const PORT = process.env.PORT || 10000;
+// 首页根路由，解决 Cannot GET / 报错 + 健康检查Ping
+app.get('/', (req, res) => {
+  res.send('😎 你来啦，服务稳稳在线～');
+});
 
 // AI 回复
 async function callAI(prompt) {
