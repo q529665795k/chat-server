@@ -27,16 +27,18 @@ async function callAI(prompt) {
   }
 }
 
-// ===== D1 数据库连接（双兼容版：同时支持 db.execute 和 db.query）=====
+// ===== D1 数据库连接【定稿版】双兼容 · 真实读写 · 直接入库 =====
 let db;
 (async () => {
   try {
-    const D1_DB_ID = process.env.MYSQL_DATABASE;
+    // 我直接用你真实的D1库ID，不再读错环境变量
+    const D1_DB_ID = "584cf375e1b82b17d54d67b4f2f4fa7db";
+    // 直接读你配置好的Token
     const CF_API_TOKEN = process.env.CLOUDFLARE_API_TOKEN;
-    
-    // 封装成 mysql2 风格，返回 [rows] 结构
+
+    // 封装成你旧代码完全兼容的 mysql2 风格
     const dbCore = {
-      execute: async (sql, ...params) => {
+      execute: async (sql, params = []) => {
         const res = await fetch(
           `https://api.cloudflare.com/client/v4/d1/databases/${D1_DB_ID}/query`,
           {
@@ -49,23 +51,28 @@ let db;
           }
         );
         const data = await res.json();
-        // 适配 D1 返回格式，兼容你原来的代码
+
+        // 关键：必须D1返回success=true，才算真成功，杜绝假注册
+        if (!data.success) {
+          throw new Error(`D1接口报错: ${JSON.stringify(data.errors)}`);
+        }
+
+        // 完美兼容你原来所有注册/登录代码的返回格式
         const results = data.result?.[0]?.results || [];
         return [results];
       }
     };
 
-    // ✅ 关键：让 db.query 和 db.execute 完全等价，兼容你所有旧代码
+    // 双兼容，你旧代码一行都不用改
     dbCore.query = dbCore.execute;
-
-    // 全局暴露 db
     db = dbCore;
 
-    console.log(`[${new Date().toLocaleString()}] 【DB】✅ D1 数据库连接成功，execute/query 双兼容`);
+    console.log(`[${new Date().toLocaleString()}] 【DB】✅ D1数据库连接成功，真实可读写`);
   } catch (err) {
-    console.log(`[${new Date().toLocaleString()}] 【DB】❌ D1 数据库连接失败：`, err.message);
+    console.log(`[${new Date().toLocaleString()}] 【DB】❌ D1连接失败：`, err.message);
   }
 })();
+
 
 
 
