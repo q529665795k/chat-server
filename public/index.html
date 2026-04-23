@@ -118,19 +118,7 @@ button{width:100%;padding:14px;background:#007AFF;color:#fff;border:none;border-
 <script>
 
   // ====================== 前端全局日志（全连通后端）======================
-const oldLog = console.log;
-console.log = function (...args) {
-  oldLog(`[${new Date().toLocaleString()}]【前端】`, ...args);
-  // 自动上报日志到后端
-  fetch(BACKEND_URL + "/api/log-frontend", {
-    method: "POST",
-    headers: { "Content-Type": "application/json" },
-    body: JSON.stringify({
-      time: new Date().toISOString(),
-      data: args.join(" "),
-    }),
-  }).catch(() => {});
-};
+
 
 // 全局点击操作日志
 document.addEventListener("click", (e) => {
@@ -275,8 +263,8 @@ function sy(text) {
   let tip = document.createElement("div");
   tip.style.textAlign = "center";
   tip.style.color = "#999";
-  tip.style.fontSize = "280px";
-  tip.style.margin = "14px 0";
+  tip.style.fontSize = "15px";
+  tip.style.margin = "10px 0";
   tip.textContent = text;
   c.appendChild(tip);
   c.scrollTop = c.scrollHeight;
