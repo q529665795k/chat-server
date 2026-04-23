@@ -203,6 +203,8 @@ function b() {
   try { let x = new AudioContext(); let o = x.createOscillator(); g = x.createGain(); o.type = "sine"; o.frequency.value = 660; g.gain.value = 0.3; o.connect(g); g.connect(x.destination); o.start(); o.stop(x.currentTime + 0.18); } catch (e) {}
 }
 
+
+  
 function sy(text) {
   let c = document.getElementById("chat");
   let tip = document.createElement("div");
