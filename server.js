@@ -1,3 +1,26 @@
+
+// ====================== 全局HTTP极致日志（全信息）======================
+app.use(express.json());
+app.use((req, res, next) => {
+  // 记录请求开始时间
+  const start = Date.now();
+  // 客户端真实IP
+  const clientIp = req.ip || req.connection.remoteAddress;
+  
+  // 请求日志：IP+请求方式+地址+请求体+请求头
+  console.log(`\n【HTTP-请求】[${new Date().toLocaleString()}] IP:${clientIp} ${req.method} ${req.path}`);
+  console.log(`请求参数:`, req.body);
+  console.log(`请求头:`, req.headers['user-agent']);
+
+  // 监听响应结束，打印响应结果+耗时
+  res.on('finish', () => {
+    const cost = Date.now() - start;
+    console.log(`【HTTP-响应】状态码:${res.statusCode} 耗时:${cost}ms`);
+  });
+  next();
+});
+
+
 const http = require('http');
 const process = require('process');
 const express = require('express');
@@ -12,7 +35,7 @@ const multer = require('multer');
 
 require('dotenv').config();
 const mysql = require('mysql2/promise');
-const app = express();
+
 const server = http.createServer(app);
 const PORT = process.env.PORT || 10000;
 
@@ -526,6 +549,29 @@ const io = new Server(server, {
 });
 
 io.on('connection', socket => {
+ 
+  // ========== 新增：Socket.IO 全量全局日志 ==========
+const clientIp = socket.handshake.address;
+console.log(`\n【IO-新客户端连接】[${new Date().toLocaleString()}] IP:${clientIp} 客户端ID:${socket.id}`);
+
+// 监听前端所有发来的事件（所有操作全打印）
+socket.onAny((eventName, ...args) => {
+  console.log(`【IO-收到前端事件】[${new Date().toLocaleString()}] IP:${clientIp} 事件:${eventName} 数据:`, args);
+});
+
+// 监听后端所有发给前端的事件
+const oldEmit = socket.emit;
+socket.emit = function(eventName, ...args) {
+  console.log(`【IO-后端发送事件】[${new Date().toLocaleString()}] IP:${clientIp} 事件:${eventName} 数据:`, args);
+  return oldEmit.call(this, eventName, ...args);
+};
+
+// 监听客户端断开
+socket.on('disconnect', (reason) => {
+  console.log(`【IO-客户端断开】[${new Date().toLocaleString()}] IP:${clientIp} 客户端ID:${socket.id} 原因:${reason}`);
+});
+// ==============================================
+
   const sid = socket.id;
   const user = {
     id: sid, socket, username:'', partner:null, isMatched:false,
