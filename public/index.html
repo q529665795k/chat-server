@@ -1,1 +1,401 @@
-111111
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, minimum-scale=1.0, user-scalable=no, viewport-fit=cover">
+<meta name="apple-mobile-web-app-capable" content="yes">
+<meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
+<title>聊天</title>
+<style>
+*{margin:0;padding:0;box-sizing:border-box;-webkit-tap-highlight-color:transparent;-webkit-touch-callout:none}
+html,body{height:100%;width:100%;background:#111;color:#fff;font-family:-apple-system,BlinkMacSystemFont,"Segoe UI",Roboto,sans-serif}
+body{display:flex;flex-direction:column}
+.login{position:fixed;top:0;left:0;width:100%;height:100%;background:#111;display:flex;align-items:center;justify-content:center;z-index:999}
+.tabs{display:flex;gap:10px;margin-bottom:16px}
+.tab{flex:1;padding:10px;text-align:center;background:#333;border-radius:10px;cursor:pointer}
+.tab.active{background:#007AFF}
+input{width:100%;padding:14px;margin-bottom:12px;border-radius:10px;background:#333;color:#fff;border:none;outline:none;font-size:15px}
+button{width:100%;padding:14px;background:#007AFF;color:#fff;border:none;border-radius:10px;font-size:15px;margin-top:4px;cursor:pointer}
+.tip{color:#ff3b30;text-align:center;margin-top:8px;font-size:13px}
+.container{display:none;flex:1;padding:14px;flex-direction:column;gap:10px;height:100%;min-height:0}
+.header{display:flex;justify-content:space-between;align-items:center}
+.nick{font-size:20px;font-weight:60}
+.exit{background:#ff3b30;padding:6px 16px;border-radius:8px;font-size:14px;width:70px;text-align:center}
+.bar{display:flex;flex-wrap:wrap;gap:10px 14px;align-items:center;font-size:14px}
+.bar label{display:flex;align-items:center;gap:4px}
+.btn-nick{background:#007AFF;padding:6px 12px;border-radius:8px;font-size:13px}
+.match{background:#ff9500;padding:10px;border-radius:10px;font-size:15px}
+.tools{display:flex;gap:10px}
+.tools button{flex:1;padding:10px;border-radius:10px;background:#007AFF;font-size:14px}
+.chat{flex:1;background:#222;border-radius:12px;padding:12px;overflow-y:auto;display:flex;flex-direction:column;gap:8px;min-height:0}
+.msg{padding:10px 14px;border-radius:16px;max-width:75%;word-break:break-all;position:relative}
+.me{background:#007AFF;align-self:flex-end}
+.other{background:#34c759;align-self:flex-start}
+.read{position:absolute;right:8px;bottom:4px;font-size:11px;opacity:.7}
+.burn{background:#ff3b30!important}
+.burn-tip{position:absolute;top:-18px;right:6px;font-size:11px;color:#ff3b30}
+.input-box{display:flex;gap:8px;align-items:center;flex-shrink:0}
+.input-box input{flex:1;margin-bottom:0;height:46px;padding:0 12px;border-radius:8px}
+.send{background:#007AFF;color:#fff;border:none;border-radius:8px;font-size:14px;width:70px;padding:6px 12px;text-align:center}
+.modal{display:none;position:fixed;inset:0;background:rgba(0,0,0,0.8);align-items:center;justify-content:center;z-index:9999}
+.modal-box{background:#222;padding:24px;border-radius:16px;width:90%;max-width:300px}
+.modal-buttons{display:flex;gap:10px;margin-top:14px}
+.modal-buttons button{flex:1}
+.media-img{max-width:200px;border-radius:12px;cursor:pointer}
+.media-video{max-width:240px;border-radius:12px;cursor:pointer}
+#fullPreview{display:none;position:fixed;inset:0;background:#000;z-index:99999;align-items:center;justify-content:center}
+#fullMedia{max-width:100vw;max-height:100vh}
+#saveBtn{position:absolute;bottom:40px;background:#007AFF;color:#fff;padding:10px 20px;border-radius:8px;border:none;font-size:16px}
+</style>
+</head>
+<body>
+<div class="login" id="login">
+<div class="login-box">
+<div class="tabs">
+<div class="tab active" id="t1">登录</div>
+<div class="tab" id="t2">注册</div>
+</div>
+<div id="f1">
+<input id="u1" placeholder="用户名">
+<input id="p1" type="password" placeholder="密码">
+<button id="loginBtn">登录</button>
+<div class="tip" id="tip"></div>
+</div>
+<div id="f2" style="display:none;">
+<input id="u2" placeholder="用户名">
+<input id="p2" type="password" placeholder="密码">
+<button id="regBtn">注册</button>
+<div class="tip2" id="tip2"></div>
+</div>
+</div>
+</div>
+<div class="container" id="main">
+<div class="header">
+<div class="nick" id="nick">加载中...</div>
+<div>
+<button class="exit" id="exit">退出</button>
+<button onclick="clearChat()" class="exit" style="margin-left:10px;">清空记录</button>
+</div>
+</div>
+<div class="bar">
+<label><input type="checkbox" id="burn"> 阅后即焚</label>
+<label><input type="checkbox" id="sound"> 提示音</label>
+<label><input type="checkbox" id="read"> 已读回执</label>
+<button class="btn-nick" onclick="oM()">修改昵称</button>
+</div>
+<button class="match" id="match">匹配聊天</button>
+<div class="tools">
+<button onclick="openGalleryImage()">发送图片</button>
+<button onclick="openGalleryVideo()">发送视频</button>
+<button onclick="openCamera()" style="background:#ff9500;">📷 拍照</button>
+<button onclick="openCameraVideo()" style="background:#ff9500;">🎥 录像</button>
+</div>
+<div class="chat" id="chat"></div>
+<div class="input-box">
+<input id="msg" placeholder="输入消息...">
+<button class="send" id="send">发送</button>
+</div>
+</div>
+<div class="modal" id="modal">
+<div class="modal-box">
+<input id="newNick" placeholder="输入新昵称">
+<div class="modal-buttons">
+<button onclick="cM()">取消</button>
+<button onclick="sN()">确定</button>
+</div>
+</div>
+</div>
+<div id="fullPreview">
+<img id="fullMedia" alt="">
+<video id="fullVideo" controls autoplay></video>
+<button id="saveBtn">保存</button>
+</div>
+<input type="file" id="galleryImage" accept="image/*" hidden>
+<input type="file" id="galleryVideo" accept="video/*" hidden>
+<input type="file" id="cameraPhoto" accept="image/*" capture="camera" hidden>
+<input type="file" id="cameraVideo" accept="video/*" capture="camera" hidden>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/socket.io/4.7.2/socket.io.min.js"></script>
+<script>
+const BACKEND_URL = "https://im6.qzz.io";
+let socket = null;
+let nickName = "";
+let userId = "";
+let partnerId = "";
+let roomId = "";
+let mState = false;
+let currentMediaUrl = "";
+
+window.onload = function() {
+  const savedUserId = localStorage.getItem("chat_user_id");
+  if (savedUserId) {
+    userId = savedUserId;
+    document.getElementById("login").style.display = "none";
+    document.getElementById("main").style.display = "flex";
+    loadLatestNick();
+    C();
+  }
+  document.getElementById("t1").onclick = () => {
+    document.getElementById("t1").classList.add("active");
+    document.getElementById("t2").classList.remove("active");
+    document.getElementById("f1").style.display = "block";
+    document.getElementById("f2").style.display = "none";
+  };
+  document.getElementById("t2").onclick = () => {
+    document.getElementById("t2").classList.add("active");
+    document.getElementById("t1").classList.remove("active");
+    document.getElementById("f1").style.display = "none";
+    document.getElementById("f2").style.display = "block";
+  };
+  document.getElementById("loginBtn").onclick = L;
+  document.getElementById("regBtn").onclick = R;
+  document.getElementById("exit").onclick = logout;
+  document.getElementById("match").onclick = toggleMatch;
+  document.getElementById("send").onclick = S;
+  document.getElementById("msg").onkeydown = (e) => { if (e.key === "Enter") S(); };
+  document.getElementById("galleryImage").onchange = (e) => sendMedia(e, "image");
+  document.getElementById("galleryVideo").onchange = (e) => sendMedia(e, "video");
+  document.getElementById("cameraPhoto").onchange = (e) => sendMedia(e, "image");
+  document.getElementById("cameraVideo").onchange = (e) => sendMedia(e, "video");
+};
+
+function openGalleryImage() { if (!partnerId) { alert("请先匹配"); return; } document.getElementById("galleryImage").click(); }
+function openGalleryVideo() { if (!partnerId) { alert("请先匹配"); return; } document.getElementById("galleryVideo").click(); }
+function openCamera() { if (!partnerId) { alert("请先匹配"); return; } document.getElementById("cameraPhoto").click(); }
+function openCameraVideo() { if (!partnerId) { alert("请先匹配"); return; } document.getElementById("cameraVideo").click(); }
+
+// ====================== 【已替换】原生URL直传，不卡不掉线 ======================
+function sendMedia(e, type) {
+  const file = e.target.files[0];
+  if (!file) return;
+  const fileUrl = URL.createObjectURL(file);
+  const msgId = Date.now() + "";
+  socket.emit("send-msg", {
+    content: fileUrl,
+    type: type,
+    burn: document.getElementById("burn").checked,
+    msgId: msgId,
+    toId: partnerId,
+    roomId: roomId
+  });
+  aM("我", "", document.getElementById("burn").checked, msgId, type, fileUrl);
+  b();
+  e.target.value = "";
+}
+
+function logout() {
+  if (socket) socket.disconnect();
+  localStorage.removeItem("chat_user_id");
+  location.reload();
+}
+
+async function loadLatestNick() {
+  if (!userId) return;
+  try {
+    let res = await fetch(BACKEND_URL + "/api/get_user_info?user_id=" + userId);
+    let data = await res.json();
+    nickName = data.nick || data.account || userId;
+  } catch (e) { nickName = userId; }
+  document.getElementById("nick").textContent = nickName;
+}
+
+function b() {
+  if (!document.getElementById("sound").checked) return;
+  try { let x = new AudioContext(); let o = x.createOscillator(); g = x.createGain(); o.type = "sine"; o.frequency.value = 660; g.gain.value = 0.3; o.connect(g); g.connect(x.destination); o.start(); o.stop(x.currentTime + 0.18); } catch (e) {}
+}
+
+function sy(text) {
+  let c = document.getElementById("chat");
+  let tip = document.createElement("div");
+  tip.style.textAlign = "center";
+  tip.style.color = "#999";
+  tip.style.fontSize = "12px";
+  tip.style.margin = "8px 0";
+  tip.textContent = text;
+  c.appendChild(tip);
+  c.scrollTop = c.scrollHeight;
+}
+
+// ====================== 阅后即焚100秒倒计时（原样保留） ======================
+function aM(who, text, burn = false, msgId = "", type = "text", url = "") {
+  let c = document.getElementById("chat");
+  let g = document.createElement("div");
+  g.className = "msg " + (who === "我" ? "me" : "other");
+  if (msgId) g.dataset.id = msgId;
+
+  if (type === "image") {
+    let img = document.createElement("img");
+    img.src = url;
+    img.className = "media-img";
+    img.onclick = () => { openFullPreview(url, "image"); };
+    g.appendChild(img);
+  } else if (type === "video") {
+    let video = document.createElement("video");
+    video.src = url;
+    video.controls = true;
+    video.playsInline = true;
+    video.className = "media-video";
+    video.onclick = () => { openFullPreview(url, "video"); };
+    g.appendChild(video);
+  } else {
+    g.textContent = text;
+  }
+
+  if (who === "我") {
+    let r = document.createElement("div");
+    r.className = "read";
+    r.textContent = "未读";
+    g.appendChild(r);
+  }
+
+  if (burn) {
+    g.classList.add("burn");
+    let burnTip = document.createElement("div");
+    burnTip.className = "burn-tip";
+    burnTip.textContent = "焚·100秒";
+    g.appendChild(burnTip);
+    let t = 100;
+    const timer = setInterval(() => {
+      t--;
+      if (burnTip) burnTip.textContent = "焚·" + t + "秒";
+      if (t <= 0) {
+        clearInterval(timer);
+        if (g && g.parentNode) g.parentNode.removeChild(g);
+      }
+    }, 1000);
+  }
+
+  c.appendChild(g);
+  c.scrollTop = c.scrollHeight;
+}
+
+function openFullPreview(url, type) {
+  let layer = document.getElementById("fullPreview");
+  layer.style.display = "flex";
+  currentMediaUrl = url;
+  let img = document.getElementById("fullMedia");
+  let video = document.getElementById("fullVideo");
+  img.style.display = "none";
+  video.style.display = "none";
+  if (type === "image") { img.src = url; img.style.display = "block"; }
+  if (type === "video") { video.src = url; video.style.display = "block"; }
+  layer.onclick = (e) => { if (e.target === layer) { layer.style.display = "none"; video.pause(); } };
+}
+
+function L() {
+  let u = document.getElementById("u1").value.trim();
+  let p = document.getElementById("p1").value.trim();
+  if (!u || !p) { document.getElementById("tip").textContent = "请输入账号密码"; setTimeout(() => document.getElementById("tip").textContent = "", 2000); return; }
+  userId = u;
+  fetch(BACKEND_URL + "/login", { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ username: u, password: p }) })
+  .then(res => res.json()).then(async j => {
+    if (j.code === 200) {
+      localStorage.setItem("chat_user_id", userId);
+      document.getElementById("login").style.display = "none";
+      document.getElementById("main").style.display = "flex";
+      await loadLatestNick();
+      C();
+    } else {
+      document.getElementById("tip").textContent = j.msg || "登录失败";
+      setTimeout(() => document.getElementById("tip").textContent = "", 2000);
+    }
+  });
+}
+
+function R() {
+  let u = document.getElementById("u2").value.trim();
+  let p = document.getElementById("p2").value.trim();
+  if (!u || !p) { document.getElementById("tip2").textContent = "请输入账号密码"; setTimeout(() => document.getElementById("tip2").textContent = "", 2000); return; }
+  fetch(BACKEND_URL + "/register", { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ username: u, password: p }) })
+  .then(res => res.json()).then(j => {
+    document.getElementById("tip2").textContent = j.msg || "注册成功";
+    setTimeout(() => document.getElementById("tip2").textContent = "", 2000);
+  });
+}
+
+function C() {
+  socket = io(BACKEND_URL, { transports: ["websocket", "polling"] });
+  socket.on("connect", () => { socket.emit("user-online", { username: userId, nickname: nickName }); });
+  socket.on("new-msg", (j) => { 
+    aM(j.fromName, j.content, j.burn, j.msgId, j.type, j.content); 
+    b(); 
+    // 恢复已读回执
+    if(document.getElementById("read").checked){
+      socket.emit("msg-read", { msgId: j.msgId });
+    }
+  });
+  socket.on("msg-read", (j) => {
+    let ele = document.querySelector(`.msg[data-id="${j.msgId}"] .read`);
+    if(ele) ele.textContent = "已读";
+  });
+  socket.on("match-found", (j) => {
+    mState = true;
+    partnerId = j.partnerId;
+    roomId = j.roomId;
+    document.getElementById("match").textContent = "取消匹配";
+    sy("匹配成功：" + j.partnerName);
+  });
+  socket.on("partner-leave", () => {
+    mState = false;
+    partnerId = "";
+    roomId = "";
+    document.getElementById("match").textContent = "匹配聊天";
+    sy("对方已离开");
+  });
+}
+
+
+function S() {
+  let t = document.getElementById("msg").value.trim();
+  if (!t || !partnerId) { alert("请先匹配"); return; }
+  let msgId = Date.now() + "";
+  let burn = document.getElementById("burn").checked;
+  socket.emit("send-msg", {
+    content: t,
+    type: "text",
+    burn: burn,
+    msgId: msgId,
+    toId: partnerId,
+    roomId: roomId
+  });
+  aM("我", t, burn, msgId, "text");
+  b();
+  document.getElementById("msg").value = "";
+}
+
+function toggleMatch() {
+  if (!socket || !userId) { alert("请先登录"); return; }
+  if (!mState) {
+    socket.emit("match-chat");
+    mState = true;
+    document.getElementById("match").textContent = "取消匹配";
+  } else {
+    socket.emit("stop-chat");
+    mState = false;
+    partnerId = "";
+    roomId = "";
+    document.getElementById("match").textContent = "匹配聊天";
+  }
+}
+
+function oM() { document.getElementById("modal").style.display = "flex"; }
+function cM() { document.getElementById("modal").style.display = "none"; }
+function sN() {
+  let nn = document.getElementById("newNick").value.trim();
+  if (!nn || nn.length < 2 || nn.length > 20) { alert("昵称2-20位"); return; }
+  fetch(BACKEND_URL + "/update_nick", {
+    method: "POST",
+    headers: { "Content-Type": "application/json" },
+    body: JSON.stringify({ username: userId, nick: nn })
+  }).then(r => r.json()).then(r => {
+    if (r.code === 200) {
+      nickName = nn;
+      document.getElementById("nick").textContent = nn;
+      cM();
+      alert("修改成功");
+    }
+  });
+}
+function clearChat(){ document.getElementById("chat").innerHTML = ""; }
+</script>
+</body>
+</html>
