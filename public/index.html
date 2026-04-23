@@ -275,42 +275,46 @@ function sy(text) {
   let tip = document.createElement("div");
   tip.style.textAlign = "center";
   tip.style.color = "#999";
-  tip.style.fontSize = "12px";
-  tip.style.margin = "8px 0";
+  tip.style.fontSize = "280px";
+  tip.style.margin = "14px 0";
   tip.textContent = text;
   c.appendChild(tip);
   c.scrollTop = c.scrollHeight;
 }
 //阅后即焚视频图片
+
+
+
+// 渲染消息：图片视频直接显示 + 已读标记 + 焚阅倒计时 三合一完整版
 // 渲染消息：图片视频直接显示，不用点开链接
 function aM(fromName, content, burn, msgId, type) {
-  let html = '';
+  let html = 
 
   // 🌟 核心判断：自动渲染图片/视频
   if (type === 'image') {
     // 图片直接在聊天框显示，限制大小防撑满屏幕
-    html = `
+    html = 
       <div class="msg-item">
         <div>${fromName}</div>
         <img src="${content}" style="max-width:200px;max-height:300px;border-radius:8px;">
       </div>
-    `;
+    
   } else if (type === 'video') {
     // 视频直接显示播放器，自带播放/暂停
-    html = `
+    html = 
       <div class="msg-item">
         <div>${fromName}</div>
         <video src="${content}" controls style="max-width:200px;max-height:300px;border-radius:8px;">
       </div>
-    `;
+    
   } else {
     // 普通文字正常显示
-    html = `
+    html = 
       <div class="msg-item">
         <div>${fromName}</div>
         <div>${content}</div>
       </div>
-    `;
+    
   }
 
   // 把消息加到聊天列表最下面
@@ -323,31 +327,10 @@ function aM(fromName, content, burn, msgId, type) {
   if (who === "我") {
     let r = document.createElement("div");
     r.className = "read";
-// 渲染消息：图片视频直接显示 + 已读标记 + 焚阅倒计时 三合一完整版
-function aM(fromName, content, type, burn = false, msgId = '') {
-  let c = document.getElementById("chat");
-  let g = document.createElement("div");
-  g.className = "msg " + (fromName === "我" ? "me" : "other");
-  if (msgId) g.dataset.id = msgId;
-
-  // 🌟 自动渲染图片 / 视频 / 文字
-  if (type === "image") {
-    g.innerHTML = `<img src="${content}" style="max-width:280px;border-radius:12px;cursor:pointer;display:block;" onclick="openFullPreview('${content}','image')">`;
-  } else if (type === "video") {
-    g.innerHTML = `<video src="${content}" controls playsinline style="max-width:280px;border-radius:12px;display:block;" onclick="openFullPreview('${content}','video')"></video>`;
-  } else {
-    g.textContent = content;
-  }
-
-  // ✅ 已读标记
-  if (fromName === "我") {
-    let r = document.createElement("div");
-    r.className = "read";
     r.textContent = "未读";
     g.appendChild(r);
   }
 
-  // ✅ 焚阅倒计时
   if (burn) {
     g.classList.add("burn");
     let burnTip = document.createElement("div");
