@@ -7,6 +7,10 @@ const path = require('path');
 const axios = require('axios');
 const { exec } = require('child_process');
 const { Server } = require('socket.io');
+
+const multer = require('multer');
+const path = require('path');
+const fs = require('fs');
 require('dotenv').config();
 const mysql = require('mysql2/promise');
 const app = express();
@@ -649,6 +653,42 @@ setTimeout(() => {
   doHealthCheck();
   setInterval(doHealthCheck, PING_INTERVAL);
 }, FIRST_DELAY);
+
+// === 图片/视频本地存储专用（只存文件，数据库只存路径）===
+const uploadDir = path.join(__dirname, 'local_uploads');
+if (!fs.existsSync(uploadDir)) fs.mkdirSync(uploadDir, { recursive: true });
+
+const storage = multer.diskStorage({
+  destination: (req, file, cb) => cb(null, uploadDir),
+  filename: (req, file, cb) => {
+    const ext = path.extname(file.originalname);
+    const saveName = Date.now() + '_' + Math.random().toString(36).slice(2) + ext;
+    cb(null, saveName);
+  }
+});
+
+const upload = multer({
+  storage,
+  limits: { fileSize: 50 * 1024 * 1024 },
+  fileFilter: (req, file, cb) => {
+    const allow = ['image/jpeg','image/png','image/gif','video/mp4','video/mov','video/avi'];
+    allow.includes(file.mimetype) ? cb(null, true) : cb(new Error('仅支持图片/视频'), false);
+  }
+});
+
+// 上传接口：存本地，返回文件路径
+app.post('/api/upload-local', upload.single('file'), (req, res) => {
+  try {
+    const filePath = `local_uploads/${req.file.filename}`;
+    res.json({ code: 200, data: { filePath } });
+  } catch (err) {
+    res.json({ code: 500, msg: err.message });
+  }
+});
+
+// 让前端能直接访问本地图片视频
+app.use('/local_uploads', express.static(path.join(__dirname, 'local_uploads')));
+
 
 // 启动服务
 server.listen(PORT, '0.0.0.0', () => {
