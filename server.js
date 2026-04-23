@@ -43,6 +43,14 @@ const PORT = process.env.PORT || 10000;
 app.get('/', (req, res) => {
   res.send('😎 你来啦，服务稳稳在线～');
 });
+
+// ========== 后端全局日志接口 ==========
+app.post('/api/log-frontend', (req, res) => {
+  console.log('📥 前端全局日志：', req.body);
+  res.sendStatus(200);
+});
+
+
 // 获取当前用户资料（昵称+账号）
 app.get('/api/get_user_info', async (req, res) => {
   try {
