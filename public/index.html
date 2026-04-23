@@ -224,14 +224,57 @@ function aM(who, text, burn = false, msgId = "", type = "text", url = "") {
   if (msgId) g.dataset.id = msgId;
 
   if (type === "image") {
-  let img = document.createElement("img");
-  img.src = url;
-  img.style.maxWidth = "280px";
-  img.style.borderRadius = "12px";
-  img.style.cursor = "pointer";
-  img.style.display = "block";
-  img.onclick = () => { openFullPreview(url, "image"); };
-  g.appendChild(img);
+    let img = document.createElement("img");
+    img.src = url;
+    img.style.maxWidth = "280px";
+    img.style.borderRadius = "12px";
+    img.style.cursor = "pointer";
+    img.style.display = "block";
+    img.onclick = () => { openFullPreview(url, "image"); };
+    g.appendChild(img);
+  } else if (type === "video") {
+    let video = document.createElement("video");
+    video.src = url;
+    video.controls = true;
+    video.playsInline = true;
+    video.style.maxWidth = "280px";
+    video.style.borderRadius = "12px";
+    video.style.display = "block";
+    video.onclick = () => { openFullPreview(url, "video"); };
+    g.appendChild(video);
+  } else {
+    g.textContent = text;
+  }
+
+  if (who === "我") {
+    let r = document.createElement("div");
+    r.className = "read";
+    r.textContent = "未读";
+    g.appendChild(r);
+  }
+
+  if (burn) {
+    g.classList.add("burn");
+    let burnTip = document.createElement("div");
+    burnTip.className = "burn-tip";
+    burnTip.textContent = "焚·100秒";
+    g.appendChild(burnTip);
+
+    let t = 100;
+    let timer = setInterval(() => {
+      t--;
+      burnTip.textContent = "焚·" + t + "秒";
+      if (t <= 0) {
+        clearInterval(timer);
+        if (g && g.parentNode) {
+          g.parentNode.removeChild(g);
+        }
+      }
+    }, 1000);
+  }
+
+  c.appendChild(g);
+  c.scrollTop = c.scrollHeight;
 }
 
 function openFullPreview(url, type) {
@@ -239,13 +282,11 @@ function openFullPreview(url, type) {
   let img = document.getElementById("fullMedia");
   let video = document.getElementById("fullVideo");
 
-  // 重置状态
   img.style.display = "none";
   video.style.display = "none";
   video.pause();
   currentMediaUrl = url;
 
-  // 加载对应媒体
   if (type === "image") {
     img.src = url;
     img.style.display = "block";
@@ -255,24 +296,23 @@ function openFullPreview(url, type) {
     video.style.display = "block";
   }
 
-  // 显示预览层
   layer.style.display = "flex";
 
-  // 点击任意位置关闭
   layer.onclick = () => {
     layer.style.display = "none";
     video.pause();
   };
+
   img.onclick = (e) => {
-    e.stopPropagation(); // 防止冒泡冲突
+    e.stopPropagation();
     layer.style.display = "none";
   };
+
   video.onclick = (e) => {
     e.stopPropagation();
     layer.style.display = "none";
   };
 }
-
 
 
 function L() {
