@@ -76,13 +76,16 @@ const pool = mysql.createPool({
     `);
     await conn.query(`
     CREATE TABLE IF NOT EXISTS messages (
-      id INT PRIMARY KEY AUTO_INCREMENT COMMENT '消息自增ID',
-      sender VARCHAR(50) NOT NULL COMMENT '发送者账号',
-      receiver VARCHAR(50) NOT NULL COMMENT '接收者账号',
-      content TEXT COMMENT '消息内容',
-      msg_type VARCHAR(20) DEFAULT 'text' COMMENT '消息类型:text/image/video/file',
-      created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP COMMENT '发送时间'
-    ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;
+  id INT PRIMARY KEY AUTO_INCREMENT COMMENT '消息自增ID',
+  sender VARCHAR(50) NOT NULL COMMENT '发送者账号',
+  receiver VARCHAR(50) NOT NULL COMMENT '接收者账号',
+  content TEXT COMMENT '文本内容 或 本地文件路径',
+  msg_type VARCHAR(20) DEFAULT 'text' COMMENT '消息类型:text/image/video',
+  file_name VARCHAR(100) COMMENT '原文件名（可选）',
+  file_size INT COMMENT '文件大小(字节)（可选）',
+  created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP COMMENT '发送时间'
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;
+
     `);
     await conn.query(`
     CREATE TABLE IF NOT EXISTS nickname_logs (
