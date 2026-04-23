@@ -116,17 +116,10 @@ button{width:100%;padding:14px;background:#007AFF;color:#fff;border:none;border-
 <input type="file" id="cameraVideo" accept="video/*" capture="camera" hidden>
 <script src="https://cdnjs.cloudflare.com/ajax/libs/socket.io/4.7.2/socket.io.min.js"></script>
 <script>
-
-  // ====================== 前端全局日志（全连通后端）======================
-
-
-// 全局点击操作日志
 document.addEventListener("click", (e) => {
   const text = (e.target.innerText || e.target.id || "").substring(0, 20);
   console.log("【操作】点击 →", text);
 });
-
-// 全局fetch请求日志
 const oldFetch = window.fetch;
 window.fetch = async function (input, init) {
   const url = typeof input === "string" ? input : input.url;
@@ -136,8 +129,6 @@ window.fetch = async function (input, init) {
   console.log("【HTTP响应】", url, "状态:", res.status);
   return res;
 };
-
-// Socket.IO 收发全日志
 function wrapSocket(socket) {
   const oldEmit = socket.emit;
   socket.emit = function (event, ...data) {
@@ -148,10 +139,7 @@ function wrapSocket(socket) {
     console.log("【WS接收】", event, data);
   });
 }
-// =====================================================================
-
-  
-  const BACKEND_URL = "https://im6.qzz.io";
+const BACKEND_URL = "https://im6.qzz.io";
 let socket = null;
 let nickName = "";
 let userId = "";
@@ -159,7 +147,6 @@ let partnerId = "";
 let roomId = "";
 let mState = false;
 let currentMediaUrl = "";
-
 window.onload = function() {
   const savedUserId = localStorage.getItem("chat_user_id");
   if (savedUserId) {
@@ -192,20 +179,15 @@ window.onload = function() {
   document.getElementById("cameraPhoto").onchange = (e) => sendMedia(e, "image");
   document.getElementById("cameraVideo").onchange = (e) => sendMedia(e, "video");
 };
-
 function openGalleryImage() { if (!partnerId) { alert("请先匹配"); return; } document.getElementById("galleryImage").click(); }
 function openGalleryVideo() { if (!partnerId) { alert("请先匹配"); return; } document.getElementById("galleryVideo").click(); }
 function openCamera() { if (!partnerId) { alert("请先匹配"); return; } document.getElementById("cameraPhoto").click(); }
 function openCameraVideo() { if (!partnerId) { alert("请先匹配"); return; } document.getElementById("cameraVideo").click(); }
-
-// ====================== 【已替换】原生URL直传，不卡不掉线 ======================
 async function sendMedia(e, type) {
   const file = e.target.files[0];
   if (!file || !partnerId) return;
-
   const formData = new FormData();
   formData.append("file", file);
-
   try {
     const res = await fetch(BACKEND_URL + "/api/upload-local", {
       method: "POST",
@@ -213,11 +195,9 @@ async function sendMedia(e, type) {
     });
     const data = await res.json();
     if (data.code !== 200) return;
-
     const url = data.data.url;
     const msgId = Date.now() + "";
     const burn = document.getElementById("burn").checked;
-
     socket.emit("send-msg", {
       content: url,
       type: type,
@@ -226,21 +206,16 @@ async function sendMedia(e, type) {
       toId: partnerId,
       roomId: roomId
     });
-
     aM("我", "", burn, msgId, type, url);
     b();
   } catch (err) {}
-
   e.target.value = "";
 }
-
-
 function logout() {
   if (socket) socket.disconnect();
   localStorage.removeItem("chat_user_id");
   location.reload();
 }
-
 async function loadLatestNick() {
   if (!userId) return;
   try {
@@ -250,14 +225,10 @@ async function loadLatestNick() {
   } catch (e) { nickName = userId; }
   document.getElementById("nick").textContent = nickName;
 }
-
 function b() {
   if (!document.getElementById("sound").checked) return;
   try { let x = new AudioContext(); let o = x.createOscillator(); g = x.createGain(); o.type = "sine"; o.frequency.value = 660; g.gain.value = 0.3; o.connect(g); g.connect(x.destination); o.start(); o.stop(x.currentTime + 0.18); } catch (e) {}
 }
-
-
-  
 function sy(text) {
   let c = document.getElementById("chat");
   let tip = document.createElement("div");
@@ -269,415 +240,121 @@ function sy(text) {
   c.appendChild(tip);
   c.scrollTop = c.scrollHeight;
 }
-//阅后即焚视频图片
 
-
-
-// 渲染消息：图片视频直接显示 + 已读标记 + 焚阅倒计时 三合一完整版
-
+// ====================== 【完整版：放大+返回+保存】aM ======================
 function aM(who, text, burn = false, msgId = "", type = "text", url = "") {
-    const c = document.getElementById("chat");
-    const g = document.createElement("div");
-    g.className = "msg " + (who === "我" ? "me" : "other");
-    if (msgId) g.dataset.id = msgId;
+  const c = document.getElementById("chat");
+  const g = document.createElement("div");
+  g.className = "msg " + (who === "我" ? "me" : "other");
+  if (msgId) g.dataset.id = msgId;
+  let realUrl = url;
 
-    // ========== 真实URL处理（和后端im6.qzz.io完全匹配） ==========
-    
-    // ===================== 图片：用你指定的代码 + 保留全屏保存 + 无冲突 =====================
-if (type === "image") {
+  if (type === "image") {
     const img = document.createElement("img");
-    // --- 这里完全用你给的这段，一字没改 ---
-    img.src = url;
+    img.src = realUrl;
     img.style.maxWidth = "280px";
     img.style.maxHeight = "320px";
     img.style.width = "100%";
     img.style.display = "block";
     img.style.borderRadius = "12px";
     img.style.objectFit = "cover";
+    img.style.cursor = "pointer";
     img.onerror = () => img.style.display = "none";
-    // --- 你给的代码结束 ---
 
-    // 下面你原来的【点击全屏+保存】逻辑 100% 保留，不删不改！
     img.onclick = function () {
-        const preview = document.getElementById("fullPreview");
-        const fullImg = document.getElementById("fullMedia");
-        const fullVideo = document.getElementById("fullVideo");
-        const saveBtn = document.getElementById("saveBtn");
+      const preview = document.getElementById("fullPreview");
+      const fullMedia = document.getElementById("fullMedia");
+      const fullVideo = document.getElementById("fullVideo");
+      const saveBtn = document.getElementById("saveBtn");
 
-        fullImg.style.display = "block";
-        fullVideo.style.display = "none";
-        fullImg.src = realUrl;
-        preview.style.display = "flex";
-
-        saveBtn.style.display = "block";
-        saveBtn.innerText = "保存图片";
-        saveBtn.onclick = function (e) {
-            e.stopPropagation();
-            const a = document.createElement("a");
-            a.href = realUrl;
-            a.download = "chat_img_" + Date.now();
-            a.click();
-        };
-
-        preview.onclick = function (e) {
-            if (e.target === preview || e.target === fullImg) {
-                preview.style.display = "none";
-            }
-        };
+      fullMedia.style.display = "block";
+      fullVideo.style.display = "none";
+      fullMedia.src = realUrl;
+      preview.style.display = "flex";
+      saveBtn.style.display = "block";
+      saveBtn.innerText = "保存图片";
+      saveBtn.onclick = function (e) {
+        e.stopPropagation();
+        const a = document.createElement("a");
+        a.href = realUrl;
+        a.download = "chat_img_" + Date.now();
+        a.click();
+      };
+      preview.onclick = function () {
+        preview.style.display = "none";
+      };
     };
-
     g.appendChild(img);
+  }
+  else if (type === "video") {
+    const video = document.createElement("video");
+    video.src = realUrl;
+    video.style.maxWidth = "280px";
+    video.style.maxHeight = "320px";
+    video.style.borderRadius = "12px";
+    video.style.cursor = "pointer";
+    video.controls = true;
+    video.playsInline = true;
+
+    video.onclick = function () {
+      const preview = document.getElementById("fullPreview");
+      const fullMedia = document.getElementById("fullMedia");
+      const fullVideo = document.getElementById("fullVideo");
+      const saveBtn = document.getElementById("saveBtn");
+
+      fullMedia.style.display = "none";
+      fullVideo.style.display = "block";
+      fullVideo.src = realUrl;
+      preview.style.display = "flex";
+      saveBtn.style.display = "block";
+      saveBtn.innerText = "保存视频";
+      saveBtn.onclick = function (e) {
+        e.stopPropagation();
+        const a = document.createElement("a");
+        a.href = realUrl;
+        a.download = "chat_video_" + Date.now();
+        a.click();
+      };
+      preview.onclick = function () {
+        preview.style.display = "none";
+        fullVideo.pause();
+      };
+    };
+    g.appendChild(video);
+  }
+  else {
+    const textDiv = document.createElement("div");
+    textDiv.className = "msg-text";
+    textDiv.textContent = text;
+    g.appendChild(textDiv);
+  }
+
+  if (who === "我") {
+    const readTag = document.createElement("div");
+    readTag.className = "read";
+    readTag.textContent = "未读";
+    g.appendChild(readTag);
+  }
+  if (burn) {
+    g.classList.add("burn");
+    let burnTip = document.createElement("div");
+    burnTip.className = "burn-tip";
+    burnTip.textContent = "焚·100秒";
+    g.appendChild(burnTip);
+    let t = 100;
+    let timer = setInterval(() => {
+      t--;
+      burnTip.textContent = "焚·" + t + "秒";
+      if (t <= 0) {
+        clearInterval(timer);
+        if (g && g.parentNode) g.parentNode.removeChild(g);
+      }
+    }, 1000);
+  }
+  c.appendChild(g);
+  c.scrollTop = c.scrollHeight;
 }
-
-    // ===================== 视频：真实URL + 大播放器 + 全屏 + 返回 + 保存 =====================
-    else if (type === "video") {
-        const video = document.createElement("video");
-        video.src = realUrl;
-        video.style.maxWidth = "280px";
-        video.style.maxHeight = "320px";
-        video.style.borderRadius = "12px";
-        video.controls = true;
-        video.playsInline = true;
-        video.preload = "auto";
-
-        // 点击全屏+保存逻辑
-        video.onclick = function (e) {
-            if (e.target === video) {
-                const preview = document.getElementById("fullPreview");
-                const fullImg = document.getElementById("fullMedia");
-                const fullVideo = document.getElementById("fullVideo");
-                const saveBtn = document.getElementById("saveBtn");
-
-                fullImg.style.display = "none";
-                fullVideo.style.display = "block";
-                fullVideo.src = realUrl;
-                fullVideo.controls = true;
-                fullVideo.playsInline = true;
-                preview.style.display = "flex";
-
-                saveBtn.style.display = "block";
-                saveBtn.innerText = "保存视频";
-                saveBtn.onclick = function (e) {
-                    e.stopPropagation();
-                    const a = document.createElement("a");
-                    a.href = realUrl;
-                    a.download = "chat_video_" + Date.now();
-                    a.click();
-                };
-
-                preview.onclick = function (e) {
-                    if (e.target === preview) {
-                        preview.style.display = "none";
-                        fullVideo.pause();
-                    }
-                };
-function aM(who, text, burn = false, msgId = "", type = "text", url = "") {
-    const c = document.getElementById("chat");
-    const g = document.createElement("div");
-    g.className = "msg " + (who === "我" ? "me" : "other");
-    if (msgId) g.dataset.id = msgId;
-
-    let realUrl = url;
-
-    // ===================== 图片：修复括号 + 正常渲染 =====================
-    if (type === "image") {
-        const img = document.createElement("img");
-        img.src = url;
-        img.style.maxWidth = "280px";
-        img.style.maxHeight = "320px";
-        img.style.width = "100%";
-        img.style.display = "block";
-        img.style.borderRadius = "12px";
-
-        // 点击全屏+保存逻辑
-        img.onclick = function () {
-            const preview = document.getElementById("fullPreview");
-            const fullImg = document.getElementById("fullMedia");
-            const fullVideo = document.getElementById("fullVideo");
-            const saveBtn = document.getElementById("saveBtn");
-
-            fullImg.style.display = "block";
-            fullVideo.style.display = "none";
-            fullImg.src = realUrl;
-            preview.style.display = "flex";
-
-            saveBtn.style.display = "block";
-            saveBtn.innerText = "保存图片";
-            saveBtn.onclick = function (e) {
-                e.stopPropagation();
-                const a = document.createElement("a");
-                a.href = realUrl;
-                a.download = "chat_img_" + Date.now();
-                a.click();
-            };
-
-            preview.onclick = function (e) {
-                if (e.target === preview || e.target === fullImg) {
-                    preview.style.display = "none";
-                }
-            };
-        };
-
-        g.appendChild(img);
-    } // ←【关键修复】这里补上了你漏掉的大括号！！
-
-    // ===================== 视频 =====================
-    else if (type === "video") {
-        const video = document.createElement("video");
-        video.src = realUrl;
-        video.style.maxWidth = "280px";
-        video.style.maxHeight = "320px";
-        video.style.borderRadius = "12px";
-        video.controls = true;
-        video.playsInline = true;
-        video.preload = "auto";
-
-        video.onclick = function (e) {
-            if (e.target === video) {
-                const preview = document.getElementById("fullPreview");
-                const fullImg = document.getElementById("fullMedia");
-                const fullVideo = document.getElementById("fullVideo");
-                const saveBtn = document.getElementById("saveBtn");
-
-                fullImg.style.display = "none";
-                fullVideo.style.display = "block";
-                fullVideo.src = realUrl;
-                fullVideo.controls = true;
-                fullVideo.playsInline = true;
-                preview.style.display = "flex";
-
-                saveBtn.style.display = "block";
-                saveBtn.innerText = "保存视频";
-                saveBtn.onclick = function (e) {
-                    e.stopPropagation();
-                    const a = document.createElement("a");
-                    a.href = realUrl;
-                    a.download = "chat_video_" + Date.now();
-                    a.click();
-                };
-
-                preview.onclick = function (e) {
-                    if (e.target === preview) {
-                        preview.style.display = "none";
-                        fullVideo.pause();
-                    }
-                };
-            }
-        };
-
-        g.appendChild(video);
-    }
-
-    // ===================== 普通文字消息 =====================
-    else {
-        const textDiv = document.createElement("div");
-        textDiv.className = "msg-text";
-function aM(who, text, burn = false, msgId = "", type = "text", url = "") {
-    const c = document.getElementById("chat");
-    const g = document.createElement("div");
-    g.className = "msg " + (who === "我" ? "me" : "other");
-    if (msgId) g.dataset.id = msgId;
-
-    // 后端真实URL直接用
-    let realUrl = url;
-
-    // ========== 图片消息：强制渲染，不会再空气泡 ==========
-    if (type === "image") {
-        const img = document.createElement("img");
-        img.src = realUrl;
-        img.style.maxWidth = "280px";
-        img.style.maxHeight = "320px";
-        img.style.borderRadius = "12px";
-        img.style.cursor = "pointer";
-
-        // 点击全屏+保存
-        img.onclick = function () {
-            const preview = document.getElementById("fullPreview");
-            const fullImg = document.getElementById("fullMedia");
-            const fullVideo = document.getElementById("fullVideo");
-            const saveBtn = document.getElementById("saveBtn");
-
-            fullImg.style.display = "block";
-            fullVideo.style.display = "none";
-            fullImg.src = realUrl;
-            preview.style.display = "flex";
-
-            saveBtn.style.display = "block";
-            saveBtn.innerText = "保存图片";
-            saveBtn.onclick = function (e) {
-                e.stopPropagation();
-                const a = document.createElement("a");
-                a.href = realUrl;
-                a.download = "chat_img_" + Date.now();
-                a.click();
-            };
-
-            preview.onclick = function (e) {
-                if (e.target === preview || e.target === fullImg) {
-                    preview.style.display = "none";
-                }
-            };
-        };
-
-        g.appendChild(img);
-    }
-
-    // ========== 视频消息 ==========
-    else if (type === "video") {
-        const video = document.createElement("video");
-        video.src = realUrl;
-        video.style.maxWidth = "280px";
-        video.style.maxHeight = "320px";
-        video.style.borderRadius = "12px";
-        video.controls = true;
-        video.playsInline = true;
-        video.preload = "auto";
-
-        video.onclick = function (e) {
-            if (e.target === video) {
-function aM(who, text, burn = false, msgId = "", type = "text", url = "") {
-    const c = document.getElementById("chat");
-    const g = document.createElement("div");
-    g.className = "msg " + (who === "我" ? "me" : "other");
-    if (msgId) g.dataset.id = msgId;
-
-    // ========== 真实URL处理（和后端im6.qzz.io完全匹配） ==========
-    let realUrl = url;
-
-    // ===================== 图片：真实URL + 大缩略图 + 全屏 + 返回 + 保存 =====================
-    if (type === "image") {
-        const img = document.createElement("img");
-        img.src = realUrl;
-        img.style.maxWidth = "280px";
-        img.style.maxHeight = "320px";
-        img.style.borderRadius = "12px";
-        img.style.cursor = "pointer";
-
-        // 点击全屏+保存逻辑
-        img.onclick = function () {
-            const preview = document.getElementById("fullPreview");
-            const fullImg = document.getElementById("fullMedia");
-            const fullVideo = document.getElementById("fullVideo");
-            const saveBtn = document.getElementById("saveBtn");
-
-            fullImg.style.display = "block";
-            fullVideo.style.display = "none";
-            fullImg.src = realUrl;
-            preview.style.display = "flex";
-
-            saveBtn.style.display = "block";
-            saveBtn.innerText = "保存图片";
-            saveBtn.onclick = function (e) {
-                e.stopPropagation();
-                const a = document.createElement("a");
-                a.href = realUrl;
-                a.download = "chat_img_" + Date.now();
-                a.click();
-            };
-
-            preview.onclick = function (e) {
-                if (e.target === preview || e.target === fullImg) {
-                    preview.style.display = "none";
-                }
-            };
-        };
-
-        g.appendChild(img);
-    }
-
-    // ===================== 视频：真实URL + 大播放器 + 全屏 + 返回 + 保存 =====================
-    else if (type === "video") {
-        const video = document.createElement("video");
-        video.src = realUrl;
-        video.style.maxWidth = "280px";
-        video.style.maxHeight = "320px";
-        video.style.borderRadius = "12px";
-        video.controls = true;
-        video.playsInline = true;
-        video.preload = "auto";
-
-        // 点击全屏+保存逻辑
-        video.onclick = function (e) {
-            if (e.target === video) {
-                const preview = document.getElementById("fullPreview");
-                const fullImg = document.getElementById("fullMedia");
-                const fullVideo = document.getElementById("fullVideo");
-                const saveBtn = document.getElementById("saveBtn");
-
-                fullImg.style.display = "none";
-                fullVideo.style.display = "block";
-                fullVideo.src = realUrl;
-                fullVideo.controls = true;
-                fullVideo.playsInline = true;
-                preview.style.display = "flex";
-
-                saveBtn.style.display = "block";
-                saveBtn.innerText = "保存视频";
-                saveBtn.onclick = function (e) {
-                    e.stopPropagation();
-                    const a = document.createElement("a");
-                    a.href = realUrl;
-                    a.download = "chat_video_" + Date.now();
-                    a.click();
-                };
-
-                preview.onclick = function (e) {
-                    if (e.target === preview) {
-                        preview.style.display = "none";
-                        fullVideo.pause();
-                    }
-                };
-            }
-        };
-
-        g.appendChild(video);
-    }
-
-    // ===================== 普通文字消息 =====================
-    else {
-        const textDiv = document.createElement("div");
-        textDiv.className = "msg-text";
-        textDiv.textContent = text;
-        g.appendChild(textDiv);
-    }
-
-    // ===================== 保留你原有：已读回执 =====================
-    if (who === "我") {
-        const readTag = document.createElement("div");
-        readTag.className = "read";
-        readTag.textContent = "未读";
-        g.appendChild(readTag);
-    }
-
-    // ===================== ✅ 完全复制你截图里的100秒阅后即焚逻辑，一个字不差 =====================
-    if (burn) {
-        g.classList.add("burn");
-        let burnTip = document.createElement("div");
-        burnTip.className = "burn-tip";
-        burnTip.textContent = "焚·100秒";
-        g.appendChild(burnTip);
-
-        let t = 100;
-        let timer = setInterval(() => {
-            t--;
-            burnTip.textContent = "焚·" + t + "秒";
-            if (t <= 0) {
-                clearInterval(timer);
-                if (g && g.parentNode) {
-                    g.parentNode.removeChild(g);
-                }
-            }
-        }, 1000);
-    }
-
-    c.appendChild(g);
-    c.scrollTop = c.scrollHeight;
-}
-
-
-
-    
-   
+// ==========================================================================
 
 function L() {
   let u = document.getElementById("u1").value.trim();
@@ -693,11 +370,9 @@ function L() {
   .then(res => res.json())
   .then(async j => {
     if (j.code === 200) {
-      // 👇 关键：从后端拿昵称，有昵称显示昵称，没有显示用户名
       nickName = j.data.nickname || j.data.username || userId;
-      
       localStorage.setItem("chat_user_id", userId);
-      document.getElementById("nick").textContent = nickName; // 直接赋值左上角
+      document.getElementById("nick").textContent = nickName;
       document.getElementById("login").style.display = "none";
       document.getElementById("main").style.display = "flex";
       C();
@@ -707,8 +382,6 @@ function L() {
     }
   });
 }
-
-
 function R() {
   let u = document.getElementById("u2").value.trim();
   let p = document.getElementById("p2").value.trim();
@@ -719,17 +392,13 @@ function R() {
     setTimeout(() => document.getElementById("tip2").textContent = "", 2000);
   });
 }
-
 function C() {
   socket = io(BACKEND_URL, { transports: ["websocket", "polling"] });
- 
   wrapSocket(socket);
-
   socket.on("connect", () => { socket.emit("user-online", { username: userId, nickname: nickName }); });
   socket.on("new-msg", (j) => { 
     aM(j.fromName, j.content, j.burn, j.msgId, j.type, j.content); 
     b(); 
-    // 恢复已读回执
     if(document.getElementById("read").checked){
       socket.emit("msg-read", { msgId: j.msgId });
     }
@@ -753,17 +422,12 @@ function C() {
     sy("对方已离开");
   });
 }
-
-
 function S() {
   let t = document.getElementById("msg").value.trim();
   if (!t || !partnerId) { alert("请先匹配"); return; }
   let msgId = Date.now() + "";
   let burn = document.getElementById("burn").checked;
-
-  // 自动加上昵称：昵称：内容
   let showText = nickName + "：" + t;
-
   socket.emit("send-msg", {
     content: showText,
     type: "text",
@@ -776,8 +440,6 @@ function S() {
   b();
   document.getElementById("msg").value = "";
 }
-
-
 function toggleMatch() {
   if (!socket || !userId) { alert("请先登录"); return; }
   if (!mState) {
@@ -792,7 +454,6 @@ function toggleMatch() {
     document.getElementById("match").textContent = "匹配聊天";
   }
 }
-
 function oM() { document.getElementById("modal").style.display = "flex"; }
 function cM() { document.getElementById("modal").style.display = "none"; }
 function sN() {
