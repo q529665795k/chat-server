@@ -1,6 +1,6 @@
 
 // ====================== 全局HTTP极致日志（全信息）======================
-app.use(express.json());
+
 app.use((req, res, next) => {
   // 记录请求开始时间
   const start = Date.now();
@@ -36,6 +36,7 @@ const multer = require('multer');
 require('dotenv').config();
 const mysql = require('mysql2/promise');
 const app = express();
+app.use(express.json());
 const server = http.createServer(app);
 const PORT = process.env.PORT || 10000;
 
