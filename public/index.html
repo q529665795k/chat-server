@@ -323,10 +323,31 @@ function aM(fromName, content, burn, msgId, type) {
   if (who === "我") {
     let r = document.createElement("div");
     r.className = "read";
+// 渲染消息：图片视频直接显示 + 已读标记 + 焚阅倒计时 三合一完整版
+function aM(fromName, content, type, burn = false, msgId = '') {
+  let c = document.getElementById("chat");
+  let g = document.createElement("div");
+  g.className = "msg " + (fromName === "我" ? "me" : "other");
+  if (msgId) g.dataset.id = msgId;
+
+  // 🌟 自动渲染图片 / 视频 / 文字
+  if (type === "image") {
+    g.innerHTML = `<img src="${content}" style="max-width:280px;border-radius:12px;cursor:pointer;display:block;" onclick="openFullPreview('${content}','image')">`;
+  } else if (type === "video") {
+    g.innerHTML = `<video src="${content}" controls playsinline style="max-width:280px;border-radius:12px;display:block;" onclick="openFullPreview('${content}','video')"></video>`;
+  } else {
+    g.textContent = content;
+  }
+
+  // ✅ 已读标记
+  if (fromName === "我") {
+    let r = document.createElement("div");
+    r.className = "read";
     r.textContent = "未读";
     g.appendChild(r);
   }
 
+  // ✅ 焚阅倒计时
   if (burn) {
     g.classList.add("burn");
     let burnTip = document.createElement("div");
@@ -349,43 +370,6 @@ function aM(fromName, content, burn, msgId, type) {
 
   c.appendChild(g);
   c.scrollTop = c.scrollHeight;
-}
-
-function openFullPreview(url, type) {
-  let layer = document.getElementById("fullPreview");
-  let img = document.getElementById("fullMedia");
-  let video = document.getElementById("fullVideo");
-
-  img.style.display = "none";
-  video.style.display = "none";
-  video.pause();
-  currentMediaUrl = url;
-
-  if (type === "image") {
-    img.src = url;
-    img.style.display = "block";
-  }
-  if (type === "video") {
-    video.src = url;
-    video.style.display = "block";
-  }
-
-  layer.style.display = "flex";
-
-  layer.onclick = () => {
-    layer.style.display = "none";
-    video.pause();
-  };
-
-  img.onclick = (e) => {
-    e.stopPropagation();
-    layer.style.display = "none";
-  };
-
-  video.onclick = (e) => {
-    e.stopPropagation();
-    layer.style.display = "none";
-  };
 }
 
 
