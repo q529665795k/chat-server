@@ -655,7 +655,8 @@ setTimeout(() => {
 
 // === 图片/视频本地存储专用（只存文件，数据库只存路径）===
 const uploadDir = path.join(__dirname, 'local_uploads');
-if (!fs.existsSync(uploadDir)) fs.mkdirSync(uploadDir, { recursive: true });
+if (!fsSync.existsSync(uploadDir))
+fsSync.mkdirSync(uploadDir, { recursive: true });
 
 const storage = multer.diskStorage({
   destination: (req, file, cb) => cb(null, uploadDir),
