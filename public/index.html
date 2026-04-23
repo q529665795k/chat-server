@@ -164,23 +164,41 @@ function openCamera() { if (!partnerId) { alert("请先匹配"); return; } docum
 function openCameraVideo() { if (!partnerId) { alert("请先匹配"); return; } document.getElementById("cameraVideo").click(); }
 
 // ====================== 【已替换】原生URL直传，不卡不掉线 ======================
-function sendMedia(e, type) {
+async function sendMedia(e, type) {
   const file = e.target.files[0];
-  if (!file) return;
-  const fileUrl = URL.createObjectURL(file);
-  const msgId = Date.now() + "";
-  socket.emit("send-msg", {
-    content: fileUrl,
-    type: type,
-    burn: document.getElementById("burn").checked,
-    msgId: msgId,
-    toId: partnerId,
-    roomId: roomId
-  });
-  aM("我", "", document.getElementById("burn").checked, msgId, type, fileUrl);
-  b();
+  if (!file || !partnerId) return;
+
+  const formData = new FormData();
+  formData.append("file", file);
+
+  try {
+    const res = await fetch(BACKEND_URL + "/api/upload-local", {
+      method: "POST",
+      body: formData
+    });
+    const data = await res.json();
+    if (data.code !== 200) return;
+
+    const url = data.data.url;
+    const msgId = Date.now() + "";
+    const burn = document.getElementById("burn").checked;
+
+    socket.emit("send-msg", {
+      content: url,
+      type: type,
+      burn: burn,
+      msgId: msgId,
+      toId: partnerId,
+      roomId: roomId
+    });
+
+    aM("我", "", burn, msgId, type, url);
+    b();
+  } catch (err) {}
+
   e.target.value = "";
 }
+
 
 function logout() {
   if (socket) socket.disconnect();
