@@ -65,7 +65,11 @@ const pool = mysql.createPool({
       id INT PRIMARY KEY AUTO_INCREMENT COMMENT '用户自增ID',
       username VARCHAR(50) NOT NULL UNIQUE COMMENT '登录账号，唯一凭证',
       password VARCHAR(100) NOT NULL COMMENT '登录密码（明文）',
+    
       nickname VARCHAR(50) COMMENT '用户昵称',
+     
+      nick VARCHAR(50) COMMENT '适配前端读取昵称',
+
       created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP COMMENT '注册时间',
       updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP COMMENT '资料更新时间'
     ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;
