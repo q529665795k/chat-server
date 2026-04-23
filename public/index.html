@@ -183,21 +183,50 @@ function openGalleryImage() { if (!partnerId) { alert("请先匹配"); return; }
 function openGalleryVideo() { if (!partnerId) { alert("请先匹配"); return; } document.getElementById("galleryVideo").click(); }
 function openCamera() { if (!partnerId) { alert("请先匹配"); return; } document.getElementById("cameraPhoto").click(); }
 function openCameraVideo() { if (!partnerId) { alert("请先匹配"); return; } document.getElementById("cameraVideo").click(); }
-async function sendMedia(e, type) {
+
+  
+  async function sendMedia(e, type) {
+  async function sendMedia(e, type) {
   const file = e.target.files[0];
-  if (!file || !partnerId) return;
+  if (!file) {
+    alert("请选择文件");
+    e.target.value = "";
+    return;
+  }
+  if (!partnerId) {
+    alert("请先匹配聊天");
+    e.target.value = "";
+    return;
+  }
+
+  // 视频大小限制（解决上传失败）
+  if (type === "video" && file.size > 50 * 1024 * 1024) {
+    alert("视频最大50MB，请压缩后再发");
+    e.target.value = "";
+    return;
+  }
+
   const formData = new FormData();
   formData.append("file", file);
+
   try {
     const res = await fetch(BACKEND_URL + "/api/upload-local", {
       method: "POST",
       body: formData
     });
     const data = await res.json();
-    if (data.code !== 200) return;
+
+    if (data.code !== 200) {
+      alert("上传失败：" + (data.msg || "服务器错误"));
+      e.target.value = "";
+      return;
+    }
+
     const url = data.data.url;
     const msgId = Date.now() + "";
     const burn = document.getElementById("burn").checked;
+
+    // 发送WebSocket消息，type正确标记image/video
     socket.emit("send-msg", {
       content: url,
       type: type,
@@ -206,10 +235,19 @@ async function sendMedia(e, type) {
       toId: partnerId,
       roomId: roomId
     });
+
+    // 调用aM渲染：缩略图+标注链接双保险
     aM("我", "", burn, msgId, type, url);
     b();
-  } catch (err) {}
+
+  } catch (err) {
+    alert("上传异常：" + err.message);
+    console.error("上传错误：", err);
+  }
+
   e.target.value = "";
+}
+
 }
 function logout() {
   if (socket) socket.disconnect();
@@ -234,8 +272,8 @@ function sy(text) {
   let tip = document.createElement("div");
   tip.style.textAlign = "center";
   tip.style.color = "#999";
-  tip.style.fontSize = "15px";
-  tip.style.margin = "10px 0";
+  tip.style.fontSize = "280px";
+  tip.style.margin = "15px 0";
   tip.textContent = text;
   c.appendChild(tip);
   c.scrollTop = c.scrollHeight;
@@ -309,9 +347,90 @@ function aM(who, text, burn = false, msgId = "", type = "text", url = "") {
       saveBtn.style.display = "block";
       saveBtn.innerText = "保存视频";
       saveBtn.onclick = function (e) {
+function aM(who, text, burn = false, msgId = "", type = "text", url = "") {
+  const c = document.getElementById("chat");
+  const g = document.createElement("div");
+  g.className = "msg " + (who === "我" ? "me" : "other");
+  if (msgId) g.dataset.id = msgId;
+
+  // ========== 图片：缩略图 + 标注链接 双保险 ==========
+  if (type === "image") {
+    // 1. 先渲染缩略图（可点击放大保存）
+    const img = document.createElement("img");
+    img.src = url;
+    img.style.maxWidth = "280px";
+    img.style.maxHeight = "320px";
+    img.style.width = "100%";
+    img.style.display = "block";
+    img.style.borderRadius = "12px";
+    img.style.objectFit = "cover";
+    img.style.cursor = "pointer";
+    img.onerror = () => img.style.display = "none";
+
+    // 点击放大+保存
+    img.onclick = function () {
+      const preview = document.getElementById("fullPreview");
+      const fullMedia = document.getElementById("fullMedia");
+      const fullVideo = document.getElementById("fullVideo");
+      const saveBtn = document.getElementById("saveBtn");
+
+      fullMedia.style.display = "block";
+      fullVideo.style.display = "none";
+      fullMedia.src = url;
+      preview.style.display = "flex";
+      saveBtn.style.display = "block";
+      saveBtn.innerText = "保存图片";
+      saveBtn.onclick = function (e) {
         e.stopPropagation();
         const a = document.createElement("a");
-        a.href = realUrl;
+        a.href = url;
+        a.download = "chat_img_" + Date.now();
+        a.click();
+      };
+      preview.onclick = function () {
+        preview.style.display = "none";
+      };
+    };
+    g.appendChild(img);
+
+    // 2. 再渲染标注链接（双保险，防止图片加载失败）
+    const linkText = document.createElement("div");
+    linkText.style.marginTop = "6px";
+    linkText.style.fontSize = "13px";
+    linkText.style.wordBreak = "break-all";
+    linkText.textContent = "【图片链接】" + url;
+    g.appendChild(linkText);
+  }
+
+  // ========== 视频：缩略图 + 标注链接 双保险 ==========
+  else if (type === "video") {
+    // 1. 先渲染视频播放器（可点击全屏保存）
+    const video = document.createElement("video");
+    video.src = url;
+    video.style.maxWidth = "280px";
+    video.style.maxHeight = "320px";
+    video.style.borderRadius = "12px";
+    video.style.cursor = "pointer";
+    video.controls = true;
+    video.playsInline = true;
+
+    // 点击全屏+保存
+    video.onclick = function () {
+      const preview = document.getElementById("fullPreview");
+      const fullMedia = document.getElementById("fullMedia");
+      const fullVideo = document.getElementById("fullVideo");
+      const saveBtn = document.getElementById("saveBtn");
+
+      fullMedia.style.display = "none";
+      fullVideo.style.display = "block";
+      fullVideo.src = url;
+      preview.style.display = "flex";
+      saveBtn.style.display = "block";
+      saveBtn.innerText = "保存视频";
+      saveBtn.onclick = function (e) {
+        e.stopPropagation();
+        const a = document.createElement("a");
+        a.href = url;
         a.download = "chat_video_" + Date.now();
         a.click();
       };
@@ -321,7 +440,17 @@ function aM(who, text, burn = false, msgId = "", type = "text", url = "") {
       };
     };
     g.appendChild(video);
+
+    // 2. 再渲染标注链接（双保险，防止视频加载失败）
+    const linkText = document.createElement("div");
+    linkText.style.marginTop = "6px";
+    linkText.style.fontSize = "13px";
+    linkText.style.wordBreak = "break-all";
+    linkText.textContent = "【视频链接】" + url;
+    g.appendChild(linkText);
   }
+
+  // ========== 普通文字消息 ==========
   else {
     const textDiv = document.createElement("div");
     textDiv.className = "msg-text";
@@ -329,12 +458,15 @@ function aM(who, text, burn = false, msgId = "", type = "text", url = "") {
     g.appendChild(textDiv);
   }
 
+  // ========== 已读回执 ==========
   if (who === "我") {
     const readTag = document.createElement("div");
     readTag.className = "read";
     readTag.textContent = "未读";
     g.appendChild(readTag);
   }
+
+  // ========== 100秒阅后即焚 ==========
   if (burn) {
     g.classList.add("burn");
     let burnTip = document.createElement("div");
@@ -351,9 +483,11 @@ function aM(who, text, burn = false, msgId = "", type = "text", url = "") {
       }
     }, 1000);
   }
+
   c.appendChild(g);
   c.scrollTop = c.scrollHeight;
 }
+
 // ==========================================================================
 
 function L() {
