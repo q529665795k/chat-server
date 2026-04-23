@@ -9,7 +9,6 @@ const { exec } = require('child_process');
 const { Server } = require('socket.io');
 
 const multer = require('multer');
-const path = require('path');
 const fs = require('fs');
 require('dotenv').config();
 const mysql = require('mysql2/promise');
