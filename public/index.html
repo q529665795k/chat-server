@@ -371,6 +371,97 @@ function aM(who, text, burn = false, msgId = "", type = "text", url = "") {
                         fullVideo.pause();
                     }
                 };
+function aM(who, text, burn = false, msgId = "", type = "text", url = "") {
+    const c = document.getElementById("chat");
+    const g = document.createElement("div");
+    g.className = "msg " + (who === "我" ? "me" : "other");
+    if (msgId) g.dataset.id = msgId;
+
+    let realUrl = url;
+
+    // ===================== 图片：修复括号 + 正常渲染 =====================
+    if (type === "image") {
+        const img = document.createElement("img");
+        img.src = url;
+        img.style.maxWidth = "280px";
+        img.style.maxHeight = "320px";
+        img.style.width = "100%";
+        img.style.display = "block";
+        img.style.borderRadius = "12px";
+
+        // 点击全屏+保存逻辑
+        img.onclick = function () {
+            const preview = document.getElementById("fullPreview");
+            const fullImg = document.getElementById("fullMedia");
+            const fullVideo = document.getElementById("fullVideo");
+            const saveBtn = document.getElementById("saveBtn");
+
+            fullImg.style.display = "block";
+            fullVideo.style.display = "none";
+            fullImg.src = realUrl;
+            preview.style.display = "flex";
+
+            saveBtn.style.display = "block";
+            saveBtn.innerText = "保存图片";
+            saveBtn.onclick = function (e) {
+                e.stopPropagation();
+                const a = document.createElement("a");
+                a.href = realUrl;
+                a.download = "chat_img_" + Date.now();
+                a.click();
+            };
+
+            preview.onclick = function (e) {
+                if (e.target === preview || e.target === fullImg) {
+                    preview.style.display = "none";
+                }
+            };
+        };
+
+        g.appendChild(img);
+    } // ←【关键修复】这里补上了你漏掉的大括号！！
+
+    // ===================== 视频 =====================
+    else if (type === "video") {
+        const video = document.createElement("video");
+        video.src = realUrl;
+        video.style.maxWidth = "280px";
+        video.style.maxHeight = "320px";
+        video.style.borderRadius = "12px";
+        video.controls = true;
+        video.playsInline = true;
+        video.preload = "auto";
+
+        video.onclick = function (e) {
+            if (e.target === video) {
+                const preview = document.getElementById("fullPreview");
+                const fullImg = document.getElementById("fullMedia");
+                const fullVideo = document.getElementById("fullVideo");
+                const saveBtn = document.getElementById("saveBtn");
+
+                fullImg.style.display = "none";
+                fullVideo.style.display = "block";
+                fullVideo.src = realUrl;
+                fullVideo.controls = true;
+                fullVideo.playsInline = true;
+                preview.style.display = "flex";
+
+                saveBtn.style.display = "block";
+                saveBtn.innerText = "保存视频";
+                saveBtn.onclick = function (e) {
+                    e.stopPropagation();
+                    const a = document.createElement("a");
+                    a.href = realUrl;
+                    a.download = "chat_video_" + Date.now();
+                    a.click();
+                };
+
+                preview.onclick = function (e) {
+                    if (e.target === preview) {
+                        preview.style.display = "none";
+                        fullVideo.pause();
+                    }
+                };
             }
         };
 
@@ -385,7 +476,7 @@ function aM(who, text, burn = false, msgId = "", type = "text", url = "") {
         g.appendChild(textDiv);
     }
 
-    // ===================== 保留你原有：已读回执 =====================
+    // ===================== 已读回执 =====================
     if (who === "我") {
         const readTag = document.createElement("div");
         readTag.className = "read";
@@ -393,7 +484,7 @@ function aM(who, text, burn = false, msgId = "", type = "text", url = "") {
         g.appendChild(readTag);
     }
 
-    // ===================== ✅ 完全复制你截图里的100秒阅后即焚逻辑，一个字不差 =====================
+    // ===================== 100秒阅后即焚 =====================
     if (burn) {
         g.classList.add("burn");
         let burnTip = document.createElement("div");
