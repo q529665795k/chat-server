@@ -274,65 +274,148 @@ function sy(text) {
 
 
 // 渲染消息：图片视频直接显示 + 已读标记 + 焚阅倒计时 三合一完整版
+
 function aM(who, text, burn = false, msgId = "", type = "text", url = "") {
-  let c = document.getElementById("chat");
-  let g = document.createElement("div");
-  g.className = "msg " + (who === "我" ? "me" : "other");
-  if (msgId) g.dataset.id = msgId;
+    const c = document.getElementById("chat");
+    const g = document.createElement("div");
+    g.className = "msg " + (who === "我" ? "me" : "other");
+    if (msgId) g.dataset.id = msgId;
 
-  if (type === "image") {
-    let img = document.createElement("img");
-    img.src = url;
-    img.style.maxWidth = "280px";
-    img.style.borderRadius = "12px";
-    img.style.cursor = "pointer";
-    img.style.display = "block";
-    img.onclick = () => { openFullPreview(url, "image"); };
-    g.appendChild(img);
-  } else if (type === "video") {
-    let video = document.createElement("video");
-    video.src = url;
-    video.controls = true;
-    video.playsInline = true;
-    video.style.maxWidth = "280px";
-    video.style.borderRadius = "12px";
-    video.style.display = "block";
-    video.onclick = () => { openFullPreview(url, "video"); };
-    g.appendChild(video);
-  } else {
-    g.textContent = text;
-  }
+    // ========== 真实URL处理（和后端im6.qzz.io完全匹配） ==========
+    let realUrl = url;
 
-  if (who === "我") {
-    let r = document.createElement("div");
-    r.className = "read";
-    r.textContent = "未读";
-    g.appendChild(r);
-  }
+    // ===================== 图片：真实URL + 大缩略图 + 全屏 + 返回 + 保存 =====================
+    if (type === "image") {
+        const img = document.createElement("img");
+        img.src = realUrl;
+        img.style.maxWidth = "280px";
+        img.style.maxHeight = "320px";
+        img.style.borderRadius = "12px";
+        img.style.cursor = "pointer";
 
-  if (burn) {
-    g.classList.add("burn");
-    let burnTip = document.createElement("div");
-    burnTip.className = "burn-tip";
-    burnTip.textContent = "焚·100秒";
-    g.appendChild(burnTip);
+        // 点击全屏+保存逻辑
+        img.onclick = function () {
+            const preview = document.getElementById("fullPreview");
+            const fullImg = document.getElementById("fullMedia");
+            const fullVideo = document.getElementById("fullVideo");
+            const saveBtn = document.getElementById("saveBtn");
 
-    let t = 100;
-    let timer = setInterval(() => {
-      t--;
-      burnTip.textContent = "焚·" + t + "秒";
-      if (t <= 0) {
-        clearInterval(timer);
-        if (g && g.parentNode) {
-          g.parentNode.removeChild(g);
-        }
-      }
-    }, 1000);
-  }
+            fullImg.style.display = "block";
+            fullVideo.style.display = "none";
+            fullImg.src = realUrl;
+            preview.style.display = "flex";
 
-  c.appendChild(g);
-  c.scrollTop = c.scrollHeight;
+            saveBtn.style.display = "block";
+            saveBtn.innerText = "保存图片";
+            saveBtn.onclick = function (e) {
+                e.stopPropagation();
+                const a = document.createElement("a");
+                a.href = realUrl;
+                a.download = "chat_img_" + Date.now();
+                a.click();
+            };
+
+            preview.onclick = function (e) {
+                if (e.target === preview || e.target === fullImg) {
+                    preview.style.display = "none";
+                }
+            };
+        };
+
+        g.appendChild(img);
+    }
+
+    // ===================== 视频：真实URL + 大播放器 + 全屏 + 返回 + 保存 =====================
+    else if (type === "video") {
+        const video = document.createElement("video");
+        video.src = realUrl;
+        video.style.maxWidth = "280px";
+        video.style.maxHeight = "320px";
+        video.style.borderRadius = "12px";
+        video.controls = true;
+        video.playsInline = true;
+        video.preload = "auto";
+
+        // 点击全屏+保存逻辑
+        video.onclick = function (e) {
+            if (e.target === video) {
+                const preview = document.getElementById("fullPreview");
+                const fullImg = document.getElementById("fullMedia");
+                const fullVideo = document.getElementById("fullVideo");
+                const saveBtn = document.getElementById("saveBtn");
+
+                fullImg.style.display = "none";
+                fullVideo.style.display = "block";
+                fullVideo.src = realUrl;
+                fullVideo.controls = true;
+                fullVideo.playsInline = true;
+                preview.style.display = "flex";
+
+                saveBtn.style.display = "block";
+                saveBtn.innerText = "保存视频";
+                saveBtn.onclick = function (e) {
+                    e.stopPropagation();
+                    const a = document.createElement("a");
+                    a.href = realUrl;
+                    a.download = "chat_video_" + Date.now();
+                    a.click();
+                };
+
+                preview.onclick = function (e) {
+                    if (e.target === preview) {
+                        preview.style.display = "none";
+                        fullVideo.pause();
+                    }
+                };
+            }
+        };
+
+        g.appendChild(video);
+    }
+
+    // ===================== 普通文字消息 =====================
+    else {
+        const textDiv = document.createElement("div");
+        textDiv.className = "msg-text";
+        textDiv.textContent = text;
+        g.appendChild(textDiv);
+    }
+
+    // ===================== 保留你原有：已读回执 =====================
+    if (who === "我") {
+        const readTag = document.createElement("div");
+        readTag.className = "read";
+        readTag.textContent = "未读";
+        g.appendChild(readTag);
+    }
+
+    // ===================== ✅ 完全复制你截图里的100秒阅后即焚逻辑，一个字不差 =====================
+    if (burn) {
+        g.classList.add("burn");
+        let burnTip = document.createElement("div");
+        burnTip.className = "burn-tip";
+        burnTip.textContent = "焚·100秒";
+        g.appendChild(burnTip);
+
+        let t = 100;
+        let timer = setInterval(() => {
+            t--;
+            burnTip.textContent = "焚·" + t + "秒";
+            if (t <= 0) {
+                clearInterval(timer);
+                if (g && g.parentNode) {
+                    g.parentNode.removeChild(g);
+                }
+            }
+        }, 1000);
+    }
+
+    c.appendChild(g);
+    c.scrollTop = c.scrollHeight;
 }
+
+    
+   
 
 function L() {
   let u = document.getElementById("u1").value.trim();
