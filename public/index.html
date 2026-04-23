@@ -334,64 +334,14 @@ function aM(who, text, burn = false, msgId = "", type = "text", url = "") {
     video.controls = true;
     video.playsInline = true;
 
-    video.onclick = function () {
-      const preview = document.getElementById("fullPreview");
-      const fullMedia = document.getElementById("fullMedia");
-      const fullVideo = document.getElementById("fullVideo");
-      const saveBtn = document.getElementById("saveBtn");
-
-      fullMedia.style.display = "none";
-      fullVideo.style.display = "block";
-      fullVideo.src = realUrl;
-      preview.style.display = "flex";
-      saveBtn.style.display = "block";
-      saveBtn.innerText = "保存视频";
-      saveBtn.onclick = function (e) {
-function aM(who, text, burn = false, msgId = "", type = "text", url = "") {
-  const c = document.getElementById("chat");
-  const g = document.createElement("div");
-  g.className = "msg " + (who === "我" ? "me" : "other");
-  if (msgId) g.dataset.id = msgId;
+    
+      
 
   // ========== 图片：缩略图 + 标注链接 双保险 ==========
-  if (type === "image") {
-    // 1. 先渲染缩略图（可点击放大保存）
-    const img = document.createElement("img");
-    img.src = url;
-    img.style.maxWidth = "280px";
-    img.style.maxHeight = "320px";
-    img.style.width = "100%";
-    img.style.display = "block";
-    img.style.borderRadius = "12px";
-    img.style.objectFit = "cover";
-    img.style.cursor = "pointer";
-    img.onerror = () => img.style.display = "none";
+  
 
     // 点击放大+保存
-    img.onclick = function () {
-      const preview = document.getElementById("fullPreview");
-      const fullMedia = document.getElementById("fullMedia");
-      const fullVideo = document.getElementById("fullVideo");
-      const saveBtn = document.getElementById("saveBtn");
-
-      fullMedia.style.display = "block";
-      fullVideo.style.display = "none";
-      fullMedia.src = url;
-      preview.style.display = "flex";
-      saveBtn.style.display = "block";
-      saveBtn.innerText = "保存图片";
-      saveBtn.onclick = function (e) {
-        e.stopPropagation();
-        const a = document.createElement("a");
-        a.href = url;
-        a.download = "chat_img_" + Date.now();
-        a.click();
-      };
-      preview.onclick = function () {
-        preview.style.display = "none";
-      };
-    };
-    g.appendChild(img);
+    
 
     // 2. 再渲染标注链接（双保险，防止图片加载失败）
     const linkText = document.createElement("div");
@@ -403,16 +353,6 @@ function aM(who, text, burn = false, msgId = "", type = "text", url = "") {
   }
 
   // ========== 视频：缩略图 + 标注链接 双保险 ==========
-  else if (type === "video") {
-    // 1. 先渲染视频播放器（可点击全屏保存）
-    const video = document.createElement("video");
-    video.src = url;
-    video.style.maxWidth = "280px";
-    video.style.maxHeight = "320px";
-    video.style.borderRadius = "12px";
-    video.style.cursor = "pointer";
-    video.controls = true;
-    video.playsInline = true;
 
     // 点击全屏+保存
     video.onclick = function () {
