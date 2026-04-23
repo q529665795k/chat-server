@@ -747,20 +747,45 @@ const upload = multer({
 });
 
 // 上传接口：存本地，返回文件路径
+// 上传接口：返回完整HTTPS地址
 app.post('/api/upload-local', upload.single('file'), (req, res) => {
   try {
-    const filePath = `local_uploads/${req.file.filename}`;
-    res.json({ code: 200, data: { filePath } });
+    const fullUrl = `https://im6.qzz.io/local_uploads/${req.file.filename}`;
+    res.json({ code: 200, data: { url: fullUrl, filePath: req.file.filename } });
   } catch (err) {
     res.json({ code: 500, msg: err.message });
   }
 });
+
 
 // 让前端能直接访问本地图片视频
 app.use('/local_uploads', express.static(path.join(__dirname, 'local_uploads')));
 
 
 // 启动服务
+
+// 2天自动清理过期图片视频
+const CLEAN_INTERVAL = 48 * 60 * 60 * 1000;
+const EXPIRE_TIME = 48 * 60 * 60 * 1000;
+
+async function autoCleanExpiredMedia() {
+  try {
+    const files = await fs.readdir(uploadDir);
+    const now = Date.now();
+    for (const fileName of files) {
+      const filePath = path.join(uploadDir, fileName);
+      const stat = await fs.stat(filePath);
+      if (now - stat.mtimeMs > EXPIRE_TIME) {
+        await fs.unlink(filePath);
+        console.log('🗑️ 清理过期文件:', fileName);
+      }
+    }
+  } catch (err) {}
+}
+
+setInterval(autoCleanExpiredMedia, CLEAN_INTERVAL);
+console.log('✅ 自动清理已启动：每2天清理一次');
+
 server.listen(PORT, '0.0.0.0', () => {
   console.log('=========================================');
   console.log('✅ 服务启动成功 端口:' + PORT);
