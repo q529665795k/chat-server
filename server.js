@@ -20,6 +20,24 @@ const PORT = process.env.PORT || 10000;
 app.get('/', (req, res) => {
   res.send('😎 你来啦，服务稳稳在线～');
 });
+// 获取当前用户资料（昵称+账号）
+app.get('/api/get_user_info', async (req, res) => {
+  try {
+    const userId = req.query.user_id;
+    const [rows] = await db.query('SELECT account, nick FROM users WHERE id = ?', [userId]);
+    if (rows.length > 0) {
+      res.json({
+        code: 200,
+        account: rows[0].account,
+        nick: rows[0].nick || rows[0].account // 没设昵称就显示账号
+      });
+    } else {
+      res.json({ code: 404, msg: '用户不存在' });
+    }
+  } catch (err) {
+    res.json({ code: 500, msg: '查询失败' });
+  }
+});
 
 // AI 回复
 async function callAI(prompt) {
