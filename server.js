@@ -331,26 +331,34 @@ function startKeepAliveCheck() {
   }, KEEP_ALIVE_CHECK_INTERVAL);
 }
 
-// ====================== 跨域【无星号·纯域名】======================
 const allowOrigins = [
   "https://im6.qzz.io",
   "https://www.im6.qzz.io"
 ];
 
 app.use((req, res, next) => {
-  const origin = req.headers.origin;
+  // ✅ 1. 强制判空，解决undefined报错
+  const origin = req.headers.origin || "";
+
+  // ✅ 2. 安全校验，兼容所有环境
   if (allowOrigins.includes(origin)) {
     res.setHeader("Access-Control-Allow-Origin", origin);
   }
+
+  // ✅ 3. 所有请求都强制返回基础跨域头，不依赖origin校验
   res.setHeader("Access-Control-Allow-Methods", "GET, POST, PUT, DELETE, OPTIONS");
   res.setHeader("Access-Control-Allow-Headers", "Content-Type, Authorization, X-Requested-With");
   res.setHeader("Access-Control-Allow-Credentials", "true");
   res.setHeader("Access-Control-Max-Age", "86400");
+
+  // ✅ 4. 预检请求优先处理，直接放行
   if (req.method === "OPTIONS") {
     return res.sendStatus(200);
   }
+
   next();
 });
+
 
 app.use(express.json({ limit: '10mb' }));
 app.use(express.urlencoded({ extended: true, limit: '10mb' }));
