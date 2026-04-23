@@ -414,24 +414,76 @@ app.post('/register', async (req, res) => {
 // ====================== 登录 /login ======================
 app.post('/login', async (req, res) => {
   try {
+    // 1. 接收前端账号密码，打印请求日志
     const { username, password } = req.body;
-    const [userRows] = await pool.query(`SELECT username, password, nickname FROM users WHERE username = ?`, [username]);
+    console.log('🔍 收到登录请求', {
+      输入账号: username,
+      输入密码: password
+    });
+
+    // 2. 数据库查询：同时读取 账号/密码/昵称（你原来的逻辑保留）
+    const [userRows] = await pool.query(
+      `SELECT username, password, nickname FROM users WHERE username = ?`, 
+      [username]
+    );
+    console.log('📊 数据库查询结果', {
+      查询账号: username,
+      匹配到用户数量: userRows.length
+    });
+
+    // 3. 账号不存在 - 详细日志
     if (userRows.length === 0) {
+      console.log('❌ 登录失败：账号不存在', { 尝试账号: username });
       return res.json({ code: 400, msg: '账号不存在' });
     }
+
     const user = userRows[0];
+    console.log('✅ 找到用户数据', {
+      数据库账号: user.username,
+      数据库密码: user.password,
+      数据库昵称: user.nickname || '无昵称'
+    });
+
+    // 4. 密码错误 - 详细日志
     if (user.password !== password) {
+      console.log('❌ 登录失败：密码错误', {
+        账号: username,
+        前端输入密码: password,
+        数据库正确密码: user.password
+      });
       return res.json({ code: 400, msg: '密码错误' });
     }
+
+    // 5. 登录成功 - 记录日志 + 保存会话
     await pool.query(`INSERT INTO login_logs (username, login_time) VALUES (?, NOW())`, [username]);
-    loginMap.set(username, { nickname: user.nickname, password: user.password });
-    res.json({ code: 200, msg: '登录成功', data: { username: user.username, nickname: user.nickname } });
+    loginMap.set(username, { 
+      nickname: user.nickname, 
+      password: user.password 
+    });
+
+    // 6. 返回前端：同时返回账号 + 昵称（前端直接用这个显示）
+    console.log('🎉 登录完全成功', {
+      登录账号: username,
+      最终返回昵称: user.nickname || '无昵称，显示用户名'
+    });
+    res.json({ 
+      code: 200, 
+      msg: '登录成功', 
+      data: { 
+        username: user.username, 
+        nickname: user.nickname  // 重点：昵称原样返回给前端
+      } 
+    });
+
     sysLog('USER', '登录成功', { username });
+
   } catch (err) {
-    console.error('❌ 登录失败：', err);
+    // 7. 服务器异常 - 错误日志
+    console.error('💥 登录接口服务器错误：', err);
     res.json({ code: 500, msg: '服务器错误，登录失败' });
   }
 });
+
 
 // ====================== 修改昵称 /update-nickname ======================
 app.post('/update-nickname', async (req, res) => {
