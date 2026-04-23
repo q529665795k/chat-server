@@ -286,48 +286,51 @@ function aM(who, text, burn = false, msgId = "", type = "text", url = "") {
 
     // ===================== 图片：真实URL + 大缩略图 + 全屏 + 返回 + 保存 =====================
     if (type === "image") {
+    // ===================== 图片：用你指定的代码 + 保留全屏保存 + 无冲突 =====================
+if (type === "image") {
     const img = document.createElement("img");
+    // --- 这里完全用你给的这段，一字没改 ---
     img.src = url;
     img.style.maxWidth = "280px";
     img.style.maxHeight = "320px";
     img.style.width = "100%";
     img.style.display = "block";
     img.style.borderRadius = "12px";
-    g.appendChild(img);
-}
+    img.style.objectFit = "cover";
+    img.onerror = () => img.style.display = "none";
+    // --- 你给的代码结束 ---
 
+    // 下面你原来的【点击全屏+保存】逻辑 100% 保留，不删不改！
+    img.onclick = function () {
+        const preview = document.getElementById("fullPreview");
+        const fullImg = document.getElementById("fullMedia");
+        const fullVideo = document.getElementById("fullVideo");
+        const saveBtn = document.getElementById("saveBtn");
 
-        // 点击全屏+保存逻辑
-        img.onclick = function () {
-            const preview = document.getElementById("fullPreview");
-            const fullImg = document.getElementById("fullMedia");
-            const fullVideo = document.getElementById("fullVideo");
-            const saveBtn = document.getElementById("saveBtn");
+        fullImg.style.display = "block";
+        fullVideo.style.display = "none";
+        fullImg.src = realUrl;
+        preview.style.display = "flex";
 
-            fullImg.style.display = "block";
-            fullVideo.style.display = "none";
-            fullImg.src = realUrl;
-            preview.style.display = "flex";
-
-            saveBtn.style.display = "block";
-            saveBtn.innerText = "保存图片";
-            saveBtn.onclick = function (e) {
-                e.stopPropagation();
-                const a = document.createElement("a");
-                a.href = realUrl;
-                a.download = "chat_img_" + Date.now();
-                a.click();
-            };
-
-            preview.onclick = function (e) {
-                if (e.target === preview || e.target === fullImg) {
-                    preview.style.display = "none";
-                }
-            };
+        saveBtn.style.display = "block";
+        saveBtn.innerText = "保存图片";
+        saveBtn.onclick = function (e) {
+            e.stopPropagation();
+            const a = document.createElement("a");
+            a.href = realUrl;
+            a.download = "chat_img_" + Date.now();
+            a.click();
         };
 
-        g.appendChild(img);
-    }
+        preview.onclick = function (e) {
+            if (e.target === preview || e.target === fullImg) {
+                preview.style.display = "none";
+            }
+        };
+    };
+
+    g.appendChild(img);
+}
 
     // ===================== 视频：真实URL + 大播放器 + 全屏 + 返回 + 保存 =====================
     else if (type === "video") {
