@@ -282,10 +282,7 @@ function aM(who, text, burn = false, msgId = "", type = "text", url = "") {
     if (msgId) g.dataset.id = msgId;
 
     // ========== 真实URL处理（和后端im6.qzz.io完全匹配） ==========
-    let realUrl = url;
-
-    // ===================== 图片：真实URL + 大缩略图 + 全屏 + 返回 + 保存 =====================
-    if (type === "image") {
+    
     // ===================== 图片：用你指定的代码 + 保留全屏保存 + 无冲突 =====================
 if (type === "image") {
     const img = document.createElement("img");
