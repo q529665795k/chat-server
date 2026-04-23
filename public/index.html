@@ -216,8 +216,7 @@ function sy(text) {
   c.appendChild(tip);
   c.scrollTop = c.scrollHeight;
 }
-
-// ====================== 阅后即焚100秒倒计时（原样保留） ======================
+//阅后即焚视频图片
 function aM(who, text, burn = false, msgId = "", type = "text", url = "") {
   let c = document.getElementById("chat");
   let g = document.createElement("div");
@@ -233,46 +232,6 @@ function aM(who, text, burn = false, msgId = "", type = "text", url = "") {
   img.style.display = "block";
   img.onclick = () => { openFullPreview(url, "image"); };
   g.appendChild(img);
-}
-
-  else if (type === "video") {
-    let video = document.createElement("video");
-    video.src = url;
-    video.controls = true;
-    video.playsInline = true;
-    video.className = "media-video";
-    video.onclick = () => { openFullPreview(url, "video"); };
-    g.appendChild(video);
-  } else {
-    g.textContent = text;
-  }
-
-  if (who === "我") {
-    let r = document.createElement("div");
-    r.className = "read";
-    r.textContent = "未读";
-    g.appendChild(r);
-  }
-
-  if (burn) {
-    g.classList.add("burn");
-    let burnTip = document.createElement("div");
-    burnTip.className = "burn-tip";
-    burnTip.textContent = "焚·100秒";
-    g.appendChild(burnTip);
-    let t = 100;
-    const timer = setInterval(() => {
-      t--;
-      if (burnTip) burnTip.textContent = "焚·" + t + "秒";
-      if (t <= 0) {
-        clearInterval(timer);
-        if (g && g.parentNode) g.parentNode.removeChild(g);
-      }
-    }, 1000);
-  }
-
-  c.appendChild(g);
-  c.scrollTop = c.scrollHeight;
 }
 
 function openFullPreview(url, type) {
@@ -394,18 +353,23 @@ function S() {
   if (!t || !partnerId) { alert("请先匹配"); return; }
   let msgId = Date.now() + "";
   let burn = document.getElementById("burn").checked;
+
+  // 自动加上昵称：昵称：内容
+  let showText = nickName + "：" + t;
+
   socket.emit("send-msg", {
-    content: t,
+    content: showText,
     type: "text",
     burn: burn,
     msgId: msgId,
     toId: partnerId,
     roomId: roomId
   });
-  aM("我", t, burn, msgId, "text");
+  aM("我", showText, burn, msgId, "text");
   b();
   document.getElementById("msg").value = "";
 }
+
 
 function toggleMatch() {
   if (!socket || !userId) { alert("请先登录"); return; }
