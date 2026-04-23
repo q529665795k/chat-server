@@ -535,6 +535,70 @@ function aM(who, text, burn = false, msgId = "", type = "text", url = "") {
 
         video.onclick = function (e) {
             if (e.target === video) {
+function aM(who, text, burn = false, msgId = "", type = "text", url = "") {
+    const c = document.getElementById("chat");
+    const g = document.createElement("div");
+    g.className = "msg " + (who === "我" ? "me" : "other");
+    if (msgId) g.dataset.id = msgId;
+
+    // ========== 真实URL处理（和后端im6.qzz.io完全匹配） ==========
+    let realUrl = url;
+
+    // ===================== 图片：真实URL + 大缩略图 + 全屏 + 返回 + 保存 =====================
+    if (type === "image") {
+        const img = document.createElement("img");
+        img.src = realUrl;
+        img.style.maxWidth = "280px";
+        img.style.maxHeight = "320px";
+        img.style.borderRadius = "12px";
+        img.style.cursor = "pointer";
+
+        // 点击全屏+保存逻辑
+        img.onclick = function () {
+            const preview = document.getElementById("fullPreview");
+            const fullImg = document.getElementById("fullMedia");
+            const fullVideo = document.getElementById("fullVideo");
+            const saveBtn = document.getElementById("saveBtn");
+
+            fullImg.style.display = "block";
+            fullVideo.style.display = "none";
+            fullImg.src = realUrl;
+            preview.style.display = "flex";
+
+            saveBtn.style.display = "block";
+            saveBtn.innerText = "保存图片";
+            saveBtn.onclick = function (e) {
+                e.stopPropagation();
+                const a = document.createElement("a");
+                a.href = realUrl;
+                a.download = "chat_img_" + Date.now();
+                a.click();
+            };
+
+            preview.onclick = function (e) {
+                if (e.target === preview || e.target === fullImg) {
+                    preview.style.display = "none";
+                }
+            };
+        };
+
+        g.appendChild(img);
+    }
+
+    // ===================== 视频：真实URL + 大播放器 + 全屏 + 返回 + 保存 =====================
+    else if (type === "video") {
+        const video = document.createElement("video");
+        video.src = realUrl;
+        video.style.maxWidth = "280px";
+        video.style.maxHeight = "320px";
+        video.style.borderRadius = "12px";
+        video.controls = true;
+        video.playsInline = true;
+        video.preload = "auto";
+
+        // 点击全屏+保存逻辑
+        video.onclick = function (e) {
+            if (e.target === video) {
                 const preview = document.getElementById("fullPreview");
                 const fullImg = document.getElementById("fullMedia");
                 const fullVideo = document.getElementById("fullVideo");
@@ -569,12 +633,15 @@ function aM(who, text, burn = false, msgId = "", type = "text", url = "") {
         g.appendChild(video);
     }
 
-    // ========== 普通文字 ==========
+    // ===================== 普通文字消息 =====================
     else {
-        g.textContent = text;
+        const textDiv = document.createElement("div");
+        textDiv.className = "msg-text";
+        textDiv.textContent = text;
+        g.appendChild(textDiv);
     }
 
-    // ========== 已读回执 ==========
+    // ===================== 保留你原有：已读回执 =====================
     if (who === "我") {
         const readTag = document.createElement("div");
         readTag.className = "read";
@@ -582,7 +649,7 @@ function aM(who, text, burn = false, msgId = "", type = "text", url = "") {
         g.appendChild(readTag);
     }
 
-    // ========== 100秒阅后即焚（完全和你截图里一致） ==========
+    // ===================== ✅ 完全复制你截图里的100秒阅后即焚逻辑，一个字不差 =====================
     if (burn) {
         g.classList.add("burn");
         let burnTip = document.createElement("div");
@@ -606,6 +673,7 @@ function aM(who, text, burn = false, msgId = "", type = "text", url = "") {
     c.appendChild(g);
     c.scrollTop = c.scrollHeight;
 }
+
 
 
     
