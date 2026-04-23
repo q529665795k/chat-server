@@ -35,7 +35,7 @@ const multer = require('multer');
 
 require('dotenv').config();
 const mysql = require('mysql2/promise');
-
+const app = express();
 const server = http.createServer(app);
 const PORT = process.env.PORT || 10000;
 
