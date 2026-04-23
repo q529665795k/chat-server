@@ -1,4 +1,14 @@
 
+const express = require('express');
+
+// 2. 立刻创建app（必须放在最前面！）
+const app = express();
+
+// 3. 现在才能用app.use
+app.use(express.json());
+
+
+
 // ====================== 全局HTTP极致日志（全信息）======================
 
 app.use((req, res, next) => {
@@ -21,22 +31,20 @@ app.use((req, res, next) => {
 });
 
 
+
+// 1. 先导入express
+
+// 4. 后面再导入别的所有包
 const http = require('http');
-const process = require('process');
-const express = require('express');
 const fs = require('fs').promises;
 const fsSync = require('fs');
 const path = require('path');
 const axios = require('axios');
 const { exec } = require('child_process');
 const { Server } = require('socket.io');
-
 const multer = require('multer');
-
 require('dotenv').config();
 const mysql = require('mysql2/promise');
-const app = express();
-app.use(express.json());
 const server = http.createServer(app);
 const PORT = process.env.PORT || 10000;
 
