@@ -282,34 +282,43 @@ function sy(text) {
   c.scrollTop = c.scrollHeight;
 }
 //阅后即焚视频图片
-function aM(who, text, burn = false, msgId = "", type = "text", url = "") {
-  let c = document.getElementById("chat");
-  let g = document.createElement("div");
-  g.className = "msg " + (who === "我" ? "me" : "other");
-  if (msgId) g.dataset.id = msgId;
+// 渲染消息：图片视频直接显示，不用点开链接
+function aM(fromName, content, burn, msgId, type) {
+  let html = '';
 
-  if (type === "image") {
-    let img = document.createElement("img");
-    img.src = url;
-    img.style.maxWidth = "280px";
-    img.style.borderRadius = "12px";
-    img.style.cursor = "pointer";
-    img.style.display = "block";
-    img.onclick = () => { openFullPreview(url, "image"); };
-    g.appendChild(img);
-  } else if (type === "video") {
-    let video = document.createElement("video");
-    video.src = url;
-    video.controls = true;
-    video.playsInline = true;
-    video.style.maxWidth = "280px";
-    video.style.borderRadius = "12px";
-    video.style.display = "block";
-    video.onclick = () => { openFullPreview(url, "video"); };
-    g.appendChild(video);
+  // 🌟 核心判断：自动渲染图片/视频
+  if (type === 'image') {
+    // 图片直接在聊天框显示，限制大小防撑满屏幕
+    html = `
+      <div class="msg-item">
+        <div>${fromName}</div>
+        <img src="${content}" style="max-width:200px;max-height:300px;border-radius:8px;">
+      </div>
+    `;
+  } else if (type === 'video') {
+    // 视频直接显示播放器，自带播放/暂停
+    html = `
+      <div class="msg-item">
+        <div>${fromName}</div>
+        <video src="${content}" controls style="max-width:200px;max-height:300px;border-radius:8px;">
+      </div>
+    `;
   } else {
-    g.textContent = text;
+    // 普通文字正常显示
+    html = `
+      <div class="msg-item">
+        <div>${fromName}</div>
+        <div>${content}</div>
+      </div>
+    `;
   }
+
+  // 把消息加到聊天列表最下面
+  document.getElementById('chatList').innerHTML += html;
+  // 自动滚动到最新消息
+  document.getElementById('chatList').scrollTop = document.getElementById('chatList').scrollHeight;
+}
+
 
   if (who === "我") {
     let r = document.createElement("div");
