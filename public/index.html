@@ -116,23 +116,20 @@ button{width:100%;padding:14px;background:#007AFF;color:#fff;border:none;border-
 <script src="https://cdnjs.cloudflare.com/ajax/libs/socket.io/4.7.2/socket.io.min.js"></script>
 <script>
 // ====================== 【B2 + Cloudflare 无限流量配置】 ======================
+// ========== B2基础配置 ==========
 const B2_KEY_ID = "d01d287e4558";
 const B2_APP_KEY = "00528f3445b23665b42e83bd7236ded7f5af938c7b";
 const B2_BUCKET_NAME = "529665795";
-const CF_PROXY_DOMAIN = "https://im6.qzz.io/b2"; // Cloudflare代理域名
+const CF_PROXY_DOMAIN = "https://im6.qzz.io/b2";
 const BACKEND_URL = "https://im6.qzz.io";
-// =================================================================
 
-let socket = null;
-let nickName = "";
-let userId = "";
-let partnerId = "";
-let roomId = "";
-let mState = false;
 let B2_API_URL = "";
+let B2_AUTH_TOKEN = "";
 
-// 初始化B2授权
-async function initB2Auth() {
+
+// ========== B2授权函数（只在发图时触发） ==========
+async function getB2Auth() {
+  if (B2_API_URL && B2_AUTH_TOKEN) return true;
   try {
     const res = await fetch(`https://api.backblazeb2.com/b2api/v1/b2_authorize_account`, {
       headers: {
@@ -141,10 +138,14 @@ async function initB2Auth() {
     });
     const data = await res.json();
     B2_API_URL = data.apiUrl;
+    B2_AUTH_TOKEN = data.authorizationToken;
+    return true;
   } catch (err) {
-    alert("B2授权失败");
+    alert("B2授权失败，请检查网络");
+    return false;
   }
 }
+
 
 window.onload = async function() {
   await initB2Auth();
