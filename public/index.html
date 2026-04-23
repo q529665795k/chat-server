@@ -116,7 +116,54 @@ button{width:100%;padding:14px;background:#007AFF;color:#fff;border:none;border-
 <input type="file" id="cameraVideo" accept="video/*" capture="camera" hidden>
 <script src="https://cdnjs.cloudflare.com/ajax/libs/socket.io/4.7.2/socket.io.min.js"></script>
 <script>
-const BACKEND_URL = "https://im6.qzz.io";
+
+  // ====================== 前端全局日志（全连通后端）======================
+const oldLog = console.log;
+console.log = function (...args) {
+  oldLog(`[${new Date().toLocaleString()}]【前端】`, ...args);
+  // 自动上报日志到后端
+  fetch(BACKEND_URL + "/api/log-frontend", {
+    method: "POST",
+    headers: { "Content-Type": "application/json" },
+    body: JSON.stringify({
+      time: new Date().toISOString(),
+      data: args.join(" "),
+    }),
+  }).catch(() => {});
+};
+
+// 全局点击操作日志
+document.addEventListener("click", (e) => {
+  const text = (e.target.innerText || e.target.id || "").substring(0, 20);
+  console.log("【操作】点击 →", text);
+});
+
+// 全局fetch请求日志
+const oldFetch = window.fetch;
+window.fetch = async function (input, init) {
+  const url = typeof input === "string" ? input : input.url;
+  const method = init?.method || "GET";
+  console.log("【HTTP请求】", method, url);
+  const res = await oldFetch(input, init);
+  console.log("【HTTP响应】", url, "状态:", res.status);
+  return res;
+};
+
+// Socket.IO 收发全日志
+function wrapSocket(socket) {
+  const oldEmit = socket.emit;
+  socket.emit = function (event, ...data) {
+    console.log("【WS发送】", event, data);
+    return oldEmit.call(socket, event, ...data);
+  };
+  socket.onAny((event, ...data) => {
+    console.log("【WS接收】", event, data);
+  });
+}
+// =====================================================================
+
+  
+  const BACKEND_URL = "https://im6.qzz.io";
 let socket = null;
 let nickName = "";
 let userId = "";
@@ -376,6 +423,9 @@ function R() {
 
 function C() {
   socket = io(BACKEND_URL, { transports: ["websocket", "polling"] });
+ 
+  wrapSocket(socket);
+
   socket.on("connect", () => { socket.emit("user-online", { username: userId, nickname: nickName }); });
   socket.on("new-msg", (j) => { 
     aM(j.fromName, j.content, j.burn, j.msgId, j.type, j.content); 
