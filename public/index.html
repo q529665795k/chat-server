@@ -316,17 +316,27 @@ function openFullPreview(url, type) {
 
 
 function L() {
+function L() {
   let u = document.getElementById("u1").value.trim();
   let p = document.getElementById("p1").value.trim();
   if (!u || !p) { document.getElementById("tip").textContent = "请输入账号密码"; setTimeout(() => document.getElementById("tip").textContent = "", 2000); return; }
+  
   userId = u;
-  fetch(BACKEND_URL + "/login", { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ username: u, password: p }) })
-  .then(res => res.json()).then(async j => {
+  fetch(BACKEND_URL + "/login", { 
+    method: "POST", 
+    headers: { "Content-Type": "application/json" }, 
+    body: JSON.stringify({ username: u, password: p }) 
+  })
+  .then(res => res.json())
+  .then(async j => {
     if (j.code === 200) {
+      // 👇 关键：从后端拿昵称，有昵称显示昵称，没有显示用户名
+      nickName = j.data.nickname || j.data.username || userId;
+      
       localStorage.setItem("chat_user_id", userId);
+      document.getElementById("nick").textContent = nickName; // 直接赋值左上角
       document.getElementById("login").style.display = "none";
       document.getElementById("main").style.display = "flex";
-      await loadLatestNick();
       C();
     } else {
       document.getElementById("tip").textContent = j.msg || "登录失败";
@@ -334,6 +344,7 @@ function L() {
     }
   });
 }
+
 
 function R() {
   let u = document.getElementById("u2").value.trim();
