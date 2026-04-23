@@ -272,29 +272,43 @@ function aM(who, text, burn = false, msgId = "", type = "text", url = "") {
 
 function openFullPreview(url, type) {
   let layer = document.getElementById("fullPreview");
-  layer.style.display = "flex";
-  currentMediaUrl = url;
   let img = document.getElementById("fullMedia");
   let video = document.getElementById("fullVideo");
+
+  // 重置状态
   img.style.display = "none";
   video.style.display = "none";
+  video.pause();
+  currentMediaUrl = url;
 
-  if (type === "image") { img.src = url; img.style.display = "block"; }
-  if (type === "video") { video.src = url; video.style.display = "block"; }
+  // 加载对应媒体
+  if (type === "image") {
+    img.src = url;
+    img.style.display = "block";
+  }
+  if (type === "video") {
+    video.src = url;
+    video.style.display = "block";
+  }
 
-  // 修复：点任何地方都关闭预览
+  // 显示预览层
+  layer.style.display = "flex";
+
+  // 点击任意位置关闭
   layer.onclick = () => {
     layer.style.display = "none";
     video.pause();
   };
-  // 修复：点图片/视频本身也关闭
-  img.onclick = () => {
+  img.onclick = (e) => {
+    e.stopPropagation(); // 防止冒泡冲突
     layer.style.display = "none";
   };
-  video.onclick = () => {
+  video.onclick = (e) => {
+    e.stopPropagation();
     layer.style.display = "none";
   };
 }
+
 
 function L() {
   let u = document.getElementById("u1").value.trim();
