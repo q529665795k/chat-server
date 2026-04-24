@@ -441,6 +441,8 @@ function sN() {
       nickName = nn;
       document.getElementById("nick").textContent = nn;
       cM();
+
+      closeNickModal(); // 加上这句，点完自动关弹窗
       alert("昵称修改成功！");
     } else {
       alert("修改失败：" + (r.msg || "服务器错误"));
