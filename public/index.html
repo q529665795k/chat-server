@@ -41,9 +41,10 @@ button{width:100%;padding:14px;background:#007AFF;color:#fff;border:none;border-
 .modal-box{background:#222;padding:24px;border-radius:16px;width:90%;max-width:300px}
 .modal-buttons{display:flex;gap:10px;margin-top:14px}
 .modal-buttons button{flex:1}
+.media-img{max-width:280px;border-radius:12px;cursor:pointer}
+.media-video{max-width:240px;border-radius:12px;cursor:pointer}
 #fullPreview{display:none;position:fixed;inset:0;background:#000;z-index:99999;align-items:center;justify-content:center}
 #fullMedia{max-width:100vw;max-height:100vh}
-#fullVideo{max-width:100vw;max-height:100vh}
 #saveBtn{position:absolute;bottom:40px;background:#007AFF;color:#fff;padding:10px 20px;border-radius:8px;border:none;font-size:16px}
 </style>
 </head>
@@ -115,40 +116,38 @@ button{width:100%;padding:14px;background:#007AFF;color:#fff;border:none;border-
 <input type="file" id="cameraVideo" accept="video/*" capture="camera" hidden>
 <script src="https://cdnjs.cloudflare.com/ajax/libs/socket.io/4.7.2/socket.io.min.js"></script>
 <script>
-// ====================== 【B2 + Cloudflare 无限流量配置】 ======================
-// ========== B2基础配置 ==========
-const B2_KEY_ID = "d01d287e4558";
-const B2_APP_KEY = "00528f3445b23665b42e83bd7236ded7f5af938c7b";
-const B2_BUCKET_NAME = "529665795";
-const CF_PROXY_DOMAIN = "https://im6.qzz.io/b2";
-const BACKEND_URL = "https://im6.qzz.io";
-
-let B2_API_URL = "";
-let B2_AUTH_TOKEN = "";
-
-
-// ========== B2授权函数（只在发图时触发） ==========
-async function getB2Auth() {
-  if (B2_API_URL && B2_AUTH_TOKEN) return true;
-  try {
-    const res = await fetch(`https://api.backblazeb2.com/b2api/v1/b2_authorize_account`, {
-      headers: {
-        "Authorization": "Basic " + btoa(B2_KEY_ID + ":" + B2_APP_KEY)
-      }
-    });
-    const data = await res.json();
-    B2_API_URL = data.apiUrl;
-    B2_AUTH_TOKEN = data.authorizationToken;
-    return true;
-  } catch (err) {
-    alert("B2授权失败，请检查网络");
-    return false;
-  }
+document.addEventListener("click", (e) => {
+  const text = (e.target.innerText || e.target.id || "").substring(0, 20);
+  console.log("【操作】点击 →", text);
+});
+const oldFetch = window.fetch;
+window.fetch = async function (input, init) {
+  const url = typeof input === "string" ? input : input.url;
+  const method = init?.method || "GET";
+  console.log("【HTTP请求】", method, url);
+  const res = await oldFetch(input, init);
+  console.log("【HTTP响应】", url, "状态:", res.status);
+  return res;
+};
+function wrapSocket(socket) {
+  const oldEmit = socket.emit;
+  socket.emit = function (event, ...data) {
+    console.log("【WS发送】", event, data);
+    return oldEmit.call(socket, event, ...data);
+  };
+  socket.onAny((event, ...data) => {
+    console.log("【WS接收】", event, data);
+  });
 }
-
-
-window.onload = async function() {
-  await initB2Auth();
+const BACKEND_URL = "https://im6.qzz.io";
+let socket = null;
+let nickName = "";
+let userId = "";
+let partnerId = "";
+let roomId = "";
+let mState = false;
+let currentMediaUrl = "";
+window.onload = function() {
   const savedUserId = localStorage.getItem("chat_user_id");
   if (savedUserId) {
     userId = savedUserId;
@@ -180,73 +179,43 @@ window.onload = async function() {
   document.getElementById("cameraPhoto").onchange = (e) => sendMedia(e, "image");
   document.getElementById("cameraVideo").onchange = (e) => sendMedia(e, "video");
 };
-
 function openGalleryImage() { if (!partnerId) { alert("请先匹配"); return; } document.getElementById("galleryImage").click(); }
 function openGalleryVideo() { if (!partnerId) { alert("请先匹配"); return; } document.getElementById("galleryVideo").click(); }
 function openCamera() { if (!partnerId) { alert("请先匹配"); return; } document.getElementById("cameraPhoto").click(); }
 function openCameraVideo() { if (!partnerId) { alert("请先匹配"); return; } document.getElementById("cameraVideo").click(); }
-
-// ====================== 上传到B2，走Cloudflare无限流量 ======================
 async function sendMedia(e, type) {
   const file = e.target.files[0];
-  if (!file || !partnerId || !B2_API_URL) {
-    e.target.value = "";
-    return;
-  }
-
+  if (!file || !partnerId) return;
+  const formData = new FormData();
+  formData.append("file", file);
   try {
-    // 获取上传地址
-    const uploadRes = await fetch(`${B2_API_URL}/b2api/v1/b2_get_upload_url`, {
-      headers: {
-        "Authorization": "Basic " + btoa(B2_KEY_ID + ":" + B2_APP_KEY)
-      }
-    });
-    const uploadData = await uploadRes.json();
-
-    // 生成唯一文件名
-    const fileName = Date.now() + "_" + Math.random().toString(36).slice(2) + "." + file.name.split(".").pop();
-
-    // 上传文件
-    const uploadFileRes = await fetch(uploadData.uploadUrl, {
+    const res = await fetch(BACKEND_URL + "/api/upload-local", {
       method: "POST",
-      headers: {
-        "Authorization": uploadData.authorizationToken,
-        "X-B2-File-Name": fileName
-      },
-      body: file
+      body: formData
     });
-    const fileData = await uploadFileRes.json();
-
-    // ✅ 生成Cloudflare代理链接（无限流量）
-    const fileUrl = `${CF_PROXY_DOMAIN}/${fileName}`;
-
-    // 发送WebSocket消息
+    const data = await res.json();
+    if (data.code !== 200) return;
+    const url = data.data.url;
     const msgId = Date.now() + "";
     const burn = document.getElementById("burn").checked;
     socket.emit("send-msg", {
-      content: fileUrl,
+      content: url,
       type: type,
       burn: burn,
       msgId: msgId,
       toId: partnerId,
       roomId: roomId
     });
-
-    // 渲染消息
-    aM("我", "", burn, msgId, type, fileUrl);
+    aM("我", "", burn, msgId, type, url);
     b();
-  } catch (err) {
-    alert("上传失败：" + err.message);
-  }
+  } catch (err) {}
   e.target.value = "";
 }
-
 function logout() {
   if (socket) socket.disconnect();
   localStorage.removeItem("chat_user_id");
   location.reload();
 }
-
 async function loadLatestNick() {
   if (!userId) return;
   try {
@@ -256,22 +225,33 @@ async function loadLatestNick() {
   } catch (e) { nickName = userId; }
   document.getElementById("nick").textContent = nickName;
 }
-
 function b() {
   if (!document.getElementById("sound").checked) return;
   try { let x = new AudioContext(); let o = x.createOscillator(); g = x.createGain(); o.type = "sine"; o.frequency.value = 660; g.gain.value = 0.3; o.connect(g); g.connect(x.destination); o.start(); o.stop(x.currentTime + 0.18); } catch (e) {}
 }
+function sy(text) {
+  let c = document.getElementById("chat");
+  let tip = document.createElement("div");
+  tip.style.textAlign = "center";
+  tip.style.color = "#999";
+  tip.style.fontSize = "15px";
+  tip.style.margin = "10px 0";
+  tip.textContent = text;
+  c.appendChild(tip);
+  c.scrollTop = c.scrollHeight;
+}
 
-// ====================== 双保险：缩略图 + 代理链接 + 放大保存 ======================
+// ====================== 【完整版：放大+返回+保存】aM ======================
 function aM(who, text, burn = false, msgId = "", type = "text", url = "") {
   const c = document.getElementById("chat");
   const g = document.createElement("div");
   g.className = "msg " + (who === "我" ? "me" : "other");
   if (msgId) g.dataset.id = msgId;
+  let realUrl = url;
 
   if (type === "image") {
     const img = document.createElement("img");
-    img.src = url;
+    img.src = realUrl;
     img.style.maxWidth = "280px";
     img.style.maxHeight = "320px";
     img.style.width = "100%";
@@ -289,37 +269,32 @@ function aM(who, text, burn = false, msgId = "", type = "text", url = "") {
 
       fullMedia.style.display = "block";
       fullVideo.style.display = "none";
-      fullMedia.src = url;
+      fullMedia.src = realUrl;
       preview.style.display = "flex";
       saveBtn.style.display = "block";
       saveBtn.innerText = "保存图片";
       saveBtn.onclick = function (e) {
         e.stopPropagation();
         const a = document.createElement("a");
-        a.href = url;
+        a.href = realUrl;
         a.download = "chat_img_" + Date.now();
         a.click();
       };
-      preview.onclick = function () { preview.style.display = "none"; };
+      preview.onclick = function () {
+        preview.style.display = "none";
+      };
     };
     g.appendChild(img);
-
-    const tip = document.createElement("div");
-    tip.style.marginTop = "4px";
-    tip.style.fontSize = "12px";
-    tip.style.color = "#ccc";
-    tip.textContent = "【无限流量链接】" + url;
-    g.appendChild(tip);
   }
   else if (type === "video") {
     const video = document.createElement("video");
-    video.src = url;
+    video.src = realUrl;
     video.style.maxWidth = "280px";
     video.style.maxHeight = "320px";
     video.style.borderRadius = "12px";
+    video.style.cursor = "pointer";
     video.controls = true;
     video.playsInline = true;
-    video.style.cursor = "pointer";
 
     video.onclick = function () {
       const preview = document.getElementById("fullPreview");
@@ -329,14 +304,14 @@ function aM(who, text, burn = false, msgId = "", type = "text", url = "") {
 
       fullMedia.style.display = "none";
       fullVideo.style.display = "block";
-      fullVideo.src = url;
+      fullVideo.src = realUrl;
       preview.style.display = "flex";
       saveBtn.style.display = "block";
       saveBtn.innerText = "保存视频";
       saveBtn.onclick = function (e) {
         e.stopPropagation();
         const a = document.createElement("a");
-        a.href = url;
+        a.href = realUrl;
         a.download = "chat_video_" + Date.now();
         a.click();
       };
@@ -346,13 +321,6 @@ function aM(who, text, burn = false, msgId = "", type = "text", url = "") {
       };
     };
     g.appendChild(video);
-
-    const tip = document.createElement("div");
-    tip.style.marginTop = "4px";
-    tip.style.fontSize = "12px";
-    tip.style.color = "#ccc";
-    tip.textContent = "【无限流量链接】" + url;
-    g.appendChild(tip);
   }
   else {
     const textDiv = document.createElement("div");
@@ -367,7 +335,6 @@ function aM(who, text, burn = false, msgId = "", type = "text", url = "") {
     readTag.textContent = "未读";
     g.appendChild(readTag);
   }
-
   if (burn) {
     g.classList.add("burn");
     let burnTip = document.createElement("div");
@@ -384,10 +351,10 @@ function aM(who, text, burn = false, msgId = "", type = "text", url = "") {
       }
     }, 1000);
   }
-
   c.appendChild(g);
   c.scrollTop = c.scrollHeight;
 }
+// ==========================================================================
 
 function L() {
   let u = document.getElementById("u1").value.trim();
@@ -415,7 +382,6 @@ function L() {
     }
   });
 }
-
 function R() {
   let u = document.getElementById("u2").value.trim();
   let p = document.getElementById("p2").value.trim();
@@ -426,9 +392,9 @@ function R() {
     setTimeout(() => document.getElementById("tip2").textContent = "", 2000);
   });
 }
-
 function C() {
   socket = io(BACKEND_URL, { transports: ["websocket", "polling"] });
+  wrapSocket(socket);
   socket.on("connect", () => { socket.emit("user-online", { username: userId, nickname: nickName }); });
   socket.on("new-msg", (j) => { 
     aM(j.fromName, j.content, j.burn, j.msgId, j.type, j.content); 
@@ -446,15 +412,16 @@ function C() {
     partnerId = j.partnerId;
     roomId = j.roomId;
     document.getElementById("match").textContent = "取消匹配";
+    sy("匹配成功：" + j.partnerName);
   });
   socket.on("partner-leave", () => {
     mState = false;
     partnerId = "";
     roomId = "";
     document.getElementById("match").textContent = "匹配聊天";
+    sy("对方已离开");
   });
 }
-
 function S() {
   let t = document.getElementById("msg").value.trim();
   if (!t || !partnerId) { alert("请先匹配"); return; }
@@ -473,7 +440,6 @@ function S() {
   b();
   document.getElementById("msg").value = "";
 }
-
 function toggleMatch() {
   if (!socket || !userId) { alert("请先登录"); return; }
   if (!mState) {
@@ -488,7 +454,6 @@ function toggleMatch() {
     document.getElementById("match").textContent = "匹配聊天";
   }
 }
-
 function oM() { document.getElementById("modal").style.display = "flex"; }
 function cM() { document.getElementById("modal").style.display = "none"; }
 function sN() {
