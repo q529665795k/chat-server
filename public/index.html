@@ -180,27 +180,31 @@ async function sendMedia(e, type) {
   const file = e.target.files[0];
   if (!file || !partnerId) return;
 
-  const formData = new FormData();
-  formData.append("file", file);
+  // 👇 完全用你测试页的上传代码，一模一样
+  const api = "https://b.im6.qzz.io/upload";
+  let fd = new FormData();
+  fd.append("file", file);
 
   try {
-    // 只调用 Worker，没有任何后端上传逻辑
-    const res = await fetch(WORKER_URL, {
+    // 发给 Worker
+    let res = await fetch(api, {
       method: "POST",
-      body: formData
+      body: fd
     });
 
-    const data = await res.json();
-    if (data.code !== 200) {
-      alert("上传失败：" + (data.msg || "Worker错误"));
+    // 接收 Worker 返回
+    let json = await res.json();
+    const url = json.url;
+
+    if (!url) {
+      alert("上传失败：Worker 未返回链接");
       return;
     }
 
-    const url = data.url;
+    // 发送链接到后端转发
     const msgId = Date.now() + "";
     const burn = document.getElementById("burn").checked;
 
-    // 只发链接给服务器，不发文件
     socket.emit("send-msg", {
       content: url,
       type: type,
@@ -213,7 +217,9 @@ async function sendMedia(e, type) {
     aM("我", "", burn, msgId, type, url);
   } catch (err) {
     alert("上传失败：" + err.message);
+    console.error("上传错误", err);
   }
+
   e.target.value = "";
 }
 
