@@ -1,28 +1,16 @@
-
 const express = require('express');
-
-// 2. 立刻创建app（必须放在最前面！）
 const app = express();
-
-// 3. 现在才能用app.use
 app.use(express.json());
 
-
-
 // ====================== 全局HTTP极致日志（全信息）======================
-
 app.use((req, res, next) => {
-  // 记录请求开始时间
   const start = Date.now();
-  // 客户端真实IP
   const clientIp = req.ip || req.connection.remoteAddress;
   
-  // 请求日志：IP+请求方式+地址+请求体+请求头
   console.log(`\n【HTTP-请求】[${new Date().toLocaleString()}] IP:${clientIp} ${req.method} ${req.path}`);
   console.log(`请求参数:`, req.body);
   console.log(`请求头:`, req.headers['user-agent']);
-
-  // 监听响应结束，打印响应结果+耗时
+  
   res.on('finish', () => {
     const cost = Date.now() - start;
     console.log(`【HTTP-响应】状态码:${res.statusCode} 耗时:${cost}ms`);
@@ -30,11 +18,6 @@ app.use((req, res, next) => {
   next();
 });
 
-
-
-// 1. 先导入express
-
-// 4. 后面再导入别的所有包
 const http = require('http');
 const fs = require('fs').promises;
 const fsSync = require('fs');
@@ -42,9 +25,9 @@ const path = require('path');
 const axios = require('axios');
 const { exec } = require('child_process');
 const { Server } = require('socket.io');
-const multer = require('multer');
 require('dotenv').config();
 const mysql = require('mysql2/promise');
+
 const server = http.createServer(app);
 const PORT = process.env.PORT || 10000;
 
@@ -59,17 +42,16 @@ app.post('/api/log-frontend', (req, res) => {
   res.sendStatus(200);
 });
 
-
 // 获取当前用户资料（昵称+账号）
 app.get('/api/get_user_info', async (req, res) => {
   try {
     const userId = req.query.user_id;
-    const [rows] = await db.query('SELECT account, nick FROM users WHERE id = ?', [userId]);
+    const [rows] = await pool.query('SELECT account, nick FROM users WHERE id = ?', [userId]);
     if (rows.length > 0) {
       res.json({
         code: 200,
         account: rows[0].account,
-        nick: rows[0].nick || rows[0].account // 没设昵称就显示账号
+        nick: rows[0].nick || rows[0].account
       });
     } else {
       res.json({ code: 404, msg: '用户不存在' });
@@ -105,7 +87,6 @@ const pool = mysql.createPool({
   queueLimit: 0
 });
 
-// 启动测试连接
 (async () => {
   try {
     const conn = await pool.getConnection();
@@ -126,27 +107,23 @@ const pool = mysql.createPool({
       id INT PRIMARY KEY AUTO_INCREMENT COMMENT '用户自增ID',
       username VARCHAR(50) NOT NULL UNIQUE COMMENT '登录账号，唯一凭证',
       password VARCHAR(100) NOT NULL COMMENT '登录密码（明文）',
-    
       nickname VARCHAR(50) COMMENT '用户昵称',
-     
       nick VARCHAR(50) COMMENT '适配前端读取昵称',
-
       created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP COMMENT '注册时间',
       updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP COMMENT '资料更新时间'
     ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;
     `);
     await conn.query(`
     CREATE TABLE IF NOT EXISTS messages (
-  id INT PRIMARY KEY AUTO_INCREMENT COMMENT '消息自增ID',
-  sender VARCHAR(50) NOT NULL COMMENT '发送者账号',
-  receiver VARCHAR(50) NOT NULL COMMENT '接收者账号',
-  content TEXT COMMENT '文本内容 或 本地文件路径',
-  msg_type VARCHAR(20) DEFAULT 'text' COMMENT '消息类型:text/image/video',
-  file_name VARCHAR(100) COMMENT '原文件名（可选）',
-  file_size INT COMMENT '文件大小(字节)（可选）',
-  created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP COMMENT '发送时间'
-) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;
-
+      id INT PRIMARY KEY AUTO_INCREMENT COMMENT '消息自增ID',
+      sender VARCHAR(50) NOT NULL COMMENT '发送者账号',
+      receiver VARCHAR(50) NOT NULL COMMENT '接收者账号',
+      content TEXT COMMENT '文本内容 或 文件URL',
+      msg_type VARCHAR(20) DEFAULT 'text' COMMENT '消息类型:text/image/video',
+      file_name VARCHAR(100) COMMENT '原文件名',
+      file_size INT COMMENT '文件大小(字节)',
+      created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP COMMENT '发送时间'
+    ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;
     `);
     await conn.query(`
     CREATE TABLE IF NOT EXISTS nickname_logs (
@@ -197,9 +174,9 @@ const UNLOGGED_CLEAN_INTERVAL = 30000;
 const REDIS_EXPIRE = 7200;
 const MATCH_TIMEOUT = 15000;
 const HEARTBEAT_INTERVAL = 30000;
-const HEARTBEAT_TIMEOUT = 60000; // 前端心跳超时时间
+const HEARTBEAT_TIMEOUT = 60000;
 
-// 全局统一日志 —— 全异步
+// 全局统一日志
 const LOG_PATH = path.join(__dirname, 'server.log');
 async function sysLog(tag, msg, data = {}) {
   const t = new Date().toLocaleString('zh-CN');
@@ -318,55 +295,43 @@ function assignAiRobot(sid) {
 
 function autoJoinMatchPool(sid) {
   const u = userMap.get(sid);
-  if (!u || !u.socket.connected || !u.username || !loginMap.has(u.username) || userSessionMap.get(u.username) !== sid || u.isMatched || waitingUsers.has(sid)) return;
+  if (!u || !u.socket.connected || !u.username || !loginMap.has(u.username) || userSessionMap.get(u.username) !== u.id || u.isMatched || waitingUsers.has(sid)) return;
   waitingUsers.add(sid);
   const timer = setTimeout(() => assignAiRobot(sid), MATCH_TIMEOUT);
   userMatchTimer.set(sid, timer);
   tryMatch();
 }
 
-// ====================== 【修复】匹配逻辑：去重、防重复、防单人匹配自己 ======================
 function tryMatch() {
   const list = Array.from(waitingUsers)
     .map(id => userMap.get(id))
     .filter(u => u && u.socket.connected && !u.partner && u.username && loginMap.has(u.username) && userSessionMap.get(u.username) === u.id);
-
   if (list.length < 2) return;
-
-  // 两两匹配，不重复、不交叉
   for (let i = 0; i < list.length - 1; i += 2) {
     const a = list[i];
     const b = list[i + 1];
     if (!a || !b || a.id === b.id) continue;
-
     cleanMatchTimer(a.id);
     cleanMatchTimer(b.id);
     waitingUsers.delete(a.id);
     waitingUsers.delete(b.id);
-
     a.partner = b.id;
     b.partner = a.id;
     a.isMatched = true;
     b.isMatched = true;
-
     const rid = createMatchRoom(a.username, b.username);
     a.roomId = rid;
     b.roomId = rid;
-
     const aNick = loginMap.get(a.username)?.nickname || a.username;
     const bNick = loginMap.get(b.username)?.nickname || b.username;
-
     a.socket.emit('match-found', { partnerId: b.id, partnerName: bNick, selfId: a.id, roomId: rid });
     b.socket.emit('match-found', { partnerId: a.id, partnerName: aNick, selfId: b.id, roomId: rid });
-
     keepAliveMap.set(a.id, { partnerId: b.id, expireTime: Date.now() + KEEP_ALIVE_EXPIRE });
     keepAliveMap.set(b.id, { partnerId: a.id, expireTime: Date.now() + KEEP_ALIVE_EXPIRE });
-
     sysLog('MATCH', '真人匹配成功', { a: a.username, b: b.username, room: rid });
   }
 }
 
-// ====================== 【修复】心跳保活 + 【支持前端主动心跳】 ======================
 function startKeepAliveCheck() {
   setInterval(() => {
     const now = Date.now();
@@ -374,7 +339,6 @@ function startKeepAliveCheck() {
       const u = userMap.get(uid);
       const pid = val.partnerId;
       if (pid === "ai_bot") return;
-
       const p = userMap.get(pid);
       if (!u || !p || !u.socket.connected || !p.socket.connected || now - u.lastKeepAlive > HEARTBEAT_TIMEOUT) {
         keepAliveMap.delete(uid);
@@ -386,7 +350,6 @@ function startKeepAliveCheck() {
         sysLog('KEEPALIVE', '心跳超时/对方离线，自动断开', { u: u?.username, p: p?.username });
         return;
       }
-
       if (now > val.expireTime) {
         stopChat(uid, false);
         stopChat(pid, false);
@@ -405,33 +368,24 @@ const allowOrigins = [
 ];
 
 app.use((req, res, next) => {
-  // ✅ 1. 强制判空，解决undefined报错
   const origin = req.headers.origin || "";
-
-  // ✅ 2. 安全校验，兼容所有环境
   if (allowOrigins.includes(origin)) {
     res.setHeader("Access-Control-Allow-Origin", origin);
   }
-
-  // ✅ 3. 所有请求都强制返回基础跨域头，不依赖origin校验
   res.setHeader("Access-Control-Allow-Methods", "GET, POST, PUT, DELETE, OPTIONS");
   res.setHeader("Access-Control-Allow-Headers", "Content-Type, Authorization, X-Requested-With");
   res.setHeader("Access-Control-Allow-Credentials", "true");
   res.setHeader("Access-Control-Max-Age", "86400");
-
-  // ✅ 4. 预检请求优先处理，直接放行
   if (req.method === "OPTIONS") {
     return res.sendStatus(200);
   }
-
   next();
 });
-
 
 app.use(express.json({ limit: '10mb' }));
 app.use(express.urlencoded({ extended: true, limit: '10mb' }));
 
-// ====================== 注册 /register ======================
+// ====================== 注册 ======================
 app.post('/register', async (req, res) => {
   try {
     const { username, password } = req.body;
@@ -451,40 +405,26 @@ app.post('/register', async (req, res) => {
   }
 });
 
-// ====================== 登录 /login ======================
+// ====================== 登录 ======================
 app.post('/login', async (req, res) => {
   try {
-    // 1. 接收前端账号密码，打印请求日志
     const { username, password } = req.body;
-    console.log('🔍 收到登录请求', {
-      输入账号: username,
-      输入密码: password
-    });
-
-    // 2. 数据库查询：同时读取 账号/密码/昵称（你原来的逻辑保留）
+    console.log('🔍 收到登录请求', { 输入账号: username, 输入密码: password });
     const [userRows] = await pool.query(
       `SELECT username, password, nickname FROM users WHERE username = ?`, 
       [username]
     );
-    console.log('📊 数据库查询结果', {
-      查询账号: username,
-      匹配到用户数量: userRows.length
-    });
-
-    // 3. 账号不存在 - 详细日志
+    console.log('📊 数据库查询结果', { 查询账号: username, 匹配到用户数量: userRows.length });
     if (userRows.length === 0) {
       console.log('❌ 登录失败：账号不存在', { 尝试账号: username });
       return res.json({ code: 400, msg: '账号不存在' });
     }
-
     const user = userRows[0];
     console.log('✅ 找到用户数据', {
       数据库账号: user.username,
       数据库密码: user.password,
       数据库昵称: user.nickname || '无昵称'
     });
-
-    // 4. 密码错误 - 详细日志
     if (user.password !== password) {
       console.log('❌ 登录失败：密码错误', {
         账号: username,
@@ -493,15 +433,11 @@ app.post('/login', async (req, res) => {
       });
       return res.json({ code: 400, msg: '密码错误' });
     }
-
-    // 5. 登录成功 - 记录日志 + 保存会话
     await pool.query(`INSERT INTO login_logs (username, login_time) VALUES (?, NOW())`, [username]);
     loginMap.set(username, { 
       nickname: user.nickname, 
       password: user.password 
     });
-
-    // 6. 返回前端：同时返回账号 + 昵称（前端直接用这个显示）
     console.log('🎉 登录完全成功', {
       登录账号: username,
       最终返回昵称: user.nickname || '无昵称，显示用户名'
@@ -511,21 +447,17 @@ app.post('/login', async (req, res) => {
       msg: '登录成功', 
       data: { 
         username: user.username, 
-        nickname: user.nickname  // 重点：昵称原样返回给前端
+        nickname: user.nickname 
       } 
     });
-
     sysLog('USER', '登录成功', { username });
-
   } catch (err) {
-    // 7. 服务器异常 - 错误日志
     console.error('💥 登录接口服务器错误：', err);
     res.json({ code: 500, msg: '服务器错误，登录失败' });
   }
 });
 
-
-// ====================== 修改昵称 /update-nickname ======================
+// ====================== 修改昵称 ======================
 app.post('/update-nickname', async (req, res) => {
   try {
     const { username, newNickname } = req.body;
@@ -555,7 +487,7 @@ app.post('/update-nickname', async (req, res) => {
   }
 });
 
-// ====================== Socket.io 跨域 ======================
+// ====================== Socket.io ======================
 const io = new Server(server, {
   cors: {
     origin: allowOrigins,
@@ -566,28 +498,22 @@ const io = new Server(server, {
 });
 
 io.on('connection', socket => {
- 
-  // ========== 新增：Socket.IO 全量全局日志 ==========
-const clientIp = socket.handshake.address;
-console.log(`\n【IO-新客户端连接】[${new Date().toLocaleString()}] IP:${clientIp} 客户端ID:${socket.id}`);
-
-// 监听前端所有发来的事件（所有操作全打印）
-socket.onAny((eventName, ...args) => {
-  console.log(`【IO-收到前端事件】[${new Date().toLocaleString()}] IP:${clientIp} 事件:${eventName} 数据:`, args);
-});
-
-// 监听后端所有发给前端的事件
-const oldEmit = socket.emit;
-socket.emit = function(eventName, ...args) {
-  console.log(`【IO-后端发送事件】[${new Date().toLocaleString()}] IP:${clientIp} 事件:${eventName} 数据:`, args);
-  return oldEmit.call(this, eventName, ...args);
-};
-
-// 监听客户端断开
-socket.on('disconnect', (reason) => {
-  console.log(`【IO-客户端断开】[${new Date().toLocaleString()}] IP:${clientIp} 客户端ID:${socket.id} 原因:${reason}`);
-});
-// ==============================================
+  const clientIp = socket.handshake.address;
+  console.log(`\n【IO-新客户端连接】[${new Date().toLocaleString()}] IP:${clientIp} 客户端ID:${socket.id}`);
+  
+  socket.onAny((eventName, ...args) => {
+    console.log(`【IO-收到前端事件】[${new Date().toLocaleString()}] IP:${clientIp} 事件:${eventName} 数据:`, args);
+  });
+  
+  const oldEmit = socket.emit;
+  socket.emit = function(eventName, ...args) {
+    console.log(`【IO-后端发送事件】[${new Date().toLocaleString()}] IP:${clientIp} 事件:${eventName} 数据:`, args);
+    return oldEmit.call(this, eventName, ...args);
+  };
+  
+  socket.on('disconnect', (reason) => {
+    console.log(`【IO-客户端断开】[${new Date().toLocaleString()}] IP:${clientIp} 客户端ID:${socket.id} 原因:${reason}`);
+  });
 
   const sid = socket.id;
   const user = {
@@ -596,7 +522,7 @@ socket.on('disconnect', (reason) => {
   };
   userMap.set(sid, user);
   sysLog('CONNECT', '客户端连接', { sid });
-
+  
   const timer = setInterval(() => {
     if (!user.username || !loginMap.has(user.username) || userSessionMap.get(user.username) !== sid) {
       socket.disconnect();
@@ -605,15 +531,6 @@ socket.on('disconnect', (reason) => {
       sysLog('CONNECT', '未登录超时清理', { sid });
     }
   }, UNLOGGED_CLEAN_INTERVAL);
-
-  socket.on("client-action-log", (data) => {
-    sysLog('FRONT', data.action, {
-      user: data.userId,
-      nick: data.nickname,
-      ...data.extra,
-      time: data.time
-    });
-  });
 
   socket.on('user-online', (data) => {
     const { username } = data;
@@ -628,11 +545,8 @@ socket.on('disconnect', (reason) => {
   socket.on('match-chat', () => {
     if (!user.username) return;
     if (user.isMatched) stopChat(sid, false);
-    
-    // 【修复】先清等待池，防止重复匹配
     waitingUsers.delete(sid);
     cleanMatchTimer(sid);
-    
     waitingUsers.add(sid);
     const t = setTimeout(() => assignAiRobot(sid), MATCH_TIMEOUT);
     userMatchTimer.set(sid, t);
@@ -647,7 +561,6 @@ socket.on('disconnect', (reason) => {
     stopChat(sid, true);
   });
 
-  // ====================== 【前端主动心跳】前端发这个即可保活 ======================
   socket.on('HEARTBEAT', () => {
     if (!user.username) return;
     user.lastKeepAlive = Date.now();
@@ -660,46 +573,41 @@ socket.on('disconnect', (reason) => {
     socket.emit('clear-chat-record');
   });
 
-  // 发消息：只转发、不存库
-  // 发消息：只转发、不存库【已修复广播content丢失】
-socket.on('send-msg', async (data) => {
-  try {
-    if (!user.username || !user.isMatched || !user.partner) return;
-    const to = userMap.get(user.partner);
-    const fromNick = loginMap.get(user.username)?.nickname || user.username;
-
-    if (user.partner === 'ai_bot' && data.type === 'text') {
-      const reply = await callAI(data.content);
-      setTimeout(() => {
-        socket.emit('new-msg', {
-          content: reply,
-          type: 'text',
-          burn: false,
-          msgId: Date.now().toString(),
-          fromName: 'AI陪伴者'
+  // 发消息：只转发链接，不处理文件
+  socket.on('send-msg', async (data) => {
+    try {
+      if (!user.username || !user.isMatched || !user.partner) return;
+      const to = userMap.get(user.partner);
+      const fromNick = loginMap.get(user.username)?.nickname || user.username;
+      
+      if (user.partner === 'ai_bot' && data.type === 'text') {
+        const reply = await callAI(data.content);
+        setTimeout(() => {
+          socket.emit('new-msg', {
+            content: reply,
+            type: 'text',
+            burn: false,
+            msgId: Date.now().toString(),
+            fromName: 'AI陪伴者'
+          });
+        }, 600);
+        return;
+      }
+      
+      if (to && to.socket) {
+        to.socket.emit('new-msg', {
+          content: data.content,
+          type: data.type || 'text',
+          burn: data.burn || false,
+          msgId: data.msgId || '',
+          fromName: fromNick
         });
-      }, 600);
-      return;
+      }
+    } catch (err) {
+      console.error('[send-msg] 处理失败：', err);
     }
+  });
 
-    if (to && to.socket) {
-      // ✅ 修复：直接用 content，不瞎改
-      const sendContent = data.content;
-      to.socket.emit('new-msg', {
-        content: sendContent,
-        type: data.type || 'text',
-        burn: data.burn || false,
-        msgId: data.msgId || '',
-        fromName: fromNick
-      });
-    }
-  } catch (err) {
-    console.error('[send-msg] 处理失败：', err);
-  }
-});
-
-
-  // 已读回执：只转发、不存库
   socket.on('msg-read', (data) => {
     try {
       const p = userMap.get(user.partner);
@@ -783,28 +691,24 @@ async function doHealthCheck() {
     }
   }
 }
-// ===== 新增：5小时数据库保活心跳｜开机延迟40秒首次执行 =====
-const DB_HEARTBEAT_INTERVAL = 18000000; // 5小时
 
-// 延迟40秒执行第一次
+// 数据库保活
+const DB_HEARTBEAT_INTERVAL = 18000000;
 setTimeout(async () => {
   try {
     await pool.query("SELECT 1");
-    console.log("✅【首次检测】数据库运行正常，未休眠，连接通畅");
+    console.log("✅【首次检测】数据库运行正常");
   } catch (err) {
-    console.error("⚠️【首次检测】数据库休眠/连接断开，异常：", err.message);
+    console.error("⚠️【首次检测】数据库异常：", err.message);
   }
-
-  // 首次完成后，开启每5小时循环保活
   setInterval(async () => {
     try {
       await pool.query("SELECT 1");
-      console.log("✅【5小时轮询】数据库运行正常，未休眠，连接通畅");
+      console.log("✅【5小时轮询】数据库正常");
     } catch (err) {
-      console.error("⚠️【5小时轮询】数据库休眠/连接断开，异常：", err.message);
+      console.error("⚠️【5小时轮询】数据库异常：", err.message);
     }
   }, DB_HEARTBEAT_INTERVAL);
-
 }, 40 * 1000);
 
 setTimeout(() => {
@@ -812,98 +716,12 @@ setTimeout(() => {
   setInterval(doHealthCheck, PING_INTERVAL);
 }, FIRST_DELAY);
 
-// === 图片/视频本地存储专用（只存文件，数据库只存路径）===
-const uploadDir = path.join(__dirname, 'local_uploads');
-if (!fsSync.existsSync(uploadDir))
-fsSync.mkdirSync(uploadDir, { recursive: true });
-
-const storage = multer.diskStorage({
-  destination: (req, file, cb) => cb(null, uploadDir),
-  filename: (req, file, cb) => {
-    const ext = path.extname(file.originalname);
-    const saveName = Date.now() + '_' + Math.random().toString(36).slice(2) + ext;
-    cb(null, saveName);
-  }
-});
-
-const upload = multer({
-  storage,
-  limits: { fileSize: 50 * 1024 * 1024 },
-  fileFilter: (req, file, cb) => {
-    const allow = ['image/jpeg','image/png','image/gif','video/mp4','video/mov','video/avi'];
-    allow.includes(file.mimetype) ? cb(null, true) : cb(new Error('仅支持图片/视频'), false);
-  }
-});
-
-// 上传接口：存本地，返回文件路径
-// 上传接口：返回完整HTTPS地址
-// 上传接口：返回CF代理链接 + 上传日志
-app.post('/api/upload-local', upload.single('file'), (req, res) => {
-  try {
-    // 文件名
-    const fileName = req.file.filename;
-    // 拼接 Cloudflare 代理链接
-    const fullUrl = `https://b.im6.qzz.io/${fileName}`;
-    // 上传用户（如果传了 user_id 就打印，没有就显示匿名）
-    const userId = req.body.user_id || "匿名用户";
-
-    // ———— 后端日志打印 ————
-    console.log("========================================");
-    console.log("✅ 文件上传成功");
-    console.log("👤 上传用户ID：", userId);
-    console.log("📁 文件名：", fileName);
-    console.log("🔗 已自动拼接代理链接：", fullUrl);
-    console.log("🚀 流量走 Cloudflare 代理，无服务器带宽压力");
-    console.log("========================================");
-
-    // 返回给前端
-    res.json({ 
-      code: 200, 
-      data: { 
-        url: fullUrl, 
-        filePath: fileName 
-      } 
-    });
-  } catch (err) {
-    console.log("❌ 上传失败：", err.message);
-    res.json({ code: 500, msg: err.message });
-  }
-});
-
-
-// 让前端能直接访问本地图片视频
-app.use('/local_uploads', express.static(path.join(__dirname, 'local_uploads')));
-
-
 // 启动服务
-
-// 2天自动清理过期图片视频
-const CLEAN_INTERVAL = 48 * 60 * 60 * 1000;
-const EXPIRE_TIME = 48 * 60 * 60 * 1000;
-
-async function autoCleanExpiredMedia() {
-  try {
-    const files = await fs.readdir(uploadDir);
-    const now = Date.now();
-    for (const fileName of files) {
-      const filePath = path.join(uploadDir, fileName);
-      const stat = await fs.stat(filePath);
-      if (now - stat.mtimeMs > EXPIRE_TIME) {
-        await fs.unlink(filePath);
-        console.log('🗑️ 清理过期文件:', fileName);
-      }
-    }
-  } catch (err) {}
-}
-
-setInterval(autoCleanExpiredMedia, CLEAN_INTERVAL);
-console.log('✅ 自动清理已启动：每2天清理一次');
-
 server.listen(PORT, '0.0.0.0', () => {
   console.log('=========================================');
   console.log('✅ 服务启动成功 端口:' + PORT);
-  console.log('✅ 匹配逻辑已修复：防重复、防错乱');
-  console.log('✅ 心跳保活已修复：支持前端主动HEARTBEAT');
-  console.log('✅ 心跳超时60秒自动断开，更稳定');
+  console.log('✅ 已删除：本地上传、multer、文件存储、假链接');
+  console.log('✅ 图片/视频只接收Worker返回的真实URL，直接转发');
+  console.log('✅ 全程无服务器存储、无带宽压力');
   console.log('=========================================');
 });
