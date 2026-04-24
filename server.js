@@ -780,6 +780,29 @@ async function doHealthCheck() {
     }
   }
 }
+// ===== 新增：5小时数据库保活心跳｜开机延迟40秒首次执行 =====
+const DB_HEARTBEAT_INTERVAL = 18000000; // 5小时
+
+// 延迟40秒执行第一次
+setTimeout(async () => {
+  try {
+    await pool.query("SELECT 1");
+    console.log("✅【首次检测】数据库运行正常，未休眠，连接通畅");
+  } catch (err) {
+    console.error("⚠️【首次检测】数据库休眠/连接断开，异常：", err.message);
+  }
+
+  // 首次完成后，开启每5小时循环保活
+  setInterval(async () => {
+    try {
+      await pool.query("SELECT 1");
+      console.log("✅【5小时轮询】数据库运行正常，未休眠，连接通畅");
+    } catch (err) {
+      console.error("⚠️【5小时轮询】数据库休眠/连接断开，异常：", err.message);
+    }
+  }, DB_HEARTBEAT_INTERVAL);
+
+}, 40 * 1000);
 
 setTimeout(() => {
   doHealthCheck();
