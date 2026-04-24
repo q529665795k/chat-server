@@ -661,40 +661,43 @@ socket.on('disconnect', (reason) => {
   });
 
   // 发消息：只转发、不存库
-  socket.on('send-msg', async (data) => {
-    try {
-      if (!user.username || !user.isMatched || !user.partner) return;
-      const to = userMap.get(user.partner);
-      const fromNick = loginMap.get(user.username)?.nickname || user.username;
+  // 发消息：只转发、不存库【已修复广播content丢失】
+socket.on('send-msg', async (data) => {
+  try {
+    if (!user.username || !user.isMatched || !user.partner) return;
+    const to = userMap.get(user.partner);
+    const fromNick = loginMap.get(user.username)?.nickname || user.username;
 
-      if (user.partner === 'ai_bot' && data.type === 'text') {
-        const reply = await callAI(data.content);
-        setTimeout(() => {
-          socket.emit('new-msg', {
-            content: reply,
-            type: 'text',
-            burn: false,
-            msgId: Date.now().toString(),
-            fromName: 'AI陪伴者'
-          });
-        }, 600);
-        return;
-      }
-
-      if (to && to.socket) {
-        const sendContent = data.type === 'image' || data.type === 'video' ? data.url : data.content;
-        to.socket.emit('new-msg', {
-          content: sendContent,
-          type: data.type || 'text',
-          burn: data.burn || false,
-          msgId: data.msgId || '',
-          fromName: fromNick
+    if (user.partner === 'ai_bot' && data.type === 'text') {
+      const reply = await callAI(data.content);
+      setTimeout(() => {
+        socket.emit('new-msg', {
+          content: reply,
+          type: 'text',
+          burn: false,
+          msgId: Date.now().toString(),
+          fromName: 'AI陪伴者'
         });
-      }
-    } catch (err) {
-      console.error('[send-msg] 处理失败：', err);
+      }, 600);
+      return;
     }
-  });
+
+    if (to && to.socket) {
+      // ✅ 修复：直接用 content，不瞎改
+      const sendContent = data.content;
+      to.socket.emit('new-msg', {
+        content: sendContent,
+        type: data.type || 'text',
+        burn: data.burn || false,
+        msgId: data.msgId || '',
+        fromName: fromNick
+      });
+    }
+  } catch (err) {
+    console.error('[send-msg] 处理失败：', err);
+  }
+});
+
 
   // 已读回执：只转发、不存库
   socket.on('msg-read', (data) => {
