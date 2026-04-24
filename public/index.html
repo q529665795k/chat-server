@@ -410,12 +410,12 @@ function C() {
   socket.on("connect", () => {
     console.log("🔌 连接成功 → 立即心跳");
     sendHeartbeatNow();
-  
     if (!hasOnline && userId) {
-      socket.emit("user-online", { username: userId, nickname: nickName });
+      socket.emit("user-online", { username: userId, nickname: nickName || userId });
       hasOnline = true;
     }
   });
+
   socket.on("new-msg", (j) => {
     aM(j.fromName, j.content, j.burn, j.msgId, j.type, j.content);
     b();
@@ -423,10 +423,12 @@ function C() {
       socket.emit("msg-read", { msgId: j.msgId });
     }
   });
+
   socket.on("msg-read", (j) => {
     let ele = document.querySelector(`.msg[data-id="${j.msgId}"] .read`);
     if (ele) ele.textContent = "已读";
   });
+
   socket.on("match-found", (j) => {
     mState = true;
     partnerId = j.partnerId;
@@ -434,6 +436,7 @@ function C() {
     document.getElementById("match").textContent = "取消匹配";
     sy("匹配成功：" + j.partnerName);
   });
+
   socket.on("partner-leave", () => {
     mState = false;
     partnerId = "";
@@ -441,7 +444,10 @@ function C() {
     document.getElementById("match").textContent = "匹配聊天";
     sy("对方已离开");
   });
+
   startHeartbeat();
+}
+
 }
 
 function S() {
