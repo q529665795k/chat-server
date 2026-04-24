@@ -410,7 +410,7 @@ function C() {
   socket.on("connect", () => {
     console.log("🔌 连接成功 → 立即心跳");
     sendHeartbeatNow();
-    socket.on("connect", () => {
+  
     if (!hasOnline && userId) {
       socket.emit("user-online", { username: userId, nickname: nickName });
       hasOnline = true;
