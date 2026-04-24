@@ -1,5 +1,5 @@
 export default {
-  async fetch(request) {
+   async fetch(request) {
     const B2_ACCOUNT_ID = "529665795";
     const B2_KEY_ID = "005d01d287e45580000000001";
     const B2_APP_KEY = "K00503xO0gW8T+ZL1v3ylTj";
