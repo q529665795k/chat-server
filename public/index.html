@@ -80,9 +80,9 @@ button{width:100%;padding:14px;background:#007AFF;color:#fff;border:none;border-
 </div>
 </div>
 <div class="bar">
-<label><input type="checkbox" id="burn"> 阅后即焚</label>
-<label><input type="checkbox" id="sound"> 提示音</label>
-<label><input type="checkbox" id="read"> 已读回执</label>
+<label><input type="checkbox" id="burn">阅后即焚</label>
+<label><input type="checkbox" id="sound">提示音</label>
+<label><input type="checkbox" id="read">已读回执</label>
 <button class="btn-nick" onclick="oM()">修改昵称</button>
 </div>
 <button class="match" id="match">匹配聊天</button>
@@ -132,6 +132,9 @@ let partnerId = "";
 let roomId = "";
 let mState = false;
 
+let heartbeatTimer = null;
+let hasOnline = false; // 只上线一次
+
 window.onload = function() {
   const savedUserId = localStorage.getItem("chat_user_id");
   if (savedUserId) {
@@ -173,9 +176,6 @@ function openGalleryVideo() { if (!partnerId) { alert("请先匹配"); return; }
 function openCamera() { if (!partnerId) { alert("请先匹配"); return; } document.getElementById("cameraPhoto").click(); }
 function openCameraVideo() { if (!partnerId) { alert("请先匹配"); return; } document.getElementById("cameraVideo").click(); }
 
-// ==============================================
-// 【纯净版】只走 Worker，绝对不往服务器上传文件
-// ==============================================
 async function sendMedia(e, type) {
   const file = e.target.files[0];
   if (!file || !partnerId) return;
@@ -223,7 +223,9 @@ async function sendMedia(e, type) {
   e.target.value = "";
 }
 
+
 function logout() {
+  if (heartbeatTimer) clearInterval(heartbeatTimer);
   if (socket) socket.disconnect();
   localStorage.removeItem("chat_user_id");
   location.reload();
@@ -347,6 +349,7 @@ function L() {
       document.getElementById("login").style.display = "none";
       document.getElementById("main").style.display = "flex";
       await loadLatestNick();
+      hasOnline = false;
       C();
     } else {
       document.getElementById("tip").textContent = j.msg || "登录失败";
@@ -366,9 +369,17 @@ function R() {
   });
 }
 
+// ====================== 核心修改：只上线一次 + 心跳保活 ======================
 function C() {
   socket = io(BACKEND_URL, { transports: ["websocket", "polling"] });
-  socket.on("connect", () => { socket.emit("user-online", { username: userId, nickname: nickName }); });
+
+  socket.on("connect", () => {
+    if (!hasOnline && userId) {
+      socket.emit("user-online", { username: userId, nickname: nickName });
+      hasOnline = true;
+    }
+  });
+
   socket.on("new-msg", (j) => { 
     aM(j.fromName, j.content, j.burn, j.msgId, j.type, j.content); 
     b(); 
@@ -376,10 +387,12 @@ function C() {
       socket.emit("msg-read", { msgId: j.msgId });
     }
   });
+
   socket.on("msg-read", (j) => {
     let ele = document.querySelector(`.msg[data-id="${j.msgId}"] .read`);
     if(ele) ele.textContent = "已读";
   });
+
   socket.on("match-found", (j) => {
     mState = true;
     partnerId = j.partnerId;
@@ -387,6 +400,7 @@ function C() {
     document.getElementById("match").textContent = "取消匹配";
     sy("匹配成功：" + j.partnerName);
   });
+
   socket.on("partner-leave", () => {
     mState = false;
     partnerId = "";
@@ -394,6 +408,14 @@ function C() {
     document.getElementById("match").textContent = "匹配聊天";
     sy("对方已离开");
   });
+
+  // 心跳：只发 HEARTBEAT，不发上线
+  if (heartbeatTimer) clearInterval(heartbeatTimer);
+  heartbeatTimer = setInterval(() => {
+    if (socket && socket.connected) {
+      socket.emit("HEARTBEAT");
+    }
+  }, 30000);
 }
 
 function S() {
@@ -448,7 +470,8 @@ function sN() {
       document.getElementById("nick").textContent = nn;
       cM();
 
-      closeNickModal(); // 加上这句，点完自动关弹窗
+
+      closeNickModal(); 
       alert("昵称修改成功！");
     } else {
       alert("修改失败：" + (r.msg || "服务器错误"));
