@@ -49,6 +49,7 @@ button{width:100%;padding:14px;background:#007AFF;color:#fff;border:none;border-
 </style>
 </head>
 <body>
+
 <div class="login" id="login">
 <div class="login-box">
 <div class="tabs">
@@ -69,6 +70,7 @@ button{width:100%;padding:14px;background:#007AFF;color:#fff;border:none;border-
 </div>
 </div>
 </div>
+
 <div class="container" id="main">
 <div class="header">
 <div class="nick" id="nick">加载中...</div>
@@ -96,6 +98,7 @@ button{width:100%;padding:14px;background:#007AFF;color:#fff;border:none;border-
 <button class="send" id="send">发送</button>
 </div>
 </div>
+
 <div class="modal" id="modal">
 <div class="modal-box">
 <input id="newNick" placeholder="输入新昵称">
@@ -105,48 +108,30 @@ button{width:100%;padding:14px;background:#007AFF;color:#fff;border:none;border-
 </div>
 </div>
 </div>
+
 <div id="fullPreview">
 <img id="fullMedia" alt="">
 <video id="fullVideo" controls autoplay></video>
 <button id="saveBtn">保存</button>
 </div>
+
 <input type="file" id="galleryImage" accept="image/*" hidden>
 <input type="file" id="galleryVideo" accept="video/*" hidden>
 <input type="file" id="cameraPhoto" accept="image/*" capture="camera" hidden>
 <input type="file" id="cameraVideo" accept="video/*" capture="camera" hidden>
+
 <script src="https://cdnjs.cloudflare.com/ajax/libs/socket.io/4.7.2/socket.io.min.js"></script>
 <script>
-document.addEventListener("click", (e) => {
-  const text = (e.target.innerText || e.target.id || "").substring(0, 20);
-  console.log("【操作】点击 →", text);
-});
-const oldFetch = window.fetch;
-window.fetch = async function (input, init) {
-  const url = typeof input === "string" ? input : input.url;
-  const method = init?.method || "GET";
-  console.log("【HTTP请求】", method, url);
-  const res = await oldFetch(input, init);
-  console.log("【HTTP响应】", url, "状态:", res.status);
-  return res;
-};
-function wrapSocket(socket) {
-  const oldEmit = socket.emit;
-  socket.emit = function (event, ...data) {
-    console.log("【WS发送】", event, data);
-    return oldEmit.call(socket, event, ...data);
-  };
-  socket.onAny((event, ...data) => {
-    console.log("【WS接收】", event, data);
-  });
-}
 const BACKEND_URL = "https://im6.qzz.io";
+const WORKER_URL = "https://b.im6.qzz.io/upload";
+
 let socket = null;
 let nickName = "";
 let userId = "";
 let partnerId = "";
 let roomId = "";
 let mState = false;
-let currentMediaUrl = "";
+
 window.onload = function() {
   const savedUserId = localStorage.getItem("chat_user_id");
   if (savedUserId) {
@@ -156,6 +141,7 @@ window.onload = function() {
     loadLatestNick();
     C();
   }
+
   document.getElementById("t1").onclick = () => {
     document.getElementById("t1").classList.add("active");
     document.getElementById("t2").classList.remove("active");
@@ -168,44 +154,53 @@ window.onload = function() {
     document.getElementById("f1").style.display = "none";
     document.getElementById("f2").style.display = "block";
   };
+
   document.getElementById("loginBtn").onclick = L;
   document.getElementById("regBtn").onclick = R;
   document.getElementById("exit").onclick = logout;
   document.getElementById("match").onclick = toggleMatch;
   document.getElementById("send").onclick = S;
   document.getElementById("msg").onkeydown = (e) => { if (e.key === "Enter") S(); };
+
   document.getElementById("galleryImage").onchange = (e) => sendMedia(e, "image");
   document.getElementById("galleryVideo").onchange = (e) => sendMedia(e, "video");
   document.getElementById("cameraPhoto").onchange = (e) => sendMedia(e, "image");
   document.getElementById("cameraVideo").onchange = (e) => sendMedia(e, "video");
 };
+
 function openGalleryImage() { if (!partnerId) { alert("请先匹配"); return; } document.getElementById("galleryImage").click(); }
 function openGalleryVideo() { if (!partnerId) { alert("请先匹配"); return; } document.getElementById("galleryVideo").click(); }
 function openCamera() { if (!partnerId) { alert("请先匹配"); return; } document.getElementById("cameraPhoto").click(); }
 function openCameraVideo() { if (!partnerId) { alert("请先匹配"); return; } document.getElementById("cameraVideo").click(); }
 
-// 【修复】图片直传CF代理，不走后端，同时保证渲染
+// ==============================================
+// 【纯净版】只走 Worker，绝对不往服务器上传文件
+// ==============================================
 async function sendMedia(e, type) {
   const file = e.target.files[0];
   if (!file || !partnerId) return;
+
   const formData = new FormData();
   formData.append("file", file);
+
   try {
-    // 直接上传到CF代理
-    const res = await fetch("https://b.im6.qzz.io/upload", {
+    // 只调用 Worker，没有任何后端上传逻辑
+    const res = await fetch(WORKER_URL, {
       method: "POST",
       body: formData
     });
+
     const data = await res.json();
-    console.log("上传结果:", data);
     if (data.code !== 200) {
-      alert("上传失败：" + (data.msg || "服务器错误"));
+      alert("上传失败：" + (data.msg || "Worker错误"));
       return;
     }
+
     const url = data.url;
     const msgId = Date.now() + "";
     const burn = document.getElementById("burn").checked;
-    // 发送消息
+
+    // 只发链接给服务器，不发文件
     socket.emit("send-msg", {
       content: url,
       type: type,
@@ -214,12 +209,10 @@ async function sendMedia(e, type) {
       toId: partnerId,
       roomId: roomId
     });
-    // 强制渲染到聊天框
+
     aM("我", "", burn, msgId, type, url);
-    b();
   } catch (err) {
-    console.error("上传失败:", err);
-    alert("上传出错，请检查网络");
+    alert("上传失败：" + err.message);
   }
   e.target.value = "";
 }
@@ -235,10 +228,8 @@ async function loadLatestNick() {
   try {
     let res = await fetch(BACKEND_URL + "/api/get_user_info?user_id=" + userId);
     let data = await res.json();
-    nickName = data.nick || data.data?.nick || data.nickname || data.account || userId;
-  } catch (e) { 
-    nickName = userId; 
-  }
+    nickName = data.nick || data.data?.nick || data.nickname || userId;
+  } catch (e) { nickName = userId; }
   document.getElementById("nick").textContent = nickName;
 }
 
@@ -246,6 +237,7 @@ function b() {
   if (!document.getElementById("sound").checked) return;
   try { let x = new AudioContext(); let o = x.createOscillator(); g = x.createGain(); o.type = "sine"; o.frequency.value = 660; g.gain.value = 0.3; o.connect(g); g.connect(x.destination); o.start(); o.stop(x.currentTime + 0.18); } catch (e) {}
 }
+
 function sy(text) {
   let c = document.getElementById("chat");
   let tip = document.createElement("div");
@@ -258,59 +250,48 @@ function sy(text) {
   c.scrollTop = c.scrollHeight;
 }
 
-// 【修复】强制渲染图片/视频，不隐藏错误
 function aM(who, text, burn = false, msgId = "", type = "text", url = "") {
   const c = document.getElementById("chat");
   const g = document.createElement("div");
   g.className = "msg " + (who === "我" ? "me" : "other");
   if (msgId) g.dataset.id = msgId;
-  let realUrl = url;
 
   if (type === "image") {
     const img = document.createElement("img");
-    img.src = realUrl;
+    img.src = url;
     img.className = "media-img";
-    img.onerror = function () {
-      console.log("图片加载失败:", realUrl);
-      img.style.border = "1px solid red";
-      img.alt = "图片加载失败";
-    };
+    img.onerror = function () { img.style.border = "1px solid red"; img.alt = "加载失败"; };
     img.onclick = function () {
       const preview = document.getElementById("fullPreview");
       const fullMedia = document.getElementById("fullMedia");
       const fullVideo = document.getElementById("fullVideo");
       fullMedia.style.display = "block";
       fullVideo.style.display = "none";
-      fullMedia.src = realUrl;
+      fullMedia.src = url;
       preview.style.display = "flex";
       document.getElementById("saveBtn").style.display = "block";
       document.getElementById("saveBtn").innerText = "保存图片";
     };
     g.appendChild(img);
-  }
-  else if (type === "video") {
+  } else if (type === "video") {
     const video = document.createElement("video");
-    video.src = realUrl;
+    video.src = url;
     video.className = "media-video";
     video.controls = true;
     video.playsInline = true;
-    video.onerror = function () {
-      console.log("视频加载失败:", realUrl);
-    };
     video.onclick = function () {
       const preview = document.getElementById("fullPreview");
       const fullMedia = document.getElementById("fullMedia");
       const fullVideo = document.getElementById("fullVideo");
       fullMedia.style.display = "none";
       fullVideo.style.display = "block";
-      fullVideo.src = realUrl;
+      fullVideo.src = url;
       preview.style.display = "flex";
       document.getElementById("saveBtn").style.display = "block";
       document.getElementById("saveBtn").innerText = "保存视频";
     };
     g.appendChild(video);
-  }
-  else {
+  } else {
     const textDiv = document.createElement("div");
     textDiv.className = "msg-text";
     textDiv.textContent = text;
@@ -333,10 +314,7 @@ function aM(who, text, burn = false, msgId = "", type = "text", url = "") {
     let timer = setInterval(() => {
       t--;
       burnTip.textContent = "焚·" + t + "秒";
-      if (t <= 0) {
-        clearInterval(timer);
-        if (g && g.parentNode) g.parentNode.removeChild(g);
-      }
+      if (t <= 0) { clearInterval(timer); if (g.parentNode) g.parentNode.removeChild(g); }
     }, 1000);
   }
   c.appendChild(g);
@@ -381,9 +359,9 @@ function R() {
     setTimeout(() => document.getElementById("tip2").textContent = "", 2000);
   });
 }
+
 function C() {
   socket = io(BACKEND_URL, { transports: ["websocket", "polling"] });
-  wrapSocket(socket);
   socket.on("connect", () => { socket.emit("user-online", { username: userId, nickname: nickName }); });
   socket.on("new-msg", (j) => { 
     aM(j.fromName, j.content, j.burn, j.msgId, j.type, j.content); 
@@ -411,6 +389,7 @@ function C() {
     sy("对方已离开");
   });
 }
+
 function S() {
   let t = document.getElementById("msg").value.trim();
   if (!t || !partnerId) { alert("请先匹配"); return; }
@@ -429,6 +408,7 @@ function S() {
   b();
   document.getElementById("msg").value = "";
 }
+
 function toggleMatch() {
   if (!socket || !userId) { alert("请先登录"); return; }
   if (!mState) {
@@ -443,25 +423,17 @@ function toggleMatch() {
     document.getElementById("match").textContent = "匹配聊天";
   }
 }
+
 function oM() { document.getElementById("modal").style.display = "flex"; }
 function cM() { document.getElementById("modal").style.display = "none"; }
 
-// 【修复】修改昵称按钮，点确定保存到数据库
-// 【修复】修改昵称按钮，点确定保存到数据库
 function sN() {
   let nn = document.getElementById("newNick").value.trim();
-  if (!nn || nn.length < 2 || nn.length > 20) {
-    alert("昵称需要2-20个字符");
-    return;
-  }
-
+  if (!nn || nn.length < 2 || nn.length > 20) { alert("昵称需要2-20个字符"); return; }
   fetch(BACKEND_URL + "/api/update_nick", {
     method: "POST",
     headers: { "Content-Type": "application/json" },
-    body: JSON.stringify({
-      user_id: userId,
-      nick: nn
-    })
+    body: JSON.stringify({ user_id: userId, nick: nn })
   })
   .then(r => r.json())
   .then(r => {
@@ -469,25 +441,16 @@ function sN() {
       nickName = nn;
       document.getElementById("nick").textContent = nn;
       cM();
-
-
-      closeNickModal(); // 加上这句，点完自动关弹窗
-      
       alert("昵称修改成功！");
     } else {
       alert("修改失败：" + (r.msg || "服务器错误"));
     }
   })
-  .catch(err => {
-    console.error("请求失败:", err);
-    alert("网络错误，请检查连接");
-  });
+  .catch(err => { alert("网络错误"); });
 }
-
 
 function clearChat(){ document.getElementById("chat").innerHTML = ""; }
 
-// 点击预览框关闭
 document.getElementById("fullPreview").onclick = function(e) {
   if (e.target === this) {
     this.style.display = "none";
