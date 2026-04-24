@@ -202,7 +202,7 @@ async function sendMedia(e, type) {
       alert("上传失败：" + (data.msg || "服务器错误"));
       return;
     }
-    const url = data.data.url;
+    const url = data.url;
     const msgId = Date.now() + "";
     const burn = document.getElementById("burn").checked;
     // 发送消息
@@ -447,18 +447,20 @@ function oM() { document.getElementById("modal").style.display = "flex"; }
 function cM() { document.getElementById("modal").style.display = "none"; }
 
 // 【修复】修改昵称按钮，点确定保存到数据库
+// 【修复】修改昵称按钮，点确定保存到数据库
 function sN() {
   let nn = document.getElementById("newNick").value.trim();
-  if (!nn || nn.length < 2 || nn.length > 20) { 
-    alert("昵称需要2-20个字符"); 
-    return; 
+  if (!nn || nn.length < 2 || nn.length > 20) {
+    alert("昵称需要2-20个字符");
+    return;
   }
+
   fetch(BACKEND_URL + "/api/update_nick", {
     method: "POST",
     headers: { "Content-Type": "application/json" },
-    body: JSON.stringify({ 
-      user_id: userId, 
-      nick: nn 
+    body: JSON.stringify({
+      user_id: userId,
+      nick: nn
     })
   })
   .then(r => r.json())
@@ -477,6 +479,7 @@ function sN() {
     alert("网络错误，请检查连接");
   });
 }
+
 
 function clearChat(){ document.getElementById("chat").innerHTML = ""; }
 
