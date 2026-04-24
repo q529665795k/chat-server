@@ -834,11 +834,35 @@ const upload = multer({
 
 // 上传接口：存本地，返回文件路径
 // 上传接口：返回完整HTTPS地址
+// 上传接口：返回CF代理链接 + 上传日志
 app.post('/api/upload-local', upload.single('file'), (req, res) => {
   try {
-    const fullUrl = `https://im6.qzz.io/local_uploads/${req.file.filename}`;
-    res.json({ code: 200, data: { url: fullUrl, filePath: req.file.filename } });
+    // 文件名
+    const fileName = req.file.filename;
+    // 拼接 Cloudflare 代理链接
+    const fullUrl = `https://b.im6.qzz.io/${fileName}`;
+    // 上传用户（如果传了 user_id 就打印，没有就显示匿名）
+    const userId = req.body.user_id || "匿名用户";
+
+    // ———— 后端日志打印 ————
+    console.log("========================================");
+    console.log("✅ 文件上传成功");
+    console.log("👤 上传用户ID：", userId);
+    console.log("📁 文件名：", fileName);
+    console.log("🔗 已自动拼接代理链接：", fullUrl);
+    console.log("🚀 流量走 Cloudflare 代理，无服务器带宽压力");
+    console.log("========================================");
+
+    // 返回给前端
+    res.json({ 
+      code: 200, 
+      data: { 
+        url: fullUrl, 
+        filePath: fileName 
+      } 
+    });
   } catch (err) {
+    console.log("❌ 上传失败：", err.message);
     res.json({ code: 500, msg: err.message });
   }
 });
