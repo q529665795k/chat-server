@@ -487,10 +487,13 @@ async function sN() {
     return; 
   }
   try {
-    let res = await fetch(BACKEND_URL + "/api/update-nickname", {
+    let res = await fetch(BACKEND_URL + "/update-nickname", {
       method: "POST",
       headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({ username: userId, newNickname: nn })
+      body: JSON.stringify({ 
+        username: userId, 
+        newNickname: nn 
+      })
     });
     let r = await res.json();
     if (r.code === 200) {
@@ -503,9 +506,10 @@ async function sN() {
       alert("修改失败：" + (r.msg || "服务器错误"));
     }
   } catch (err) {
-    alert("网络错误");
+    alert("修改失败");
   }
 }
+
 
 function clearChat(){ document.getElementById("chat").innerHTML = ""; }
 
