@@ -1,4 +1,4 @@
-export default {
+  export default {
   async fetch(request, env, ctx) {
     const B2_ACCOUNT_ID = "529665795";
     const B2_KEY_ID = "005d01d287e45580000000001";
