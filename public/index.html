@@ -506,9 +506,11 @@ async function sN() {
       alert("修改失败：" + (r.msg || "服务器错误"));
     }
   } catch (err) {
+    console.error(err);
     alert("修改失败");
   }
 }
+
 
 
 
