@@ -410,14 +410,14 @@ function C() {
   socket.on("connect", () => {
     console.log("🔌 连接成功 → 立即心跳");
     sendHeartbeatNow();
-    if (!hasOnline && userId) {
-  socket.emit("user-online", { 
-    username: userId, 
-    nickname: nickName 
-  });
-  hasOnline = true;
-}
+    socket.emit("user-online", {
+  username: userId,
+  nickname: nickName || userId
+});
+hasOnline = true;
 
+}  
+});
   socket.on("new-msg", (j) => {
     aM(j.fromName, j.content, j.burn, j.msgId, j.type, j.content);
     b();
