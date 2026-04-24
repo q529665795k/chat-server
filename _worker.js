@@ -1,8 +1,8 @@
-  export default {
-  async fetch(request, env, ctx) {
+export default {
+  async fetch(request) {
     const B2_ACCOUNT_ID = "529665795";
     const B2_KEY_ID = "005d01d287e45580000000001";
-    const B2_APP_KEY = "K00503xO0gW8T+ZL1v3ylTjzNnQE0pI";
+    const B2_APP_KEY = "K00503xO0gW8T+ZL1v3ylTj";
     const B2_BUCKET_NAME = "529665795";
     const B2_F0_HOST = "f004.backblazeb2.com";
 
@@ -29,6 +29,7 @@
     if (!filePath) {
       return new Response("请在地址后加文件路径，如 /test.jpg", { status: 400 });
     }
+
     try {
       const token = await getB2AuthToken();
       const b2FileUrl = `https://${B2_F0_HOST}/file/${B2_BUCKET_NAME}/${filePath}?Authorization=${token}`;
