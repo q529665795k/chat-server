@@ -4,7 +4,7 @@
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, minimum-scale=1.0, user-scalable=no, viewport-fit=cover">
 <meta name="apple-mobile-web-app-capable" content="yes">
-<meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
+<meta name="apple-mobile-web-status-bar-style" content="black-translucent">
 <title>聊天</title>
 <style>
 *{margin:0;padding:0;box-sizing:border-box;-webkit-tap-highlight-color:transparent;-webkit-touch-callout:none}
@@ -133,7 +133,7 @@ let roomId = "";
 let mState = false;
 
 let heartbeatTimer = null;
-let hasOnline = false; // 只上线一次
+let hasOnline = false;
 
 window.onload = function() {
   const savedUserId = localStorage.getItem("chat_user_id");
@@ -178,51 +178,44 @@ function openCameraVideo() { if (!partnerId) { alert("请先匹配"); return; } 
 
 async function sendMedia(e, type) {
   const file = e.target.files[0];
-  if (!file || !partnerId) return;
+  if (!file) {
+    e.target.value = "";
+    return;
+  }
 
-  // 👇 完全用你测试页的上传代码，一模一样
-  const api = "https://b.im6.qzz.io/upload";
-  let fd = new FormData();
-  fd.append("file", file);
+  const formData = new FormData();
+  formData.append("file", file);
 
   try {
-    // 发给 Worker
-    let res = await fetch(api, {
+    const res = await fetch(WORKER_URL, {
       method: "POST",
-      body: fd
+      body: formData
     });
-
-    // 接收 Worker 返回
-    let json = await res.json();
-    const url = json.url;
-
-    if (!url) {
-      alert("上传失败：Worker 未返回链接");
+    const data = await res.json();
+    if (!data || !data.url) {
+      alert("上传失败，未获取到图片链接");
       return;
     }
-
-    // 发送链接到后端转发
-    const msgId = Date.now() + "";
-    const burn = document.getElementById("burn").checked;
-
-    socket.emit("send-msg", {
-      content: url,
-      type: type,
-      burn: burn,
-      msgId: msgId,
-      toId: partnerId,
-      roomId: roomId
-    });
-
-    aM("我", "", burn, msgId, type, url);
+    const url = data.url;
+    if (partnerId) {
+      const msgId = Date.now() + "";
+      const burn = document.getElementById("burn").checked;
+      socket.emit("send-msg", {
+        content: url,
+        type: type,
+        burn: burn,
+        msgId: msgId,
+        toId: partnerId,
+        roomId: roomId
+      });
+      aM("我", "", burn, msgId, type, url);
+    }
   } catch (err) {
     alert("上传失败：" + err.message);
     console.error("上传错误", err);
   }
-
   e.target.value = "";
 }
-
 
 function logout() {
   if (heartbeatTimer) clearInterval(heartbeatTimer);
@@ -236,9 +229,12 @@ async function loadLatestNick() {
   try {
     let res = await fetch(BACKEND_URL + "/api/get_user_info?user_id=" + userId);
     let data = await res.json();
-    nickName = data.nick || data.data?.nick || data.nickname || userId;
-  } catch (e) { nickName = userId; }
-  document.getElementById("nick").textContent = nickName;
+    nickName = data.nick || data.nickname || data.account || userId;
+    document.getElementById("nick").textContent = nickName;
+  } catch (e) {
+    nickName = userId;
+    document.getElementById("nick").textContent = nickName;
+  }
 }
 
 function b() {
@@ -329,19 +325,19 @@ function aM(who, text, burn = false, msgId = "", type = "text", url = "") {
   c.scrollTop = c.scrollHeight;
 }
 
-function L() {
+async function L() {
   let u = document.getElementById("u1").value.trim();
   let p = document.getElementById("p1").value.trim();
   if (!u || !p) { document.getElementById("tip").textContent = "请输入账号密码"; setTimeout(() => document.getElementById("tip").textContent = "", 2000); return; }
   
   userId = u;
-  fetch(BACKEND_URL + "/login", { 
-    method: "POST", 
-    headers: { "Content-Type": "application/json" }, 
-    body: JSON.stringify({ username: u, password: p }) 
-  })
-  .then(res => res.json())
-  .then(async j => {
+  try {
+    let res = await fetch(BACKEND_URL + "/login", {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ username: u, password: p })
+    });
+    let j = await res.json();
     if (j.code === 200) {
       nickName = j.data.nickname || j.data.username || userId;
       localStorage.setItem("chat_user_id", userId);
@@ -355,21 +351,26 @@ function L() {
       document.getElementById("tip").textContent = j.msg || "登录失败";
       setTimeout(() => document.getElementById("tip").textContent = "", 2000);
     }
-  });
+  } catch (e) {
+    document.getElementById("tip").textContent = "网络异常";
+    setTimeout(() => document.getElementById("tip").textContent = "", 2000);
+  }
 }
 
 function R() {
   let u = document.getElementById("u2").value.trim();
   let p = document.getElementById("p2").value.trim();
   if (!u || !p) { document.getElementById("tip2").textContent = "请输入账号密码"; setTimeout(() => document.getElementById("tip2").textContent = "", 2000); return; }
-  fetch(BACKEND_URL + "/register", { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ username: u, password: p }) })
-  .then(res => res.json()).then(j => {
+  fetch(BACKEND_URL + "/register", {
+    method: "POST",
+    headers: { "Content-Type": "application/json" },
+    body: JSON.stringify({ username: u, password: p })
+  }).then(res => res.json()).then(j => {
     document.getElementById("tip2").textContent = j.msg || "注册成功";
     setTimeout(() => document.getElementById("tip2").textContent = "", 2000);
   });
 }
 
-// ====================== 核心修改：只上线一次 + 心跳保活 ======================
 function C() {
   socket = io(BACKEND_URL, { transports: ["websocket", "polling"] });
 
@@ -380,17 +381,17 @@ function C() {
     }
   });
 
-  socket.on("new-msg", (j) => { 
-    aM(j.fromName, j.content, j.burn, j.msgId, j.type, j.content); 
-    b(); 
-    if(document.getElementById("read").checked){
+  socket.on("new-msg", (j) => {
+    aM(j.fromName, j.content, j.burn, j.msgId, j.type, j.content);
+    b();
+    if (document.getElementById("read").checked) {
       socket.emit("msg-read", { msgId: j.msgId });
     }
   });
 
   socket.on("msg-read", (j) => {
     let ele = document.querySelector(`.msg[data-id="${j.msgId}"] .read`);
-    if(ele) ele.textContent = "已读";
+    if (ele) ele.textContent = "已读";
   });
 
   socket.on("match-found", (j) => {
@@ -409,13 +410,12 @@ function C() {
     sy("对方已离开");
   });
 
-  // 心跳：只发 HEARTBEAT，不发上线
   if (heartbeatTimer) clearInterval(heartbeatTimer);
   heartbeatTimer = setInterval(() => {
     if (socket && socket.connected) {
       socket.emit("HEARTBEAT");
     }
-  }, 30000);
+  }, 25000);
 }
 
 function S() {
@@ -455,29 +455,27 @@ function toggleMatch() {
 function oM() { document.getElementById("modal").style.display = "flex"; }
 function cM() { document.getElementById("modal").style.display = "none"; }
 
-function sN() {
+async function sN() {
   let nn = document.getElementById("newNick").value.trim();
   if (!nn || nn.length < 2 || nn.length > 20) { alert("昵称需要2-20个字符"); return; }
-  fetch(BACKEND_URL + "/api/update_nick", {
-    method: "POST",
-    headers: { "Content-Type": "application/json" },
-    body: JSON.stringify({ user_id: userId, nick: nn })
-  })
-  .then(r => r.json())
-  .then(r => {
+  try {
+    let res = await fetch(BACKEND_URL + "/api/update-nickname", {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ username: userId, newNickname: nn })
+    });
+    let r = await res.json();
     if (r.code === 200) {
       nickName = nn;
       document.getElementById("nick").textContent = nn;
       cM();
-
-
-      closeNickModal(); 
       alert("昵称修改成功！");
     } else {
       alert("修改失败：" + (r.msg || "服务器错误"));
     }
-  })
-  .catch(err => { alert("网络错误"); });
+  } catch (err) {
+    alert("网络错误");
+  }
 }
 
 function clearChat(){ document.getElementById("chat").innerHTML = ""; }
