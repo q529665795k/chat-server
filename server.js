@@ -692,8 +692,8 @@ async function doHealthCheck() {
   }
 }
 
-// 数据库保活
-const DB_HEARTBEAT_INTERVAL = 18000000;
+// 数据库保活（仅修改了轮询时间和日志文字，其余完全不动）
+const DB_HEARTBEAT_INTERVAL = 900000; // 原来的18000000改成900000，即15分钟
 setTimeout(async () => {
   try {
     await pool.query("SELECT 1");
@@ -704,9 +704,9 @@ setTimeout(async () => {
   setInterval(async () => {
     try {
       await pool.query("SELECT 1");
-      console.log("✅【5小时轮询】数据库正常");
+      console.log("✅【15分钟轮询】数据库正常"); // 把“5小时”改成“15分钟”
     } catch (err) {
-      console.error("⚠️【5小时轮询】数据库异常：", err.message);
+      console.error("⚠️【15分钟轮询】数据库异常：", err.message); // 同上修改
     }
   }, DB_HEARTBEAT_INTERVAL);
 }, 40 * 1000);
@@ -715,6 +715,7 @@ setTimeout(() => {
   doHealthCheck();
   setInterval(doHealthCheck, PING_INTERVAL);
 }, FIRST_DELAY);
+
 
 // 启动服务
 server.listen(PORT, '0.0.0.0', () => {
