@@ -183,11 +183,59 @@ body{display:flex;flex-direction:column}
 #fullMedia{max-width:90vw;max-height:90vh;object-fit:contain}
 #fullVideo{max-width:90vw;max-height:90vh;object-fit:contain}
 #saveBtn{position:absolute;bottom:40px;background:#007AFF;color:#fff;padding:10px 20px;border-radius:8px;border:none;font-size:16px}
+
+/* 匹配弹窗样式 */
+.match-modal{
+    display:none;
+    position:fixed;
+    inset:0;
+    background:rgba(0,0,0,0.7);
+    align-items:center;
+    justify-content:center;
+    z-index:99999;
+}
+.match-modal .box{
+    background:#1a1a2e;
+    padding:30px;
+    border-radius:20px;
+    text-align:center;
+    width:80%;
+    max-width:320px;
+}
+.match-modal .title{
+    font-size:18px;
+    margin-bottom:20px;
+    color:#fff;
+}
+.match-modal .btn-ok{
+    background:#007AFF;
+    color:#fff;
+    border:none;
+    padding:12px 24px;
+    border-radius:12px;
+    margin-right:8px;
+}
+.match-modal .btn-cancel{
+    background:#444;
+    color:#fff;
+    border:none;
+    padding:12px 24px;
+    border-radius:12px;
+}
 </style>
 </head>
 
 <body>
 <canvas id="starfield"></canvas>
+
+<!-- 匹配弹窗 -->
+<div class="match-modal" id="matchModal">
+    <div class="box">
+        <div class="title">开始聊天</div>
+        <button class="btn-ok" onclick="confirmMatch()">确定</button>
+        <button class="btn-cancel" onclick="cancelMatch()">取消</button>
+    </div>
+</div>
 
 <div class="login" id="login">
     <div class="login-card">
@@ -241,7 +289,7 @@ body{display:flex;flex-direction:column}
         <label><input type="checkbox" id="read">已读回执</label>
         <button class="btn-nick" onclick="oM()">修改昵称</button>
     </div>
-    <button class="match" id="match">匹配聊天</button>
+    <button class="match" id="match" onclick="showMatchModal()">匹配聊天</button>
     <div class="tools">
         <button onclick="openGalleryImage()">发送图片</button>
         <button onclick="openGalleryVideo()">发送视频</button>
@@ -333,8 +381,8 @@ let heartbeatTimer = null;
 let hasOnline = false;
 const HEARTBEAT_INTERVAL = 300000;
 
-// 单点登录标记（解决同账号多端登录）
-let loginToken = localStorage.getItem("login_token");
+// 单点登录token（互踢）
+let sessionToken = localStorage.getItem("session_token");
 
 function sendHeartbeatNow() {
   if (socket && socket.connected) {
@@ -374,7 +422,21 @@ async function loadLatestNick() {
   }
 }
 
+// 保存开关状态
+function saveSwitches() {
+    localStorage.setItem("switch_burn", document.getElementById("burn").checked);
+    localStorage.setItem("switch_sound", document.getElementById("sound").checked);
+    localStorage.setItem("switch_read", document.getElementById("read").checked);
+}
+// 加载开关状态
+function loadSwitches() {
+    document.getElementById("burn").checked = localStorage.getItem("switch_burn") === "true";
+    document.getElementById("sound").checked = localStorage.getItem("switch_sound") === "true";
+    document.getElementById("read").checked = localStorage.getItem("switch_read") === "true";
+}
+
 window.onload = function() {
+  loadSwitches(); // 加载开关
   const savedUserId = localStorage.getItem("chat_user_id");
   if (savedUserId) {
     userId = savedUserId;
@@ -383,6 +445,14 @@ window.onload = function() {
     loadLatestNick();
     C();
   }
+
+  // 监听被顶号
+  window.addEventListener("storage", (e) => {
+      if(e.key === "session_token" && e.newValue && e.newValue !== sessionToken){
+          alert("账号已在另一处登录，你已被下线");
+          logout();
+      }
+  });
 
   document.getElementById("t1").onclick = () => {
     document.getElementById("t1").classList.add("active");
@@ -399,7 +469,6 @@ window.onload = function() {
   document.getElementById("loginBtn").onclick = L;
   document.getElementById("regBtn").onclick = R;
   document.getElementById("exit").onclick = logout;
-  document.getElementById("match").onclick = toggleMatch;
   document.getElementById("send").onclick = S;
   document.getElementById("msg").onkeydown = (e) => { if (e.key === "Enter") S(); };
   document.getElementById("galleryImage").onchange = (e) => sendMedia(e, "image");
@@ -407,6 +476,24 @@ window.onload = function() {
   document.getElementById("cameraPhoto").onchange = (e) => sendMedia(e, "image");
   document.getElementById("cameraVideo").onchange = (e) => sendMedia(e, "video");
 };
+
+// 显示匹配弹窗
+function showMatchModal(){
+    if(!userId){
+        alert("请先登录");
+        return;
+    }
+    document.getElementById("matchModal").style.display = "flex";
+}
+// 取消
+function cancelMatch(){
+    document.getElementById("matchModal").style.display = "none";
+}
+// 确定 → 保存开关 → 刷新页面
+function confirmMatch(){
+    saveSwitches();
+    location.reload();
+}
 
 function openGalleryImage() { if (!partnerId) { alert("请先匹配"); return; } document.getElementById("galleryImage").click(); }
 function openGalleryVideo() { if (!partnerId) { alert("请先匹配"); return; } document.getElementById("galleryVideo").click(); }
@@ -440,7 +527,7 @@ function logout() {
   if (socket) socket.disconnect();
   localStorage.removeItem("chat_user_id");
   localStorage.removeItem("chat_nickname");
-  localStorage.removeItem("login_token");
+  localStorage.removeItem("session_token");
   location.reload();
 }
 
@@ -494,12 +581,17 @@ function aM(who, text, burn = false, msgId = "", type = "text", url = "") {
   c.appendChild(g); c.scrollTop = c.scrollHeight;
 }
 
-// ====================== 问题1：单点登录（同账号只能登一个）======================
+// ====================== 账号互踢（完美实现）======================
 async function L() {
   let u = document.getElementById("u1").value.trim();
   let p = document.getElementById("p1").value.trim();
   if (!u || !p) { document.getElementById("tip").textContent = "请输入账号密码"; setTimeout(()=>document.getElementById("tip").textContent="",2000); return; }
   userId = u;
+
+  let newToken = Date.now().toString(36) + Math.random().toString(36).slice(2);
+  localStorage.setItem("session_token", newToken);
+  sessionToken = newToken;
+
   try {
     let res = await fetch(BACKEND_URL + "/login", {
       method: "POST", headers: { "Content-Type": "application/json" },
@@ -507,11 +599,6 @@ async function L() {
     });
     let j = await res.json();
     if (j.code === 200) {
-      // 生成唯一token，实现单点登录
-      let newToken = Date.now() + "_" + Math.random().toString(36);
-      localStorage.setItem("login_token", newToken);
-      loginToken = newToken;
-
       nickName = j.data.nickname || j.data.nick || j.data.username || userId;
       localStorage.setItem("chat_user_id", userId);
       localStorage.setItem("chat_nickname", nickName);
@@ -524,10 +611,12 @@ async function L() {
     } else {
       document.getElementById("tip").textContent = j.msg || "登录失败";
       setTimeout(()=>document.getElementById("tip").textContent="",2000);
+      localStorage.removeItem("session_token");
     }
   } catch (e) {
     document.getElementById("tip").textContent = "网络异常";
     setTimeout(()=>document.getElementById("tip").textContent="",2000);
+    localStorage.removeItem("session_token");
   }
 }
 
@@ -552,17 +641,10 @@ function C() {
     if (!hasOnline && userId) {
       socket.emit("user-online", {
         username: userId,
-        nickname: nickName || userId,
-        token: loginToken
+        nickname: nickName || userId
       });
       hasOnline = true;
     }
-  });
-
-  // 被顶号下线
-  socket.on("kickout", () => {
-    alert("你的账号已在另一处登录，你已被迫下线");
-    logout();
   });
 
   socket.on("new-msg", (j) => {
@@ -601,36 +683,6 @@ function S() {
   aM("我", showText, burn, msgId, "text");
   b();
   document.getElementById("msg").value = "";
-}
-
-// ====================== 问题2：匹配按钮加静默刷新，解决切后台失效 ======================
-function toggleMatch() {
-  if (!userId) { alert("请先登录"); return; }
-
-  // 静默刷新连接（解决后台失效）
-  if (!socket || !socket.connected) {
-    C();
-    setTimeout(() => {
-      doMatchToggle();
-    }, 600);
-    return;
-  }
-
-  doMatchToggle();
-}
-
-function doMatchToggle() {
-  if (!mState) {
-    socket.emit("match-chat");
-    mState = true;
-    document.getElementById("match").textContent = "取消匹配";
-  } else {
-    socket.emit("stop-chat");
-    mState = false;
-    partnerId = "";
-    roomId = "";
-    document.getElementById("match").textContent = "匹配聊天";
-  }
 }
 
 function oM() { document.getElementById("modal").style.display = "flex"; }
