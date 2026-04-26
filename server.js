@@ -718,6 +718,60 @@ setTimeout(() => {
 
 
 // 启动服务
+
+// ====================== 监控面板 纯净同源版 开始 ======================
+const path = require('path');
+
+// 保留原有public静态托管不变
+app.use(express.static(path.join(__dirname, 'public')));
+
+// 放行根目录html（你的监控.html）
+app.use(express.static(__dirname, {
+  index: false,
+  extensions: ['html']
+}));
+
+// 获取服务信息接口
+app.get("/api/serverInfo", (req, res) => {
+  res.json({
+    port: PORT,
+    serverTime: new Date().toLocaleString()
+  });
+});
+
+// 在线用户列表接口
+app.get("/api/onlineUser", (req, res) => {
+  const onlineList = [];
+  userMap.forEach(item => {
+    if (item.username && loginMap.has(item.username)) {
+      const info = loginMap.get(item.username);
+      onlineList.push({
+        username: item.username,
+        nickname: info.nickname || item.username,
+        isMatched: item.isMatched ? "已匹配" : "空闲中"
+      });
+    }
+  });
+  res.json({
+    code: 200,
+    total: onlineList.length,
+    list: onlineList
+  });
+});
+
+// 清空聊天记录接口
+app.post("/api/clearChatOnly", async (req, res) => {
+  try {
+    await pool.query("TRUNCATE TABLE messages");
+    offlineMsgMem.clear?.();
+    res.json({ code: 200, msg: "聊天记录已清空，匹配/在线不受影响" });
+    sysLog?.("ADMIN","后台清空聊天记录");
+  } catch (err) {
+    res.json({ code: 500, msg: "清空失败" });
+  }
+});
+// ====================== 监控面板 结束 ======================
+
 server.listen(PORT, '0.0.0.0', () => {
   console.log('=========================================');
   console.log('✅ 服务启动成功 端口:' + PORT);
