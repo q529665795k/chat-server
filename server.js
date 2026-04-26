@@ -64,8 +64,9 @@ app.get('/api/get_user_info', async (req, res) => {
 async function callAI(prompt) {
   try {
     const res = await axios.post(
-      "https://nnn-e8vp.onrender.com/api/chat",
+      "http://38.165.47.21:11434/api/chat",
       {
+        model: "npxj",
         messages: [{ role: "user", content: prompt }],
         stream: false
       },
@@ -74,12 +75,13 @@ async function callAI(prompt) {
         headers: { "Content-Type": "application/json" }
       }
     );
-    return res.data.reply || "我在呢～";
+    return res.data.message.content || "我在呢～";
   } catch (e) {
-    console.log("AI对接B机失败：", e.message);
+    console.log("AI对接C机失败：", e.message);
     return "AI暂时离线，稍后再试";
   }
 }
+
 
 
 // ===== MySQL 连接池=====
