@@ -11,7 +11,6 @@
 html,body{height:100%;width:100%;background:linear-gradient(135deg, #12142b 0%, #0f1730 100%);color:#fff;font-family:-apple-system,BlinkMacSystemFont,"Segoe UI",Roboto,"Microsoft Yahei",sans-serif}
 body{display:flex;flex-direction:column}
 
-/* 星空背景 */
 #starfield {
     position: fixed;
     top: 0;
@@ -22,7 +21,6 @@ body{display:flex;flex-direction:column}
     pointer-events: none;
 }
 
-/* 登录层 */
 .login{
     position:fixed;
     top:0;left:0;
@@ -132,7 +130,6 @@ body{display:flex;flex-direction:column}
     font-size:13px;
 }
 
-/* 主界面样式 */
 .container{
     display:none;
     flex:1;
@@ -160,7 +157,6 @@ body{display:flex;flex-direction:column}
 .read{position:absolute;right:8px;bottom:4px;font-size:11px;opacity:.7}
 .burn{background:#ff3b30!important}
 .burn-tip{position:absolute;top:-18px;right:6px;font-size:11px;color:#ff3b30}
-/* 修复聊天输入框文字看不见问题 */
 .input-box{display:flex;gap:8px;align-items:center;flex-shrink:0}
 .input-box input{
     flex:1;
@@ -170,11 +166,11 @@ body{display:flex;flex-direction:column}
     border-radius:8px;
     background:rgba(255,255,255,0.12);
     border:1px solid rgba(255,255,255,0.25);
-    color:#ffffff; /* 关键：文字改为白色 */
+    color:#ffffff;
     font-size:16px;
 }
 .input-box input::placeholder{
-    color:rgba(255,255,255,0.6); /* 占位文字也改为半透明白色 */
+    color:rgba(255,255,255,0.6);
 }
 .send{background:#007AFF;color:#fff;border:none;border-radius:8px;font-size:14px;width:70px;padding:6px 12px;text-align:center}
 .modal{display:none;position:fixed;inset:0;background:rgba(0,0,0,0.8);align-items:center;justify-content:center;z-index:9999}
@@ -191,10 +187,8 @@ body{display:flex;flex-direction:column}
 </head>
 
 <body>
-<!-- 星空动画 -->
 <canvas id="starfield"></canvas>
 
-<!-- 登录层 -->
 <div class="login" id="login">
     <div class="login-card">
         <h1 class="main-title">摸鱼基地，摸鱼搭子已就位！</h1>
@@ -205,7 +199,6 @@ body{display:flex;flex-direction:column}
             <div class="tab" id="t2">注册</div>
         </div>
 
-        <!-- 登录表单 -->
         <div id="f1">
             <div class="input-group">
                 <span class="icon">👤</span>
@@ -219,7 +212,6 @@ body{display:flex;flex-direction:column}
             <div class="tip" id="tip"></div>
         </div>
 
-        <!-- 注册表单 -->
         <div id="f2" style="display:none;">
             <div class="input-group">
                 <span class="icon">👤</span>
@@ -235,7 +227,6 @@ body{display:flex;flex-direction:column}
     </div>
 </div>
 
-<!-- 主界面 -->
 <div class="container" id="main">
     <div class="header">
         <div class="nick" id="nick">加载中...</div>
@@ -264,7 +255,6 @@ body{display:flex;flex-direction:column}
     </div>
 </div>
 
-<!-- 弹窗 -->
 <div class="modal" id="modal">
     <div class="modal-box">
         <input id="newNick" placeholder="输入新昵称">
@@ -288,7 +278,6 @@ body{display:flex;flex-direction:column}
 
 <script src="https://cdnjs.cloudflare.com/ajax/libs/socket.io/4.7.2/socket.io.min.js"></script>
 <script>
-// 星空动画
 const canvas = document.getElementById("starfield");
 const ctx = canvas.getContext("2d");
 let stars = [];
@@ -332,7 +321,6 @@ function drawStars(){
 resizeCanvas();
 drawStars();
 
-// 原有业务逻辑
 const BACKEND_URL = "https://im6.qzz.io";
 const WORKER_URL = "https://b.im6.qzz.io/upload";
 let socket = null;
@@ -344,12 +332,13 @@ let mState = false;
 let heartbeatTimer = null;
 let hasOnline = false;
 const HEARTBEAT_INTERVAL = 300000;
-const HEARTBEAT_TIMEOUT = 3600000;
+
+// 单点登录标记（解决同账号多端登录）
+let loginToken = localStorage.getItem("login_token");
 
 function sendHeartbeatNow() {
   if (socket && socket.connected) {
     socket.emit("HEARTBEAT");
-    console.log("✅ 立即心跳");
   }
 }
 function startHeartbeat() {
@@ -371,7 +360,6 @@ window.addEventListener('online', () => {
 });
 window.addEventListener('offline', () => {});
 
-// 修复昵称不更新问题：强化昵称加载逻辑
 async function loadLatestNick() {
   if (!userId) return;
   try {
@@ -379,11 +367,10 @@ async function loadLatestNick() {
     let data = await res.json();
     nickName = data.nickname || data.nick || data.account || userId;
     document.getElementById("nick").textContent = nickName;
-    // 额外：同步更新本地昵称显示
     localStorage.setItem("chat_nickname", nickName);
-  } catch (e) { 
-    nickName = localStorage.getItem("chat_nickname") || userId; 
-    document.getElementById("nick").textContent = nickName; 
+  } catch (e) {
+    nickName = localStorage.getItem("chat_nickname") || userId;
+    document.getElementById("nick").textContent = nickName;
   }
 }
 
@@ -393,7 +380,6 @@ window.onload = function() {
     userId = savedUserId;
     document.getElementById("login").style.display = "none";
     document.getElementById("main").style.display = "flex";
-    // 修复昵称问题：页面加载时强制拉取并更新昵称
     loadLatestNick();
     C();
   }
@@ -454,20 +440,19 @@ function logout() {
   if (socket) socket.disconnect();
   localStorage.removeItem("chat_user_id");
   localStorage.removeItem("chat_nickname");
+  localStorage.removeItem("login_token");
   location.reload();
 }
 
 function b() {
   try { let x = new AudioContext(); let o = x.createOscillator(); g = x.createGain(); o.type = "sine"; o.frequency.value = 660; g.gain.value = 0.3; o.connect(g); g.connect(x.destination); o.start(); o.stop(x.currentTime + 0.18); } catch (e) {}
 }
-
 function sy(text) {
   let c = document.getElementById("chat");
   let tip = document.createElement("div");
   tip.style.textAlign = "center"; tip.style.color = "#999"; tip.style.fontSize = "15px"; tip.style.margin = "10px 0";
   tip.textContent = text; c.appendChild(tip); c.scrollTop = c.scrollHeight;
 }
-
 function aM(who, text, burn = false, msgId = "", type = "text", url = "") {
   const c = document.getElementById("chat");
   const g = document.createElement("div");
@@ -509,6 +494,7 @@ function aM(who, text, burn = false, msgId = "", type = "text", url = "") {
   c.appendChild(g); c.scrollTop = c.scrollHeight;
 }
 
+// ====================== 问题1：单点登录（同账号只能登一个）======================
 async function L() {
   let u = document.getElementById("u1").value.trim();
   let p = document.getElementById("p1").value.trim();
@@ -521,13 +507,17 @@ async function L() {
     });
     let j = await res.json();
     if (j.code === 200) {
+      // 生成唯一token，实现单点登录
+      let newToken = Date.now() + "_" + Math.random().toString(36);
+      localStorage.setItem("login_token", newToken);
+      loginToken = newToken;
+
       nickName = j.data.nickname || j.data.nick || j.data.username || userId;
       localStorage.setItem("chat_user_id", userId);
       localStorage.setItem("chat_nickname", nickName);
       document.getElementById("nick").textContent = nickName;
       document.getElementById("login").style.display = "none";
       document.getElementById("main").style.display = "flex";
-      // 登录成功后再次强制拉取昵称，确保更新
       await loadLatestNick();
       hasOnline = false;
       C();
@@ -555,14 +545,26 @@ function R() {
 }
 
 function C() {
+  if (socket) socket.disconnect();
   socket = io(BACKEND_URL, { transports: ["websocket", "polling"] });
   socket.on("connect", () => {
     sendHeartbeatNow();
     if (!hasOnline && userId) {
-      socket.emit("user-online", { username: userId, nickname: nickName || userId });
+      socket.emit("user-online", {
+        username: userId,
+        nickname: nickName || userId,
+        token: loginToken
+      });
       hasOnline = true;
     }
   });
+
+  // 被顶号下线
+  socket.on("kickout", () => {
+    alert("你的账号已在另一处登录，你已被迫下线");
+    logout();
+  });
+
   socket.on("new-msg", (j) => {
     aM(j.fromName, j.content, j.burn, j.msgId, j.type, j.content);
     b();
@@ -601,15 +603,32 @@ function S() {
   document.getElementById("msg").value = "";
 }
 
+// ====================== 问题2：匹配按钮加静默刷新，解决切后台失效 ======================
 function toggleMatch() {
-  if (!socket || !userId) { alert("请先登录"); return; }
+  if (!userId) { alert("请先登录"); return; }
+
+  // 静默刷新连接（解决后台失效）
+  if (!socket || !socket.connected) {
+    C();
+    setTimeout(() => {
+      doMatchToggle();
+    }, 600);
+    return;
+  }
+
+  doMatchToggle();
+}
+
+function doMatchToggle() {
   if (!mState) {
     socket.emit("match-chat");
     mState = true;
     document.getElementById("match").textContent = "取消匹配";
   } else {
     socket.emit("stop-chat");
-    mState = false; partnerId = ""; roomId = "";
+    mState = false;
+    partnerId = "";
+    roomId = "";
     document.getElementById("match").textContent = "匹配聊天";
   }
 }
