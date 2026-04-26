@@ -66,7 +66,7 @@ async function callAI(prompt) {
     const res = await axios.post(
       "http://38.165.47.21:11434/api/chat",
       {
-        model: "npxj",
+        model: "girl",
         messages: [{ role: "user", content: prompt }],
         stream: false
       },
