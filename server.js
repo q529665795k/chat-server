@@ -727,7 +727,7 @@ setTimeout(() => {
 // 启动服务
 
 // ====================== 监控面板 纯净同源版 开始 ======================
-const path = require('path');
+
 
 // 保留原有public静态托管不变
 app.use(express.static(path.join(__dirname, 'public')));
