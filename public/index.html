@@ -1,4 +1,4 @@
-  <!DOCTYPE html>
+<!DOCTYPE html>
 <html lang="zh-CN">
 <head>
 <meta charset="UTF-8">
@@ -160,8 +160,22 @@ body{display:flex;flex-direction:column}
 .read{position:absolute;right:8px;bottom:4px;font-size:11px;opacity:.7}
 .burn{background:#ff3b30!important}
 .burn-tip{position:absolute;top:-18px;right:6px;font-size:11px;color:#ff3b30}
+/* 修复聊天输入框文字看不见问题 */
 .input-box{display:flex;gap:8px;align-items:center;flex-shrink:0}
-.input-box input{flex:1;margin-bottom:0;height:46px;padding:0 12px;border-radius:8px;background:rgba(255,255,255,0.08);border:1px solid rgba(255,255,255,0.18)}
+.input-box input{
+    flex:1;
+    margin-bottom:0;
+    height:46px;
+    padding:0 12px;
+    border-radius:8px;
+    background:rgba(255,255,255,0.12);
+    border:1px solid rgba(255,255,255,0.25);
+    color:#ffffff; /* 关键：文字改为白色 */
+    font-size:16px;
+}
+.input-box input::placeholder{
+    color:rgba(255,255,255,0.6); /* 占位文字也改为半透明白色 */
+}
 .send{background:#007AFF;color:#fff;border:none;border-radius:8px;font-size:14px;width:70px;padding:6px 12px;text-align:center}
 .modal{display:none;position:fixed;inset:0;background:rgba(0,0,0,0.8);align-items:center;justify-content:center;z-index:9999}
 .modal-box{background:#222;padding:24px;border-radius:16px;width:90%;max-width:300px}
@@ -357,12 +371,29 @@ window.addEventListener('online', () => {
 });
 window.addEventListener('offline', () => {});
 
+// 修复昵称不更新问题：强化昵称加载逻辑
+async function loadLatestNick() {
+  if (!userId) return;
+  try {
+    let res = await fetch(BACKEND_URL + "/api/get_user_info?user_id=" + userId);
+    let data = await res.json();
+    nickName = data.nickname || data.nick || data.account || userId;
+    document.getElementById("nick").textContent = nickName;
+    // 额外：同步更新本地昵称显示
+    localStorage.setItem("chat_nickname", nickName);
+  } catch (e) { 
+    nickName = localStorage.getItem("chat_nickname") || userId; 
+    document.getElementById("nick").textContent = nickName; 
+  }
+}
+
 window.onload = function() {
   const savedUserId = localStorage.getItem("chat_user_id");
   if (savedUserId) {
     userId = savedUserId;
     document.getElementById("login").style.display = "none";
     document.getElementById("main").style.display = "flex";
+    // 修复昵称问题：页面加载时强制拉取并更新昵称
     loadLatestNick();
     C();
   }
@@ -422,17 +453,8 @@ function logout() {
   if (heartbeatTimer) clearInterval(heartbeatTimer);
   if (socket) socket.disconnect();
   localStorage.removeItem("chat_user_id");
+  localStorage.removeItem("chat_nickname");
   location.reload();
-}
-
-async function loadLatestNick() {
-  if (!userId) return;
-  try {
-    let res = await fetch(BACKEND_URL + "/api/get_user_info?user_id=" + userId);
-    let data = await res.json();
-    nickName = data.nickname || data.nick || data.account || userId;
-    document.getElementById("nick").textContent = nickName;
-  } catch (e) { nickName = userId; document.getElementById("nick").textContent = nickName; }
 }
 
 function b() {
@@ -501,9 +523,11 @@ async function L() {
     if (j.code === 200) {
       nickName = j.data.nickname || j.data.nick || j.data.username || userId;
       localStorage.setItem("chat_user_id", userId);
+      localStorage.setItem("chat_nickname", nickName);
       document.getElementById("nick").textContent = nickName;
       document.getElementById("login").style.display = "none";
       document.getElementById("main").style.display = "flex";
+      // 登录成功后再次强制拉取昵称，确保更新
       await loadLatestNick();
       hasOnline = false;
       C();
@@ -603,6 +627,7 @@ async function sN() {
     let r = await res.json();
     if (r.code === 200) {
       nickName = nn; document.getElementById("nick").textContent = nn;
+      localStorage.setItem("chat_nickname", nickName);
       document.getElementById("newNick").value = ""; cM(); alert("修改成功！");
     } else { alert("失败：" + (r.msg || "服务器错误")); }
   } catch (err) { alert("修改失败"); }
