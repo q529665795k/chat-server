@@ -7,11 +7,12 @@
 <meta name="apple-mobile-web-status-bar-style" content="black-translucent">
 <title>摸鱼基地 - 聊天</title>
 <style>
-{margin:0;padding:0;box-sizing:border-box;-webkit-tap-highlight-color:transparent;-webkit-touch-callout:none}
+*{margin:0;padding:0;box-sizing:border-box;-webkit-tap-highlight-color:transparent;-webkit-touch-callout:none}
 html,body{height:100%;width:100%;background:linear-gradient(135deg, #12142b 0%, #0f1730 100%);color:#fff;font-family:-apple-system,BlinkMacSystemFont,"Segoe UI",Roboto,"Microsoft Yahei",sans-serif}
 body{display:flex;flex-direction:column}
-
-/*#starfield {
+/* 星星动画已注释，不再动 */
+/*
+#starfield {
     position: fixed;
     top: 0;
     left: 0;
@@ -19,8 +20,8 @@ body{display:flex;flex-direction:column}
     height: 100%;
     z-index: 1;
     pointer-events: none;
-}*/
-
+}
+*/
 .login{
     position:fixed;
     top:0;left:0;
@@ -129,7 +130,6 @@ body{display:flex;flex-direction:column}
     margin-top:8px;
     font-size:13px;
 }
-
 .container{
     display:none;
     flex:1;
@@ -147,8 +147,9 @@ body{display:flex;flex-direction:column}
 .bar{display:flex;flex-wrap:wrap;gap:10px 14px;align-items:center;font-size:14px}
 .bar label{display:flex;align-items:center;gap:4px}
 .btn-nick{background:#007AFF;padding:6px 12px;border-radius:8px;font-size:13px}
-.match{background:#ff9500;padding:10px;border-radius:10px;font-size:15px}
-.tools{display:flex;gap:10px}
+.match{background:#ff9500;padding:12px;border-radius:10px;font-size:16px;width:100%;font-weight:bold;transition:all 0.15s ease}
+.match:active{transform:scale(0.96);opacity:0.9}
+.tools{display:flex;gap:10px;flex-wrap:wrap}
 .tools button{flex:1;padding:10px;border-radius:10px;background:#007AFF;font-size:14px}
 .chat{flex:1;background:rgba(255,255,255,0.06);border-radius:12px;padding:12px;overflow-y:auto;display:flex;flex-direction:column;gap:8px;min-height:0;backdrop-filter:blur(6px)}
 .msg{padding:10px 14px;border-radius:16px;max-width:75%;word-break:break-all;position:relative}
@@ -183,8 +184,6 @@ body{display:flex;flex-direction:column}
 #fullMedia{max-width:90vw;max-height:90vh;object-fit:contain}
 #fullVideo{max-width:90vw;max-height:90vh;object-fit:contain}
 #saveBtn{position:absolute;bottom:40px;background:#007AFF;color:#fff;padding:10px 20px;border-radius:8px;border:none;font-size:16px}
-
-/* 匹配弹窗样式 */
 .match-modal{
     display:none;
     position:fixed;
@@ -224,11 +223,11 @@ body{display:flex;flex-direction:column}
 }
 </style>
 </head>
-
 <body>
-<canvas id="starfield"></canvas>
 
-<!-- 匹配弹窗 -->
+<!-- 星星画布已注释，不显示、不占用性能 -->
+<!-- <canvas id="starfield"></canvas> -->
+
 <div class="match-modal" id="matchModal">
     <div class="box">
         <div class="title">开始聊天</div>
@@ -236,17 +235,14 @@ body{display:flex;flex-direction:column}
         <button class="btn-cancel" onclick="cancelMatch()">取消</button>
     </div>
 </div>
-
 <div class="login" id="login">
     <div class="login-card">
         <h1 class="main-title">摸鱼基地，摸鱼搭子已就位！</h1>
         <p class="sub-title">摸鱼搭把手，划水一起走</p>
-
         <div class="tabs">
             <div class="tab active" id="t1">登录</div>
             <div class="tab" id="t2">注册</div>
         </div>
-
         <div id="f1">
             <div class="input-group">
                 <span class="icon">👤</span>
@@ -259,7 +255,6 @@ body{display:flex;flex-direction:column}
             <button class="btn" id="loginBtn">上线摸鱼！</button>
             <div class="tip" id="tip"></div>
         </div>
-
         <div id="f2" style="display:none;">
             <div class="input-group">
                 <span class="icon">👤</span>
@@ -274,7 +269,6 @@ body{display:flex;flex-direction:column}
         </div>
     </div>
 </div>
-
 <div class="container" id="main">
     <div class="header">
         <div class="nick" id="nick">加载中...</div>
@@ -302,7 +296,6 @@ body{display:flex;flex-direction:column}
         <button class="send" id="send">发送</button>
     </div>
 </div>
-
 <div class="modal" id="modal">
     <div class="modal-box">
         <input id="newNick" placeholder="输入新昵称">
@@ -312,20 +305,19 @@ body{display:flex;flex-direction:column}
         </div>
     </div>
 </div>
-
 <div id="fullPreview">
     <img id="fullMedia" alt="">
     <video id="fullVideo" controls autoplay></video>
     <button id="saveBtn">保存</button>
 </div>
-
 <input type="file" id="galleryImage" accept="image/*" hidden>
 <input type="file" id="galleryVideo" accept="video/*" hidden>
 <input type="file" id="cameraPhoto" accept="image/*" capture="camera" hidden>
 <input type="file" id="cameraVideo" accept="video/*" capture="camera" hidden>
-
 <script src="https://cdnjs.cloudflare.com/ajax/libs/socket.io/4.7.2/socket.io.min.js"></script>
 <script>
+// 星星动画全部注释，不执行
+/*
 const canvas = document.getElementById("starfield");
 const ctx = canvas.getContext("2d");
 let stars = [];
@@ -368,6 +360,7 @@ function drawStars(){
 }
 resizeCanvas();
 drawStars();
+*/
 
 const BACKEND_URL = "https://im6.qzz.io";
 const WORKER_URL = "https://b.im6.qzz.io/upload";
@@ -379,10 +372,7 @@ let roomId = "";
 let mState = false;
 let heartbeatTimer = null;
 let hasOnline = false;
-const HEARTBEAT_INTERVAL = 300000;
-
-// 单点登录token（互踢）
-let sessionToken = localStorage.getItem("session_token");
+const HEARTBEAT_INTERVAL = 30000;
 
 function sendHeartbeatNow() {
   if (socket && socket.connected) {
@@ -395,7 +385,6 @@ function startHeartbeat() {
     sendHeartbeatNow();
   }, HEARTBEAT_INTERVAL);
 }
-
 document.addEventListener('visibilitychange', () => {
   if (!socket) return;
   if (!document.hidden) {
@@ -421,14 +410,11 @@ async function loadLatestNick() {
     document.getElementById("nick").textContent = nickName;
   }
 }
-
-// 保存开关状态
 function saveSwitches() {
     localStorage.setItem("switch_burn", document.getElementById("burn").checked);
     localStorage.setItem("switch_sound", document.getElementById("sound").checked);
     localStorage.setItem("switch_read", document.getElementById("read").checked);
 }
-// 加载开关状态
 function loadSwitches() {
     document.getElementById("burn").checked = localStorage.getItem("switch_burn") === "true";
     document.getElementById("sound").checked = localStorage.getItem("switch_sound") === "true";
@@ -436,7 +422,7 @@ function loadSwitches() {
 }
 
 window.onload = function() {
-  loadSwitches(); // 加载开关
+  loadSwitches();
   const savedUserId = localStorage.getItem("chat_user_id");
   if (savedUserId) {
     userId = savedUserId;
@@ -445,15 +431,12 @@ window.onload = function() {
     loadLatestNick();
     C();
   }
-
-  // 监听被顶号
   window.addEventListener("storage", (e) => {
       if(e.key === "session_token" && e.newValue && e.newValue !== sessionToken){
           alert("账号已在另一处登录，你已被下线");
           logout();
       }
   });
-
   document.getElementById("t1").onclick = () => {
     document.getElementById("t1").classList.add("active");
     document.getElementById("t2").classList.remove("active");
@@ -477,7 +460,6 @@ window.onload = function() {
   document.getElementById("cameraVideo").onchange = (e) => sendMedia(e, "video");
 };
 
-// 显示匹配弹窗
 function showMatchModal(){
     if(!userId){
         alert("请先登录");
@@ -485,11 +467,9 @@ function showMatchModal(){
     }
     document.getElementById("matchModal").style.display = "flex";
 }
-// 取消
 function cancelMatch(){
     document.getElementById("matchModal").style.display = "none";
 }
-// 确定 → 保存开关 → 刷新页面
 function confirmMatch(){
     saveSwitches();
     location.reload();
@@ -581,17 +561,14 @@ function aM(who, text, burn = false, msgId = "", type = "text", url = "") {
   c.appendChild(g); c.scrollTop = c.scrollHeight;
 }
 
-// ====================== 账号互踢（完美实现）======================
 async function L() {
   let u = document.getElementById("u1").value.trim();
   let p = document.getElementById("p1").value.trim();
   if (!u || !p) { document.getElementById("tip").textContent = "请输入账号密码"; setTimeout(()=>document.getElementById("tip").textContent="",2000); return; }
   userId = u;
-
   let newToken = Date.now().toString(36) + Math.random().toString(36).slice(2);
   localStorage.setItem("session_token", newToken);
   sessionToken = newToken;
-
   try {
     let res = await fetch(BACKEND_URL + "/login", {
       method: "POST", headers: { "Content-Type": "application/json" },
@@ -619,7 +596,6 @@ async function L() {
     localStorage.removeItem("session_token");
   }
 }
-
 function R() {
   let u = document.getElementById("u2").value.trim();
   let p = document.getElementById("p2").value.trim();
@@ -632,7 +608,6 @@ function R() {
     setTimeout(()=>document.getElementById("tip2").textContent="",2000);
   });
 }
-
 function C() {
   if (socket) socket.disconnect();
   socket = io(BACKEND_URL, { transports: ["websocket", "polling"] });
@@ -646,7 +621,6 @@ function C() {
       hasOnline = true;
     }
   });
-
   socket.on("new-msg", (j) => {
     aM(j.fromName, j.content, j.burn, j.msgId, j.type, j.content);
     b();
@@ -670,7 +644,6 @@ function C() {
   });
   startHeartbeat();
 }
-
 function S() {
   let t = document.getElementById("msg").value.trim();
   if (!t || !partnerId) { alert("请先匹配"); return; }
@@ -684,7 +657,6 @@ function S() {
   b();
   document.getElementById("msg").value = "";
 }
-
 function oM() { document.getElementById("modal").style.display = "flex"; }
 function cM() { document.getElementById("modal").style.display = "none"; }
 async function sN() {
@@ -703,7 +675,6 @@ async function sN() {
     } else { alert("失败：" + (r.msg || "服务器错误")); }
   } catch (err) { alert("修改失败"); }
 }
-
 function clearChat(){ document.getElementById("chat").innerHTML = ""; }
 document.getElementById("fullPreview").onclick = function(e) {
   this.style.display = "none";
