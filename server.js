@@ -68,6 +68,8 @@ app.get('/api/get_user_info', async (req, res) => {
       {
         model: "girl",
         messages: [{ role: "user", content: prompt }],
+      
+        web_search: true,
         stream: false
       },
       {
