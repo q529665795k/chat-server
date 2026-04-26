@@ -61,19 +61,26 @@ app.get('/api/get_user_info', async (req, res) => {
   }
 });
 
-// AI 回复
 async function callAI(prompt) {
   try {
-    const res = await axios.post("http://127.0.0.1:11434/api/chat", {
-      model: "qwen2.5:0.5b",
-      messages: [{ role: "user", content: prompt }],
-      stream: false
-    }, { timeout: 15000 });
-    return res.data?.message?.content || "我在呢～";
-  } catch (err) {
-    return "AI休息中";
+    const res = await axios.post(
+      "https://nnn-e8vp.onrender.com/api/chat",
+      {
+        messages: [{ role: "user", content: prompt }],
+        stream: false
+      },
+      {
+        timeout: 20000,
+        headers: { "Content-Type": "application/json" }
+      }
+    );
+    return res.data.reply || "我在呢～";
+  } catch (e) {
+    console.log("AI对接B机失败：", e.message);
+    return "AI暂时离线，稍后再试";
   }
 }
+
 
 // ===== MySQL 连接池=====
 const pool = mysql.createPool({
