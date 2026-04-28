@@ -65,8 +65,6 @@ app.get('/api/get_user_info', async (req, res) => {
   try {
     const res = await axios.post(
    axios.post("https://useavnmd-mm.hf.space/api/chat"; 
-async function callAI(prompt) {
-  try {
     const res = await axios.post(TARGET_URL,
     {
       model: "girl",
