@@ -64,7 +64,7 @@ app.get('/api/get_user_info', async (req, res) => {
 async function callAI(prompt) {
   try {
     const res = await axios.post("https://useavnmd-mm.hf.space/api/chat", {
-      model: "girl",
+      model: "qwen2:0.5b",
       messages: [{ role: "user", content: prompt }],
       web_search: true,
       stream: false
