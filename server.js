@@ -64,24 +64,24 @@ app.get('/api/get_user_info', async (req, res) => {
  async function callAI(prompt) {
   try {
     const res = await axios.post(
-      const TARGET_URL = `https://useavnmd-mm.hf.space/api/tags`;
+      const TARGET_URL = `https://useavnmd-mm.hf.space/api/chat`;
 
-      {
-        girl,
-
-        messages: [{ role: "user", content: prompt }],
-      
-        web_search: true,
-        stream: false
-      },
-      {
-        timeout: 20000,
-        headers: { "Content-Type": "application/json" }
-      }
-    );
+async function callAI(prompt) {
+  try {
+    const res = await axios.post(TARGET_URL,
+    {
+      model: "girl",
+      messages: [{ role: "user", content: prompt }],
+      web_search: true,
+      stream: false
+    },
+    {
+      timeout: 20000,
+      headers: { "Content-Type": "application/json" }
+    });
     return res.data.message.content || "我在呢～";
   } catch (e) {
-    console.log("AI对接C机失败：", e.message);
+    console.log("AI对接失败: ", e.message);
     return "AI暂时离线，稍后再试";
   }
 }
