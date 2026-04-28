@@ -64,9 +64,10 @@ app.get('/api/get_user_info', async (req, res) => {
  async function callAI(prompt) {
   try {
     const res = await axios.post(
-      "http://38.165.47.21:11434/api/chat",
+      "const TARGET_URL = `https://useavnmd-mm.hf.space/api/tags`;
+",
       {
-        model: "girl",
+        qwen2:0.5b,
         messages: [{ role: "user", content: prompt }],
       
         web_search: true,
@@ -649,7 +650,8 @@ loadPwd();
 loadUsers();
 
 // 健康检查
-const TARGET_URL = `http://127.0.0.1:${PORT}`;
+// ========== 原有：A机自心跳（负责：A机挂了就重启） ==========
+const SELF_URL = `http://127.0.0.1:${PORT}`; // 只ping自己A机
 const PING_INTERVAL = 3 * 60 * 1000;
 const FIRST_DELAY = 30 * 1000;
 const FAILURE_THRESHOLD = 3;
@@ -657,6 +659,10 @@ const LOG_FILE = path.join(__dirname, 'keepalive.log');
 const SCRIPT_PATH = __filename;
 let consecutiveFailures = 0;
 let isRestarting = false;
+
+// ========== 新增：B机 Ollama 心跳（负责：保B机，挂了只记录不重启） ==========
+const OLLAMA_URL = `https://useavnmd-mm.hf.space/api/tags`;
+let ollamaFailures = 0;
 
 async function writeLog(msg) {
   const t = new Date().toLocaleString('zh-CN');
@@ -667,17 +673,75 @@ async function writeLog(msg) {
   console.log(logStr.trim());
 }
 
+// ========== 原有：ping自己A机 ==========
 function pingSelf() {
   return new Promise((resolve, reject) => {
-    const req = http.get(TARGET_URL, { timeout: 60000 }, (res) => {
+    const req = http.get(SELF_URL, { timeout: 60000 }, (res) => {
       if (res.statusCode === 200) resolve();
-      else reject(new Error('状态码异常'));
+      else reject();
     });
-    req.on('timeout', () => reject(new Error('超时')));
     req.on('error', reject);
     req.end();
   });
 }
+
+// ========== 新增：只pingB机，失败不重启 ==========
+function pingOllama() {
+  return new Promise((resolve, reject) => {
+    const req = http.get(OLLAMA_URL, { timeout: 60000 }, (res) => {
+      if (res.statusCode === 200) resolve();
+      else reject();
+    });
+    req.on('error', reject);
+    req.end();
+  });
+}
+
+// ========== 原有：A机自心跳循环（失败重启） ==========
+async function selfKeepAlive() {
+  if (isRestarting) return;
+  try {
+    await pingSelf();
+    consecutiveFailures = 0;
+  } catch (err) {
+    consecutiveFailures++;
+    await writeLog(`⚠️ A机心跳失败，连续${consecutiveFailures}次`);
+    if (consecutiveFailures >= FAILURE_THRESHOLD) {
+      isRestarting = true;
+      await writeLog(`🚨 A机心跳崩了，重启聊天后端！`);
+      process.exit(1);
+    }
+  }
+}
+
+// ========== 新增：B机心跳循环（只记录，绝不重启） ==========
+async function ollamaKeepAlive() {
+  try {
+    await pingOllama();
+    ollamaFailures = 0;
+  } catch (err) {
+    ollamaFailures++;
+    await writeLog(`⚠️ B机Ollama心跳异常，连续${ollamaFailures}次`);
+  }
+}
+
+// ========== 启动两个独立心跳 ==========
+async function startKeepAliveCheck() {
+  // A机自心跳
+  setTimeout(() => {
+    selfKeepAlive();
+    setInterval(selfKeepAlive, PING_INTERVAL);
+  }, FIRST_DELAY);
+
+  // B机保活心跳（和A机同频3分钟一次）
+  setTimeout(() => {
+    ollamaKeepAlive();
+    setInterval(ollamaKeepAlive, PING_INTERVAL);
+  }, FIRST_DELAY);
+
+  await writeLog(`✅ 双心跳启动：A机自检+ B机Ollama保活`);
+}
+
 
 async function doHealthCheck() {
   if (isRestarting) return;
