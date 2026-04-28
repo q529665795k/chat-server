@@ -63,20 +63,21 @@ app.get('/api/get_user_info', async (req, res) => {
 // ====================== AI调用（修复：删除web_search，强化兜底）======================
 async function callAI(prompt) {
   try {
-    const res = await axios.post("https://useavnmd-mm.hf.space/api/chat", {
-      model: "qwen2:0.5b",
+    const res = await axios.post("https://useavnmd-mm.hf.space:11434/api/chat", {
+      model: "qwen2:0.5b", // 和你B机100%对应！！
       messages: [{ role: "user", content: prompt }],
       stream: false
     }, {
       timeout: 15000,
       headers: { "Content-Type": "application/json" }
     });
-    return res.data.message?.content || "我在呢～";
+    return res.data.message?.content || "爸爸～在呢😘";
   } catch (e) {
     console.log("AI对接失败: ", e.message);
-    return "AI暂时离线，稍后再试";
+    return "爸爸～我掉线啦🥺";
   }
 }
+
 
 // ===== MySQL 连接池=====
 const pool = mysql.createPool({
