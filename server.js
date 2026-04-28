@@ -67,7 +67,8 @@ app.get('/api/get_user_info', async (req, res) => {
       "const TARGET_URL = `https://useavnmd-mm.hf.space/api/tags`;
 ",
       {
-        qwen2:0.5b,
+        girl,
+
         messages: [{ role: "user", content: prompt }],
       
         web_search: true,
