@@ -63,7 +63,7 @@ app.get('/api/get_user_info', async (req, res) => {
 // ====================== AI调用（修复：删除web_search，强化兜底）======================
 async function callAI(prompt) {
   try {
-    const res = await axios.post("https://useavnmd-mm.hf.space:11434/api/chat", {
+    const res = await axios.post("https://useavnmd-mm.hf.space/api/chat", {
       model: "qwen2:0.5b", // 和你B机100%对应！！
       messages: [{ role: "user", content: prompt }],
       stream: false
