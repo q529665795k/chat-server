@@ -708,6 +708,18 @@ async function selfKeepAlive() {
     }
   }
 }
+let ollamaFailures = 0;
+let PING_INTERVAL = 180000;
+let FIRST_DELAY = 3000;
+
+async function selfKeepAlive() {
+  try {
+    // 这里是A机心跳逻辑
+  } catch (err) {
+    await writeLog(`🚨 A机心跳崩了，重启聊天后端！`);
+    process.exit(1);
+  }
+}
 
 // ========== 新增：B机心跳循环（只记录，绝不重启） ==========
 async function ollamaKeepAlive() {
@@ -736,6 +748,7 @@ async function startKeepAliveCheck() {
 
   await writeLog(`✅ 双心跳启动：A机自检+ B机Ollama保活`);
 }
+
 
 
 async function doHealthCheck() {
