@@ -61,18 +61,14 @@ app.get('/api/get_user_info', async (req, res) => {
   }
 });
 
- async function callAI(prompt) {
+async function callAI(prompt) {
   try {
-    const res = await axios.post(
-   axios.post("https://useavnmd-mm.hf.space/api/chat"; 
-    const res = await axios.post(TARGET_URL,
-    {
+    const res = await axios.post("https://useavnmd-mm.hf.space/api/chat", {
       model: "girl",
       messages: [{ role: "user", content: prompt }],
       web_search: true,
       stream: false
-    },
-    {
+    }, {
       timeout: 20000,
       headers: { "Content-Type": "application/json" }
     });
@@ -82,6 +78,7 @@ app.get('/api/get_user_info', async (req, res) => {
     return "AI暂时离线，稍后再试";
   }
 }
+
 
 
 
