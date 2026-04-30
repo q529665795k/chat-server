@@ -1,4 +1,4 @@
- <!DOCTYPE html>
+<!DOCTYPE html>
 <html lang="zh-CN">
 <head>
 <meta charset="UTF-8">
@@ -10,6 +10,18 @@
 *{margin:0;padding:0;box-sizing:border-box;-webkit-tap-highlight-color:transparent;-webkit-touch-callout:none}
 html,body{height:100%;width:100%;background:linear-gradient(135deg, #12142b 0%, #0f1730 100%);color:#fff;font-family:-apple-system,BlinkMacSystemFont,"Segoe UI",Roboto,"Microsoft Yahei",sans-serif}
 body{display:flex;flex-direction:column}
+/* 星星动画已注释，不再动 */
+/*
+#starfield {
+    position: fixed;
+    top: 0;
+    left: 0;
+    width: 100%;
+    height: 100%;
+    z-index: 1;
+    pointer-events: none;
+}
+*/
 .login{
     position:fixed;
     top:0;left:0;
@@ -212,6 +224,10 @@ body{display:flex;flex-direction:column}
 </style>
 </head>
 <body>
+
+<!-- 星星画布已注释，不显示、不占用性能 -->
+<!-- <canvas id="starfield"></canvas> -->
+
 <div class="match-modal" id="matchModal">
     <div class="box">
         <div class="title">开始聊天</div>
@@ -300,8 +316,53 @@ body{display:flex;flex-direction:column}
 <input type="file" id="cameraVideo" accept="video/*" capture="camera" hidden>
 <script src="https://cdnjs.cloudflare.com/ajax/libs/socket.io/4.7.2/socket.io.min.js"></script>
 <script>
-// ========== 核心配置 ==========
-const BACKEND_URL = "https://a.im6.qzz.io";
+// 星星动画全部注释，不执行
+/*
+const canvas = document.getElementById("starfield");
+const ctx = canvas.getContext("2d");
+let stars = [];
+function resizeCanvas(){
+    canvas.width = innerWidth;
+    canvas.height = innerHeight;
+    createStars();
+}
+window.onresize = resizeCanvas;
+function createStars(){
+    stars = [];
+    let count = Math.floor((canvas.width * canvas.height) / 9000);
+    for(let i=0;i<count;i++){
+        stars.push({
+            x: Math.random() * canvas.width,
+            y: Math.random() * canvas.height,
+            r: Math.random() * 3.2 + 1.2,
+            speed: Math.random() * 0.25 + 0.08,
+            alpha: Math.random() * 0.6 + 0.4,
+            fade: Math.random() * 0.008
+        });
+    }
+}
+function drawStars(){
+    ctx.clearRect(0,0,canvas.width,canvas.height);
+    for(let s of stars){
+        ctx.beginPath();
+        ctx.arc(s.x, s.y, s.r, 0, Math.PI*2);
+        ctx.fillStyle = `rgba(255,255,255,${s.alpha})`;
+        ctx.fill();
+        s.alpha += s.fade;
+        if(s.alpha > 0.9 || s.alpha < 0.3) s.fade = -s.fade;
+        s.y += s.speed;
+        if(s.y > canvas.height){
+            s.y = 0;
+            s.x = Math.random() * canvas.width;
+        }
+    }
+    requestAnimationFrame(drawStars);
+}
+resizeCanvas();
+drawStars();
+*/
+
+const BACKEND_URL = "https://im6.qzz.io";
 const WORKER_URL = "https://b.im6.qzz.io/upload";
 let socket = null;
 let nickName = "";
@@ -311,30 +372,11 @@ let roomId = "";
 let mState = false;
 let heartbeatTimer = null;
 let hasOnline = false;
-const HEARTBEAT_INTERVAL = 25000;
-// ====================== 无操作2小时自动登出 ======================
-let lastActiveTime = Date.now();
-const AUTO_LOGOUT_TIME = 2 * 60 * 60 * 1000;
-function resetActiveTime() {
-    lastActiveTime = Date.now();
-}
-function checkInactive() {
-    if (!userId) return;
-    if (Date.now() - lastActiveTime > AUTO_LOGOUT_TIME) {
-        alert("长时间未操作，已自动退出登录");
-        logout();
-    }
-}
-document.addEventListener("click", resetActiveTime);
-document.addEventListener("input", resetActiveTime);
-document.addEventListener("touchstart", resetActiveTime);
-document.addEventListener("mousemove", resetActiveTime);
-document.addEventListener("keydown", resetActiveTime);
-setInterval(checkInactive, 30000);
-// ====================== 心跳 ======================
+const HEARTBEAT_INTERVAL = 30000;
+
 function sendHeartbeatNow() {
-  if (socket && socket.connected && userId) {
-    socket.emit("HEARTBEAT", { userId: userId });
+  if (socket && socket.connected) {
+    socket.emit("HEARTBEAT");
   }
 }
 function startHeartbeat() {
@@ -354,13 +396,13 @@ window.addEventListener('online', () => {
   setTimeout(sendHeartbeatNow, 1000);
 });
 window.addEventListener('offline', () => {});
-// ====================== 加载昵称 ======================
+
 async function loadLatestNick() {
   if (!userId) return;
   try {
     let res = await fetch(BACKEND_URL + "/api/get_user_info?user_id=" + userId);
     let data = await res.json();
-    nickName = data.nickname || userId;
+    nickName = data.nickname || data.nick || data.account || userId;
     document.getElementById("nick").textContent = nickName;
     localStorage.setItem("chat_nickname", nickName);
   } catch (e) {
@@ -368,7 +410,6 @@ async function loadLatestNick() {
     document.getElementById("nick").textContent = nickName;
   }
 }
-// ====================== 开关本地存储 ======================
 function saveSwitches() {
     localStorage.setItem("switch_burn", document.getElementById("burn").checked);
     localStorage.setItem("switch_sound", document.getElementById("sound").checked);
@@ -379,11 +420,9 @@ function loadSwitches() {
     document.getElementById("sound").checked = localStorage.getItem("switch_sound") === "true";
     document.getElementById("read").checked = localStorage.getItem("switch_read") === "true";
 }
-// ====================== 页面加载 ======================
+
 window.onload = function() {
   loadSwitches();
-  resetActiveTime();
-  
   const savedUserId = localStorage.getItem("chat_user_id");
   if (savedUserId) {
     userId = savedUserId;
@@ -392,6 +431,12 @@ window.onload = function() {
     loadLatestNick();
     C();
   }
+  window.addEventListener("storage", (e) => {
+      if(e.key === "session_token" && e.newValue && e.newValue !== sessionToken){
+          alert("账号已在另一处登录，你已被下线");
+          logout();
+      }
+  });
   document.getElementById("t1").onclick = () => {
     document.getElementById("t1").classList.add("active");
     document.getElementById("t2").classList.remove("active");
@@ -414,31 +459,27 @@ window.onload = function() {
   document.getElementById("cameraPhoto").onchange = (e) => sendMedia(e, "image");
   document.getElementById("cameraVideo").onchange = (e) => sendMedia(e, "video");
 };
+
 function showMatchModal(){
-    if(!userId){ alert("请先登录"); return; }
+    if(!userId){
+        alert("请先登录");
+        return;
+    }
     document.getElementById("matchModal").style.display = "flex";
 }
-function cancelMatch(){ document.getElementById("matchModal").style.display = "none"; }
-
-// ====================== ✅ 修复匹配逻辑 ======================
+function cancelMatch(){
+    document.getElementById("matchModal").style.display = "none";
+}
 function confirmMatch(){
-  saveSwitches();
-  document.getElementById("matchModal").style.display = "none";
-  // 每次匹配前清空旧状态！！！
-  partnerId = "";
-  roomId = "";
-  mState = false;
-  if (socket) {
-    socket.emit("match-chat");
-    sy("正在匹配在线用户...");
-  }
+    saveSwitches();
+    location.reload();
 }
 
 function openGalleryImage() { if (!partnerId) { alert("请先匹配"); return; } document.getElementById("galleryImage").click(); }
 function openGalleryVideo() { if (!partnerId) { alert("请先匹配"); return; } document.getElementById("galleryVideo").click(); }
 function openCamera() { if (!partnerId) { alert("请先匹配"); return; } document.getElementById("cameraPhoto").click(); }
 function openCameraVideo() { if (!partnerId) { alert("请先匹配"); return; } document.getElementById("cameraVideo").click(); }
-// ====================== 发送媒体 ======================
+
 async function sendMedia(e, type) {
   const file = e.target.files[0];
   if (!file) { e.target.value = ""; return; }
@@ -460,7 +501,7 @@ async function sendMedia(e, type) {
   } catch (err) { alert("上传失败"); }
   e.target.value = "";
 }
-// ====================== 退出登录 ======================
+
 function logout() {
   if (heartbeatTimer) clearInterval(heartbeatTimer);
   if (socket) socket.disconnect();
@@ -469,18 +510,16 @@ function logout() {
   localStorage.removeItem("session_token");
   location.reload();
 }
-// ====================== 提示音 ======================
+
 function b() {
   try { let x = new AudioContext(); let o = x.createOscillator(); g = x.createGain(); o.type = "sine"; o.frequency.value = 660; g.gain.value = 0.3; o.connect(g); g.connect(x.destination); o.start(); o.stop(x.currentTime + 0.18); } catch (e) {}
 }
-// ====================== 系统提示 ======================
 function sy(text) {
   let c = document.getElementById("chat");
   let tip = document.createElement("div");
   tip.style.textAlign = "center"; tip.style.color = "#999"; tip.style.fontSize = "15px"; tip.style.margin = "10px 0";
   tip.textContent = text; c.appendChild(tip); c.scrollTop = c.scrollHeight;
 }
-// ====================== 消息渲染 ======================
 function aM(who, text, burn = false, msgId = "", type = "text", url = "") {
   const c = document.getElementById("chat");
   const g = document.createElement("div");
@@ -521,87 +560,70 @@ function aM(who, text, burn = false, msgId = "", type = "text", url = "") {
   }
   c.appendChild(g); c.scrollTop = c.scrollHeight;
 }
-// ====================== ✅ 登录（修复点击没反应） ======================
+
 async function L() {
   let u = document.getElementById("u1").value.trim();
   let p = document.getElementById("p1").value.trim();
-  
-  if (!u || !p) {
-    document.getElementById("tip").textContent = "请输入账号密码";
-    setTimeout(()=>document.getElementById("tip").textContent="",2000);
-    return;
-  }
+  if (!u || !p) { document.getElementById("tip").textContent = "请输入账号密码"; setTimeout(()=>document.getElementById("tip").textContent="",2000); return; }
+  userId = u;
+  let newToken = Date.now().toString(36) + Math.random().toString(36).slice(2);
+  localStorage.setItem("session_token", newToken);
+  sessionToken = newToken;
   try {
     let res = await fetch(BACKEND_URL + "/login", {
-      method: "POST",
-      headers: { "Content-Type": "application/json" },
+      method: "POST", headers: { "Content-Type": "application/json" },
       body: JSON.stringify({ username: u, password: p })
     });
     let j = await res.json();
     if (j.code === 200) {
-      userId = u;
-      nickName = j.data.nickname || u;
+      nickName = j.data.nickname || j.data.nick || j.data.username || userId;
       localStorage.setItem("chat_user_id", userId);
       localStorage.setItem("chat_nickname", nickName);
       document.getElementById("nick").textContent = nickName;
       document.getElementById("login").style.display = "none";
       document.getElementById("main").style.display = "flex";
+      await loadLatestNick();
       hasOnline = false;
       C();
     } else {
-      document.getElementById("tip").textContent = j.msg;
-      setTimeout(()=>document.getElementById("tip").textContent="",2500);
+      document.getElementById("tip").textContent = j.msg || "登录失败";
+      setTimeout(()=>document.getElementById("tip").textContent="",2000);
+      localStorage.removeItem("session_token");
     }
   } catch (e) {
     document.getElementById("tip").textContent = "网络异常";
-    setTimeout(()=>document.getElementById("tip").textContent="",2500);
+    setTimeout(()=>document.getElementById("tip").textContent="",2000);
+    localStorage.removeItem("session_token");
   }
 }
-// ====================== ✅ 注册（修复重复注册提示） ======================
 function R() {
   let u = document.getElementById("u2").value.trim();
   let p = document.getElementById("p2").value.trim();
-  if (!u || !p) {
-    document.getElementById("tip2").textContent = "请输入账号密码";
-    setTimeout(()=>document.getElementById("tip2").textContent="",2000);
-    return;
-  }
+  if (!u || !p) { document.getElementById("tip2").textContent = "请输入账号密码"; setTimeout(()=>document.getElementById("tip2").textContent="",2000); return; }
   fetch(BACKEND_URL + "/register", {
-    method: "POST",
-    headers: { "Content-Type": "application/json" },
+    method: "POST", headers: { "Content-Type": "application/json" },
     body: JSON.stringify({ username: u, password: p })
   }).then(res=>res.json()).then(j=>{
-    if (j.code === 200) {
-      document.getElementById("tip2").textContent = "✅ 注册成功";
-    } else {
-      document.getElementById("tip2").textContent = "❌ " + j.msg;
-    }
-    setTimeout(()=>document.getElementById("tip2").textContent="",2500);
-  }).catch(()=>{
-    document.getElementById("tip2").textContent = "网络异常";
-    setTimeout(()=>document.getElementById("tip2").textContent="",2500);
+    document.getElementById("tip2").textContent = j.msg || "注册成功";
+    setTimeout(()=>document.getElementById("tip2").textContent="",2000);
   });
 }
-// ====================== ✅ 【终极修复】WebSocket连接（加了path！！！） ======================
 function C() {
   if (socket) socket.disconnect();
-  // ✅ 关键修复：强制指定socket.io路径，和后端100%匹配！！！
-  socket = io(BACKEND_URL, { 
-    transports: ["websocket", "polling"],
-    path: "/socket.io/" 
-  });
+  socket = io(BACKEND_URL, { transports: ["websocket", "polling"] });
   socket.on("connect", () => {
     sendHeartbeatNow();
     if (!hasOnline && userId) {
-      socket.emit("user-online", { username: userId, nickname: nickName || userId });
+      socket.emit("user-online", {
+        username: userId,
+        nickname: nickName || userId
+      });
       hasOnline = true;
     }
-    startHeartbeat();
   });
   socket.on("new-msg", (j) => {
     aM(j.fromName, j.content, j.burn, j.msgId, j.type, j.content);
     b();
-    resetActiveTime();
     if (document.getElementById("read").checked) {
       socket.emit("msg-read", { msgId: j.msgId });
     }
@@ -610,47 +632,31 @@ function C() {
     let ele = document.querySelector(`.msg[data-id="${j.msgId}"] .read`);
     if (ele) ele.textContent = "已读";
   });
-  // ✅ 关键修复：后端发的字段和前端100%匹配！！！
   socket.on("match-found", (j) => {
-    mState = true;
-    partnerId = j.partnerId;
-    roomId = j.roomId;
+    mState = true; partnerId = j.partnerId; roomId = j.roomId;
     document.getElementById("match").textContent = "取消匹配";
     sy("匹配成功：" + j.partnerName);
   });
   socket.on("partner-leave", () => {
-    mState = false;
-    partnerId = "";
-    roomId = "";
+    mState = false; partnerId = ""; roomId = "";
     document.getElementById("match").textContent = "匹配聊天";
     sy("对方已离开");
   });
-  socket.on("match-failed", () => {
-    sy("当前暂无在线用户，匹配失败");
-  });
-  socket.on("match-stop", () => {
-    sy("已停止匹配");
-  });
-  socket.on("disconnect", () => {
-    hasOnline = false;
-  });
+  startHeartbeat();
 }
-// ====================== 发送消息 ======================
 function S() {
   let t = document.getElementById("msg").value.trim();
   if (!t || !partnerId) { alert("请先匹配"); return; }
   let msgId = Date.now() + "";
   let burn = document.getElementById("burn").checked;
-  let showText = t;
+  let showText = nickName + "：" + t;
   socket.emit("send-msg", {
     content: showText, type: "text", burn: burn, msgId: msgId, toId: partnerId, roomId: roomId
   });
   aM("我", showText, burn, msgId, "text");
   b();
-  resetActiveTime();
   document.getElementById("msg").value = "";
 }
-// ====================== 修改昵称 ======================
 function oM() { document.getElementById("modal").style.display = "flex"; }
 function cM() { document.getElementById("modal").style.display = "none"; }
 async function sN() {
@@ -658,21 +664,15 @@ async function sN() {
   if (!nn || nn.length < 2 || nn.length > 20) { alert("昵称2-20字符"); return; }
   try {
     let res = await fetch(BACKEND_URL + "/update-nickname", {
-      method: "POST",
-      headers: { "Content-Type": "application/json" },
+      method: "POST", headers: { "Content-Type": "application/json" },
       body: JSON.stringify({ username: userId, newNickname: nn })
     });
     let r = await res.json();
     if (r.code === 200) {
-      nickName = nn;
-      document.getElementById("nick").textContent = nn;
+      nickName = nn; document.getElementById("nick").textContent = nn;
       localStorage.setItem("chat_nickname", nickName);
-      document.getElementById("newNick").value = "";
-      cM();
-      alert("修改成功！");
-    } else {
-      alert("失败：" + (r.msg || "服务器错误"));
-    }
+      document.getElementById("newNick").value = ""; cM(); alert("修改成功！");
+    } else { alert("失败：" + (r.msg || "服务器错误")); }
   } catch (err) { alert("修改失败"); }
 }
 function clearChat(){ document.getElementById("chat").innerHTML = ""; }
