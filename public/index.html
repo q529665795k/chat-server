@@ -298,7 +298,6 @@ body{display:flex;flex-direction:column}
 <input type="file" id="galleryVideo" accept="video/*" hidden>
 <input type="file" id="cameraPhoto" accept="image/*" capture="camera" hidden>
 <input type="file" id="cameraVideo" accept="video/*" capture="camera" hidden>
-
 <script src="https://cdnjs.cloudflare.com/ajax/libs/socket.io/4.7.2/socket.io.min.js"></script>
 <script>
 // ========== 核心配置 ==========
@@ -313,7 +312,6 @@ let mState = false;
 let heartbeatTimer = null;
 let hasOnline = false;
 const HEARTBEAT_INTERVAL = 25000;
-
 // ====================== 无操作2小时自动登出 ======================
 let lastActiveTime = Date.now();
 const AUTO_LOGOUT_TIME = 2 * 60 * 60 * 1000;
@@ -333,7 +331,6 @@ document.addEventListener("touchstart", resetActiveTime);
 document.addEventListener("mousemove", resetActiveTime);
 document.addEventListener("keydown", resetActiveTime);
 setInterval(checkInactive, 30000);
-
 // ====================== 心跳 ======================
 function sendHeartbeatNow() {
   if (socket && socket.connected && userId) {
@@ -346,7 +343,6 @@ function startHeartbeat() {
     sendHeartbeatNow();
   }, HEARTBEAT_INTERVAL);
 }
-
 document.addEventListener('visibilitychange', () => {
   if (!socket) return;
   if (!document.hidden) {
@@ -358,7 +354,6 @@ window.addEventListener('online', () => {
   setTimeout(sendHeartbeatNow, 1000);
 });
 window.addEventListener('offline', () => {});
-
 // ====================== 加载昵称 ======================
 async function loadLatestNick() {
   if (!userId) return;
@@ -373,7 +368,6 @@ async function loadLatestNick() {
     document.getElementById("nick").textContent = nickName;
   }
 }
-
 // ====================== 开关本地存储 ======================
 function saveSwitches() {
     localStorage.setItem("switch_burn", document.getElementById("burn").checked);
@@ -385,7 +379,6 @@ function loadSwitches() {
     document.getElementById("sound").checked = localStorage.getItem("switch_sound") === "true";
     document.getElementById("read").checked = localStorage.getItem("switch_read") === "true";
 }
-
 // ====================== 页面加载 ======================
 window.onload = function() {
   loadSwitches();
@@ -399,7 +392,6 @@ window.onload = function() {
     loadLatestNick();
     C();
   }
-
   document.getElementById("t1").onclick = () => {
     document.getElementById("t1").classList.add("active");
     document.getElementById("t2").classList.remove("active");
@@ -412,31 +404,36 @@ window.onload = function() {
     document.getElementById("f1").style.display = "none";
     document.getElementById("f2").style.display = "block";
   };
-
   document.getElementById("loginBtn").onclick = L;
   document.getElementById("regBtn").onclick = R;
   document.getElementById("exit").onclick = logout;
   document.getElementById("send").onclick = S;
   document.getElementById("msg").onkeydown = (e) => { if (e.key === "Enter") S(); };
-
   document.getElementById("galleryImage").onchange = (e) => sendMedia(e, "image");
   document.getElementById("galleryVideo").onchange = (e) => sendMedia(e, "video");
   document.getElementById("cameraPhoto").onchange = (e) => sendMedia(e, "image");
   document.getElementById("cameraVideo").onchange = (e) => sendMedia(e, "video");
 };
-
 function showMatchModal(){
     if(!userId){ alert("请先登录"); return; }
     document.getElementById("matchModal").style.display = "flex";
 }
 function cancelMatch(){ document.getElementById("matchModal").style.display = "none"; }
-function confirmMatch(){ saveSwitches(); location.reload(); }
+
+// ====================== ✅ 这里只改了匹配逻辑，其他完全没动 ======================
+function confirmMatch(){
+  saveSwitches();
+  document.getElementById("matchModal").style.display = "none";
+  if (socket) {
+    socket.emit("match-chat");
+    sy("正在匹配在线用户...");
+  }
+}
 
 function openGalleryImage() { if (!partnerId) { alert("请先匹配"); return; } document.getElementById("galleryImage").click(); }
 function openGalleryVideo() { if (!partnerId) { alert("请先匹配"); return; } document.getElementById("galleryVideo").click(); }
 function openCamera() { if (!partnerId) { alert("请先匹配"); return; } document.getElementById("cameraPhoto").click(); }
 function openCameraVideo() { if (!partnerId) { alert("请先匹配"); return; } document.getElementById("cameraVideo").click(); }
-
 // ====================== 发送媒体 ======================
 async function sendMedia(e, type) {
   const file = e.target.files[0];
@@ -459,7 +456,6 @@ async function sendMedia(e, type) {
   } catch (err) { alert("上传失败"); }
   e.target.value = "";
 }
-
 // ====================== 退出登录 ======================
 function logout() {
   if (heartbeatTimer) clearInterval(heartbeatTimer);
@@ -469,12 +465,10 @@ function logout() {
   localStorage.removeItem("session_token");
   location.reload();
 }
-
 // ====================== 提示音 ======================
 function b() {
   try { let x = new AudioContext(); let o = x.createOscillator(); g = x.createGain(); o.type = "sine"; o.frequency.value = 660; g.gain.value = 0.3; o.connect(g); g.connect(x.destination); o.start(); o.stop(x.currentTime + 0.18); } catch (e) {}
 }
-
 // ====================== 系统提示 ======================
 function sy(text) {
   let c = document.getElementById("chat");
@@ -482,14 +476,12 @@ function sy(text) {
   tip.style.textAlign = "center"; tip.style.color = "#999"; tip.style.fontSize = "15px"; tip.style.margin = "10px 0";
   tip.textContent = text; c.appendChild(tip); c.scrollTop = c.scrollHeight;
 }
-
 // ====================== 消息渲染 ======================
 function aM(who, text, burn = false, msgId = "", type = "text", url = "") {
   const c = document.getElementById("chat");
   const g = document.createElement("div");
   g.className = "msg " + (who === "我" ? "me" : "other");
   if (msgId) g.dataset.id = msgId;
-
   if (type === "image") {
     const img = document.createElement("img"); img.src = url; img.className = "media-img";
     img.onerror = function () { img.style.border = "1px solid red"; img.alt = "加载失败"; };
@@ -514,7 +506,6 @@ function aM(who, text, burn = false, msgId = "", type = "text", url = "") {
   } else {
     const textDiv = document.createElement("div"); textDiv.className = "msg-text"; textDiv.textContent = text; g.appendChild(textDiv);
   }
-
   if (who === "我") { const readTag = document.createElement("div"); readTag.className = "read"; readTag.textContent = "未读"; g.appendChild(readTag); }
   if (burn) {
     g.classList.add("burn");
@@ -526,7 +517,6 @@ function aM(who, text, burn = false, msgId = "", type = "text", url = "") {
   }
   c.appendChild(g); c.scrollTop = c.scrollHeight;
 }
-
 // ====================== ✅ 登录（修复点击没反应） ======================
 async function L() {
   let u = document.getElementById("u1").value.trim();
@@ -537,16 +527,13 @@ async function L() {
     setTimeout(()=>document.getElementById("tip").textContent="",2000);
     return;
   }
-
   try {
     let res = await fetch(BACKEND_URL + "/login", {
       method: "POST",
       headers: { "Content-Type": "application/json" },
       body: JSON.stringify({ username: u, password: p })
     });
-
     let j = await res.json();
-
     if (j.code === 200) {
       userId = u;
       nickName = j.data.nickname || u;
@@ -566,18 +553,15 @@ async function L() {
     setTimeout(()=>document.getElementById("tip").textContent="",2500);
   }
 }
-
 // ====================== ✅ 注册（修复重复注册提示） ======================
 function R() {
   let u = document.getElementById("u2").value.trim();
   let p = document.getElementById("p2").value.trim();
-
   if (!u || !p) {
     document.getElementById("tip2").textContent = "请输入账号密码";
     setTimeout(()=>document.getElementById("tip2").textContent="",2000);
     return;
   }
-
   fetch(BACKEND_URL + "/register", {
     method: "POST",
     headers: { "Content-Type": "application/json" },
@@ -594,12 +578,10 @@ function R() {
     setTimeout(()=>document.getElementById("tip2").textContent="",2500);
   });
 }
-
 // ====================== ✅ 长连接/心跳/KV/D1 适配 ======================
 function C() {
   if (socket) socket.disconnect();
   socket = io(BACKEND_URL, { transports: ["websocket", "polling"] });
-
   socket.on("connect", () => {
     sendHeartbeatNow();
     if (!hasOnline && userId) {
@@ -608,7 +590,6 @@ function C() {
     }
     startHeartbeat();
   });
-
   socket.on("new-msg", (j) => {
     aM(j.fromName, j.content, j.burn, j.msgId, j.type, j.content);
     b();
@@ -617,12 +598,10 @@ function C() {
       socket.emit("msg-read", { msgId: j.msgId });
     }
   });
-
   socket.on("msg-read", (j) => {
     let ele = document.querySelector(`.msg[data-id="${j.msgId}"] .read`);
     if (ele) ele.textContent = "已读";
   });
-
   socket.on("match-found", (j) => {
     mState = true;
     partnerId = j.partnerId;
@@ -630,7 +609,6 @@ function C() {
     document.getElementById("match").textContent = "取消匹配";
     sy("匹配成功：" + j.partnerName);
   });
-
   socket.on("partner-leave", () => {
     mState = false;
     partnerId = "";
@@ -638,12 +616,16 @@ function C() {
     document.getElementById("match").textContent = "匹配聊天";
     sy("对方已离开");
   });
-
+  socket.on("match-failed", () => {
+    sy("当前暂无在线用户，匹配失败");
+  });
+  socket.on("match-stop", () => {
+    sy("已停止匹配");
+  });
   socket.on("disconnect", () => {
     hasOnline = false;
   });
 }
-
 // ====================== 发送消息 ======================
 function S() {
   let t = document.getElementById("msg").value.trim();
@@ -659,7 +641,6 @@ function S() {
   resetActiveTime();
   document.getElementById("msg").value = "";
 }
-
 // ====================== 修改昵称 ======================
 function oM() { document.getElementById("modal").style.display = "flex"; }
 function cM() { document.getElementById("modal").style.display = "none"; }
@@ -685,9 +666,7 @@ async function sN() {
     }
   } catch (err) { alert("修改失败"); }
 }
-
 function clearChat(){ document.getElementById("chat").innerHTML = ""; }
-
 document.getElementById("fullPreview").onclick = function(e) {
   this.style.display = "none";
   document.getElementById("fullVideo").pause();
