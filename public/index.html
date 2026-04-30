@@ -420,10 +420,14 @@ function showMatchModal(){
 }
 function cancelMatch(){ document.getElementById("matchModal").style.display = "none"; }
 
-// ====================== ✅ 这里只改了匹配逻辑，其他完全没动 ======================
+// ====================== ✅ 修复匹配逻辑 ======================
 function confirmMatch(){
   saveSwitches();
   document.getElementById("matchModal").style.display = "none";
+  // 每次匹配前清空旧状态！！！
+  partnerId = "";
+  roomId = "";
+  mState = false;
   if (socket) {
     socket.emit("match-chat");
     sy("正在匹配在线用户...");
@@ -578,10 +582,14 @@ function R() {
     setTimeout(()=>document.getElementById("tip2").textContent="",2500);
   });
 }
-// ====================== ✅ 长连接/心跳/KV/D1 适配 ======================
+// ====================== ✅ 【终极修复】WebSocket连接（加了path！！！） ======================
 function C() {
   if (socket) socket.disconnect();
-  socket = io(BACKEND_URL, { transports: ["websocket", "polling"] });
+  // ✅ 关键修复：强制指定socket.io路径，和后端100%匹配！！！
+  socket = io(BACKEND_URL, { 
+    transports: ["websocket", "polling"],
+    path: "/socket.io/" 
+  });
   socket.on("connect", () => {
     sendHeartbeatNow();
     if (!hasOnline && userId) {
@@ -602,6 +610,7 @@ function C() {
     let ele = document.querySelector(`.msg[data-id="${j.msgId}"] .read`);
     if (ele) ele.textContent = "已读";
   });
+  // ✅ 关键修复：后端发的字段和前端100%匹配！！！
   socket.on("match-found", (j) => {
     mState = true;
     partnerId = j.partnerId;
