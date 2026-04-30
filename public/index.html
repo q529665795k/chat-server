@@ -362,7 +362,8 @@ resizeCanvas();
 drawStars();
 */
 
-const BACKEND_URL = "https://im6.qzz.io";
+// ========== 核心修改：全部替换成你的Worker域名 ==========
+const BACKEND_URL = "https://b.im6.qzz.io";
 const WORKER_URL = "https://b.im6.qzz.io/upload";
 let socket = null;
 let nickName = "";
@@ -610,6 +611,7 @@ function R() {
 }
 function C() {
   if (socket) socket.disconnect();
+  // ========== WebSocket 核心地址替换 ==========
   socket = io(BACKEND_URL, { transports: ["websocket", "polling"] });
   socket.on("connect", () => {
     sendHeartbeatNow();
