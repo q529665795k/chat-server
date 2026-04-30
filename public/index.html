@@ -1,687 +1,310 @@
- <!DOCTYPE html>
+<!DOCTYPE html>
 <html lang="zh-CN">
 <head>
-<meta charset="UTF-8">
-<meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, minimum-scale=1.0, user-scalable=no, viewport-fit=cover">
-<meta name="apple-mobile-web-app-capable" content="yes">
-<meta name="apple-mobile-web-status-bar-style" content="black-translucent">
-<title>摸鱼基地 - 聊天</title>
-<style>
-*{margin:0;padding:0;box-sizing:border-box;-webkit-tap-highlight-color:transparent;-webkit-touch-callout:none}
-html,body{height:100%;width:100%;background:linear-gradient(135deg, #12142b 0%, #0f1730 100%);color:#fff;font-family:-apple-system,BlinkMacSystemFont,"Segoe UI",Roboto,"Microsoft Yahei",sans-serif}
-body{display:flex;flex-direction:column}
-/* 星星动画已注释，不再动 */
-/*
-#starfield {
-    position: fixed;
-    top: 0;
-    left: 0;
-    width: 100%;
-    height: 100%;
-    z-index: 1;
-    pointer-events: none;
-}
-*/
-.login{
-    position:fixed;
-    top:0;left:0;
-    width:100%;height:100%;
-    display:flex;
-    align-items:center;
-    justify-content:center;
-    z-index:999;
-}
-.login-card{
-    position: relative;
-    z-index: 10;
-    background: rgba(255,255,255,0.06);
-    backdrop-filter: blur(14px);
-    border-radius: 24px;
-    border: 1px solid rgba(255,255,255,0.12);
-    padding: 45px 35px;
-    width: 92%;
-    max-width: 460px;
-    text-align: center;
-}
-.main-title{
-    font-size: 2rem;
-    color: #fff;
-    font-weight: 600;
-    margin-bottom: 12px;
-    text-shadow: 0 0 18px rgba(96,230,205,0.55);
-}
-.sub-title{
-    font-size: 1.2rem;
-    color: #c9cdd8;
-    margin-bottom: 28px;
-    letter-spacing: 1px;
-}
-.tabs{
-    display:flex;
-    gap:10px;
-    margin-bottom:16px;
-}
-.tab{
-    flex:1;
-    padding:12px;
-    text-align:center;
-    background:rgba(255,255,255,0.1);
-    border-radius:18px;
-    cursor:pointer;
-    font-weight:bold;
-    transition:0.2s;
-}
-.tab.active{
-    background:linear-gradient(90deg,#5eead4,#86efac);
-    color:#0f1730;
-}
-.input-group{
-    margin-bottom:22px;
-    position:relative;
-}
-.input-group input{
-    width:100%;
-    padding:18px 18px 18px 55px;
-    background:rgba(255,255,255,0.08);
-    border:1px solid rgba(255,255,255,0.18);
-    border-radius:35px;
-    color:#fff;
-    font-size:0.8rem;
-    outline:none;
-    transition:0.3s ease;
-}
-.input-group input::placeholder{
-    color:rgba(255,255,255,0.65);
-    font-size:0.75rem;
-}
-.input-group input:focus{
-    border-color:#5eead4;
-    box-shadow:0 0 12px rgba(94,234,212,0.4);
-}
-.input-group .icon{
-    position:absolute;
-    left:20px;
-    top:50%;
-    transform:translateY(-50%);
-    color:rgba(255,255,255,0.6);
-    font-size:1.25rem;
-    pointer-events:none;
-}
-.btn{
-    width:100%;
-    padding:17px;
-    background:linear-gradient(90deg,#5eead4,#86efac);
-    border:none;
-    border-radius:35px;
-    color:#0f1730;
-    font-size:1.15rem;
-    font-weight:bold;
-    cursor:pointer;
-    transition:all 0.3s ease;
-    margin:0 0 12px 0;
-}
-.btn:hover{
-    transform:translateY(-3px);
-    box-shadow:0 6px 25px rgba(94,234,212,0.45);
-}
-.tip,.tip2{
-    color:#ff3b30;
-    text-align:center;
-    margin-top:8px;
-    font-size:13px;
-}
-.container{
-    display:none;
-    flex:1;
-    padding:14px;
-    flex-direction:column;
-    gap:10px;
-    height:100%;
-    min-height:0;
-    position:relative;
-    z-index:2;
-}
-.header{display:flex;justify-content:space-between;align-items:center}
-.nick{font-size:20px;font-weight:600}
-.exit{background:#ff3b30;padding:6px 16px;border-radius:8px;font-size:14px;width:70px;text-align:center}
-.bar{display:flex;flex-wrap:wrap;gap:10px 14px;align-items:center;font-size:14px}
-.bar label{display:flex;align-items:center;gap:4px}
-.btn-nick{background:#007AFF;padding:6px 12px;border-radius:8px;font-size:13px}
-.match{background:#ff9500;padding:12px;border-radius:10px;font-size:16px;width:100%;font-weight:bold;transition:all 0.15s ease}
-.match:active{transform:scale(0.96);opacity:0.9}
-.tools{display:flex;gap:10px;flex-wrap:wrap}
-.tools button{flex:1;padding:10px;border-radius:10px;background:#007AFF;font-size:14px}
-.chat{flex:1;background:rgba(255,255,255,0.06);border-radius:12px;padding:12px;overflow-y:auto;display:flex;flex-direction:column;gap:8px;min-height:0;backdrop-filter:blur(6px)}
-.msg{padding:10px 14px;border-radius:16px;max-width:75%;word-break:break-all;position:relative}
-.me{background:#007AFF;align-self:flex-end}
-.other{background:#34c759;align-self:flex-start}
-.read{position:absolute;right:8px;bottom:4px;font-size:11px;opacity:.7}
-.burn{background:#ff3b30!important}
-.burn-tip{position:absolute;top:-18px;right:6px;font-size:11px;color:#ff3b30}
-.input-box{display:flex;gap:8px;align-items:center;flex-shrink:0}
-.input-box input{
-    flex:1;
-    margin-bottom:0;
-    height:46px;
-    padding:0 12px;
-    border-radius:8px;
-    background:rgba(255,255,255,0.12);
-    border:1px solid rgba(255,255,255,0.25);
-    color:#ffffff;
-    font-size:16px;
-}
-.input-box input::placeholder{
-    color:rgba(255,255,255,0.6);
-}
-.send{background:#007AFF;color:#fff;border:none;border-radius:8px;font-size:14px;width:70px;padding:6px 12px;text-align:center}
-.modal{display:none;position:fixed;inset:0;background:rgba(0,0,0,0.8);align-items:center;justify-content:center;z-index:9999}
-.modal-box{background:#222;padding:24px;border-radius:16px;width:90%;max-width:300px}
-.modal-buttons{display:flex;gap:10px;margin-top:14px}
-.modal-buttons button{flex:1}
-.media-img{max-width:240px;max-height:240px;width:auto;height:auto;border-radius:12px;cursor:pointer;object-fit:cover}
-.media-video{max-width:240px;max-height:240px;width:auto;height:auto;border-radius:12px;cursor:pointer;object-fit:cover}
-#fullPreview{display:none;position:fixed;inset:0;background:rgba(0,0,0,0.95);z-index:99999;align-items:center;justify-content:center}
-#fullMedia{max-width:90vw;max-height:90vh;object-fit:contain}
-#fullVideo{max-width:90vw;max-height:90vh;object-fit:contain}
-#saveBtn{position:absolute;bottom:40px;background:#007AFF;color:#fff;padding:10px 20px;border-radius:8px;border:none;font-size:16px}
-.match-modal{
-    display:none;
-    position:fixed;
-    inset:0;
-    background:rgba(0,0,0,0.7);
-    align-items:center;
-    justify-content:center;
-    z-index:99999;
-}
-.match-modal .box{
-    background:#1a1a2e;
-    padding:30px;
-    border-radius:20px;
-    text-align:center;
-    width:80%;
-    max-width:320px;
-}
-.match-modal .title{
-    font-size:18px;
-    margin-bottom:20px;
-    color:#fff;
-}
-.match-modal .btn-ok{
-    background:#007AFF;
-    color:#fff;
-    border:none;
-    padding:12px 24px;
-    border-radius:12px;
-    margin-right:8px;
-}
-.match-modal .btn-cancel{
-    background:#444;
-    color:#fff;
-    border:none;
-    padding:12px 24px;
-    border-radius:12px;
-}
-</style>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+    <title>聊天基地</title>
+    <script src="https://cdn.jsdelivr.net/npm/socket.io@4.7.2/dist/socket.io.min.js"></script>
+    <style>
+        *{margin:0;padding:0;box-sizing:border-box;font-family:"Microsoft YaHei",sans-serif;}
+        body{background:#1a1a2e;color:#fff;height:100vh;overflow:hidden;}
+        .container{width:100%;height:100vh;display:flex;flex-direction:column;}
+        /* 登录注册页 */
+        .auth-box{width:100%;height:100vh;display:flex;flex-direction:column;align-items:center;justify-content:center;background:#1a1a2e;}
+        .auth-title{font-size:28px;margin-bottom:30px;color:#4cc9f0;}
+        .auth-tab{display:flex;margin-bottom:20px;border-bottom:1px solid #444;}
+        .auth-tab div{padding:10px 30px;font-size:18px;cursor:pointer;}
+        .auth-tab .active{color:#4cc9f0;border-bottom:2px solid #4cc9f0;}
+        .auth-input{width:80%;max-width:350px;margin:10px 0;padding:15px;border-radius:8px;border:none;background:#27293d;color:#fff;font-size:16px;}
+        .auth-btn{width:80%;max-width:350px;margin-top:20px;padding:15px;border-radius:8px;border:none;background:#4cc9f0;color:#1a1a2e;font-size:18px;font-weight:bold;cursor:pointer;}
+        .tip{margin-top:15px;font-size:14px;height:20px;}
+        /* 聊天主页面 */
+        .chat-page{display:none;width:100%;height:100vh;flex-direction:column;}
+        .chat-header{height:60px;background:#27293d;display:flex;align-items:center;justify-content:space-between;padding:0 15px;border-bottom:1px solid #444;}
+        .chat-header .name{font-size:18px;font-weight:bold;}
+        .chat-header .opt{font-size:14px;color:#aaa;cursor:pointer;}
+        .chat-content{flex:1;padding:15px;overflow-y:auto;background:#16213e;}
+        .msg-item{margin-bottom:15px;display:flex;}
+        .msg-self{justify-content:flex-end;}
+        .msg-other{justify-content:flex-start;}
+        .msg-bubble{max-width:70%;padding:12px 15px;border-radius:15px;font-size:15px;word-break:break-all;}
+        .msg-self .msg-bubble{background:#4cc9f0;color:#1a1a2e;border-bottom-right-radius:3px;}
+        .msg-other .msg-bubble{background:#27293d;border-bottom-left-radius:3px;}
+        .msg-name{font-size:12px;color:#aaa;margin-bottom:5px;}
+        .chat-footer{height:80px;background:#27293d;padding:10px;display:flex;align-items:center;border-top:1px solid #444;}
+        .chat-input{flex:1;height:50px;border-radius:25px;border:none;background:#16213e;color:#fff;padding:0 20px;font-size:16px;outline:none;}
+        .send-btn{width:70px;height:50px;border-radius:25px;border:none;background:#4cc9f0;color:#1a1a2e;font-weight:bold;margin-left:10px;cursor:pointer;}
+        /* 匹配弹窗 */
+        .match-modal{position:fixed;top:0;left:0;width:100%;height:100%;background:rgba(0,0,0,0.8);display:none;align-items:center;justify-content:center;z-index:999;}
+        .match-box{width:80%;max-width:300px;background:#27293d;border-radius:15px;padding:30px;text-align:center;}
+        .match-text{font-size:18px;margin-bottom:25px;}
+        .match-btn{padding:12px 30px;border-radius:8px;border:none;background:#4cc9f0;color:#1a1a2e;font-size:16px;cursor:pointer;margin:5px;}
+        .clear-btn{background:#e63946;}
+    </style>
 </head>
 <body>
+    <!-- 登录注册区域 -->
+    <div class="auth-box" id="authBox">
+        <div class="auth-title">聊天基地</div>
+        <div class="auth-tab">
+            <div class="active" onclick="switchAuth('login')">登录</div>
+            <div onclick="switchAuth('reg')">注册</div>
+        </div>
+        <input type="text" class="auth-input" id="u1" placeholder="请输入账号">
+        <input type="password" class="auth-input" id="p1" placeholder="请输入密码">
+        <input type="text" class="auth-input" id="u2" placeholder="请输入账号" style="display:none;">
+        <input type="password" class="auth-input" id="p2" placeholder="请输入密码" style="display:none;">
+        <button class="auth-btn" id="loginBtn" onclick="L()">登录</button>
+        <button class="auth-btn" id="regBtn" onclick="R()" style="display:none;">注册</button>
+        <div class="tip" id="tip1"></div>
+        <div class="tip" id="tip2"></div>
+    </div>
 
-<!-- 星星画布已注释，不显示、不占用性能 -->
-<!-- <canvas id="starfield"></canvas> -->
+    <!-- 聊天主页面 -->
+    <div class="chat-page" id="chatPage">
+        <div class="chat-header">
+            <div class="name" id="partnerName">等待匹配...</div>
+            <div class="opt" onclick="openMatch()">匹配聊天</div>
+        </div>
+        <div class="chat-content" id="chatContent"></div>
+        <div class="chat-footer">
+            <input type="text" class="chat-input" id="msgInput" placeholder="输入消息..." onkeydown="if(event.keyCode===13)sendMsg()">
+            <button class="send-btn" onclick="sendMsg()">发送</button>
+        </div>
+    </div>
 
-<div class="match-modal" id="matchModal">
-    <div class="box">
-        <div class="title">开始聊天</div>
-        <button class="btn-ok" onclick="confirmMatch()">确定</button>
-        <button class="btn-cancel" onclick="cancelMatch()">取消</button>
-    </div>
-</div>
-<div class="login" id="login">
-    <div class="login-card">
-        <h1 class="main-title">摸鱼基地，摸鱼搭子已就位！</h1>
-        <p class="sub-title">摸鱼搭把手，划水一起走</p>
-        <div class="tabs">
-            <div class="tab active" id="t1">登录</div>
-            <div class="tab" id="t2">注册</div>
-        </div>
-        <div id="f1">
-            <div class="input-group">
-                <span class="icon">👤</span>
-                <input id="u1" placeholder="取个代号，别用真名，防止被老板查岗">
-            </div>
-            <div class="input-group">
-                <span class="icon">🔒</span>
-                <input id="p1" type="password" placeholder="密码记牢，不然摸鱼号都登不上">
-            </div>
-            <button class="btn" id="loginBtn">上线摸鱼！</button>
-            <div class="tip" id="tip"></div>
-        </div>
-        <div id="f2" style="display:none;">
-            <div class="input-group">
-                <span class="icon">👤</span>
-                <input id="u2" placeholder="取个代号，别用真名，防止被老板查岗">
-            </div>
-            <div class="input-group">
-                <span class="icon">🔒</span>
-                <input id="p2" type="password" placeholder="密码记牢，不然摸鱼号都登不上">
-            </div>
-            <button class="btn" id="regBtn">入伙摸鱼大队</button>
-            <div class="tip2" id="tip2"></div>
+    <!-- 匹配弹窗 -->
+    <div class="match-modal" id="matchModal">
+        <div class="match-box">
+            <div class="match-text" id="matchText">正在匹配中...</div>
+            <button class="match-btn" onclick="stopMatch()">停止匹配</button>
+            <button class="match-btn clear-btn" onclick="clearChat()">清空聊天</button>
         </div>
     </div>
-</div>
-<div class="container" id="main">
-    <div class="header">
-        <div class="nick" id="nick">加载中...</div>
-        <div>
-            <button class="exit" id="exit">退出</button>
-            <button onclick="clearChat()" class="exit" style="margin-left:10px;">清空记录</button>
-        </div>
-    </div>
-    <div class="bar">
-        <label><input type="checkbox" id="burn">阅后即焚</label>
-        <label><input type="checkbox" id="sound">提示音</label>
-        <label><input type="checkbox" id="read">已读回执</label>
-        <button class="btn-nick" onclick="oM()">修改昵称</button>
-    </div>
-    <button class="match" id="match" onclick="showMatchModal()">匹配聊天</button>
-    <div class="tools">
-        <button onclick="openGalleryImage()">发送图片</button>
-        <button onclick="openGalleryVideo()">发送视频</button>
-        <button onclick="openCamera()" style="background:#ff9500;">📷 拍照</button>
-        <button onclick="openCameraVideo()" style="background:#ff9500;">🎥 录像</button>
-    </div>
-    <div class="chat" id="chat"></div>
-    <div class="input-box">
-        <input id="msg" placeholder="输入消息...">
-        <button class="send" id="send">发送</button>
-    </div>
-</div>
-<div class="modal" id="modal">
-    <div class="modal-box">
-        <input id="newNick" placeholder="输入新昵称">
-        <div class="modal-buttons">
-            <button onclick="cM()">取消</button>
-            <button onclick="sN()">确定</button>
-        </div>
-    </div>
-</div>
-<div id="fullPreview">
-    <img id="fullMedia" alt="">
-    <video id="fullVideo" controls autoplay></video>
-    <button id="saveBtn">保存</button>
-</div>
-<input type="file" id="galleryImage" accept="image/*" hidden>
-<input type="file" id="galleryVideo" accept="video/*" hidden>
-<input type="file" id="cameraPhoto" accept="image/*" capture="camera" hidden>
-<input type="file" id="cameraVideo" accept="video/*" capture="camera" hidden>
-<script src="https://cdnjs.cloudflare.com/ajax/libs/socket.io/4.7.2/socket.io.min.js"></script>
-<script>
-// 星星动画全部注释，不执行
-/*
-const canvas = document.getElementById("starfield");
-const ctx = canvas.getContext("2d");
-let stars = [];
-function resizeCanvas(){
-    canvas.width = innerWidth;
-    canvas.height = innerHeight;
-    createStars();
-}
-window.onresize = resizeCanvas;
-function createStars(){
-    stars = [];
-    let count = Math.floor((canvas.width * canvas.height) / 9000);
-    for(let i=0;i<count;i++){
-        stars.push({
-            x: Math.random() * canvas.width,
-            y: Math.random() * canvas.height,
-            r: Math.random() * 3.2 + 1.2,
-            speed: Math.random() * 0.25 + 0.08,
-            alpha: Math.random() * 0.6 + 0.4,
-            fade: Math.random() * 0.008
-        });
-    }
-}
-function drawStars(){
-    ctx.clearRect(0,0,canvas.width,canvas.height);
-    for(let s of stars){
-        ctx.beginPath();
-        ctx.arc(s.x, s.y, s.r, 0, Math.PI*2);
-        ctx.fillStyle = `rgba(255,255,255,${s.alpha})`;
-        ctx.fill();
-        s.alpha += s.fade;
-        if(s.alpha > 0.9 || s.alpha < 0.3) s.fade = -s.fade;
-        s.y += s.speed;
-        if(s.y > canvas.height){
-            s.y = 0;
-            s.x = Math.random() * canvas.width;
+
+    <script>
+        // ====================== 核心配置（和后端严格对齐） ======================
+        const BACKEND_URL = "https://im6.qzz.io"; // 你的Worker后端地址
+        const HEARTBEAT_INTERVAL = 25000; // 和后端心跳完全匹配：25秒一次
+        let socket;
+        let userId = "";
+        let nickName = "";
+        let heartbeatTimer = null;
+        let hasOnline = false;
+        let isMatched = false;
+
+        // ====================== 登录/注册切换 ======================
+        function switchAuth(type) {
+            if(type === "login"){
+                document.getElementById("u1").style.display = "block";
+                document.getElementById("p1").style.display = "block";
+                document.getElementById("loginBtn").style.display = "block";
+                document.getElementById("tip1").style.display = "block";
+                document.getElementById("u2").style.display = "none";
+                document.getElementById("p2").style.display = "none";
+                document.getElementById("regBtn").style.display = "none";
+                document.getElementById("tip2").style.display = "none";
+                document.querySelectorAll(".auth-tab div")[0].classList.add("active");
+                document.querySelectorAll(".auth-tab div")[1].classList.remove("active");
+            }else{
+                document.getElementById("u1").style.display = "none";
+                document.getElementById("p1").style.display = "none";
+                document.getElementById("loginBtn").style.display = "none";
+                document.getElementById("tip1").style.display = "none";
+                document.getElementById("u2").style.display = "block";
+                document.getElementById("p2").style.display = "block";
+                document.getElementById("regBtn").style.display = "block";
+                document.getElementById("tip2").style.display = "block";
+                document.querySelectorAll(".auth-tab div")[0].classList.remove("active");
+                document.querySelectorAll(".auth-tab div")[1].classList.add("active");
+            }
         }
-    }
-    requestAnimationFrame(drawStars);
-}
-resizeCanvas();
-drawStars();
-*/
 
-// ========== 核心修改：全部替换成你的Worker域名 ==========
-const BACKEND_URL = "https://b.im6.qzz.io";
-const WORKER_URL = "https://b.im6.qzz.io/upload";
-let socket = null;
-let nickName = "";
-let userId = "";
-let partnerId = "";
-let roomId = "";
-let mState = false;
-let heartbeatTimer = null;
-let hasOnline = false;
-const HEARTBEAT_INTERVAL = 30000;
+        // ====================== ✅ 登录接口（精准适配D1分步校验） ======================
+        function L() {
+            let u = document.getElementById("u1").value.trim();
+            let p = document.getElementById("p1").value.trim();
+            if (!u || !p) { 
+                document.getElementById("tip1").textContent = "请输入账号密码"; 
+                setTimeout(()=>document.getElementById("tip1").textContent="",2000); 
+                return; 
+            }
+            fetch(BACKEND_URL + "/login", {
+                method: "POST",
+                headers: { "Content-Type": "application/json" },
+                body: JSON.stringify({ username: u, password: p })
+            }).then(res => res.json()).then(j => {
+                if(j.code === 200){
+                    // ✅ 登录成功：绑定D1用户信息，初始化KV+WebSocket
+                    userId = j.data.username;
+                    nickName = j.data.nickname;
+                    initSocket(); // 启动WebSocket
+                    document.getElementById("authBox").style.display = "none";
+                    document.getElementById("chatPage").style.display = "flex";
+                }else{
+                    // ✅ 精准显示后端D1返回：账号不存在 / 密码错误
+                    document.getElementById("tip1").textContent = "❌ " + j.msg;
+                    setTimeout(()=>document.getElementById("tip1").textContent="",3000);
+                }
+            }).catch(()=>{
+                document.getElementById("tip1").textContent = "❌ 网络异常，无法连接服务器";
+                setTimeout(()=>document.getElementById("tip1").textContent="",3000);
+            });
+        }
 
-function sendHeartbeatNow() {
-  if (socket && socket.connected) {
-    socket.emit("HEARTBEAT");
-  }
-}
-function startHeartbeat() {
-  if (heartbeatTimer) clearInterval(heartbeatTimer);
-  heartbeatTimer = setInterval(() => {
-    sendHeartbeatNow();
-  }, HEARTBEAT_INTERVAL);
-}
-document.addEventListener('visibilitychange', () => {
-  if (!socket) return;
-  if (!document.hidden) {
-    sendHeartbeatNow();
-  }
-});
-window.addEventListener('online', () => {
-  if (socket && !socket.connected) socket.connect();
-  setTimeout(sendHeartbeatNow, 1000);
-});
-window.addEventListener('offline', () => {});
+        // ====================== ✅ 注册接口（适配D1防重复注册） ======================
+        function R() {
+            let u = document.getElementById("u2").value.trim();
+            let p = document.getElementById("p2").value.trim();
+            if (!u || !p) { 
+                document.getElementById("tip2").textContent = "请输入账号密码"; 
+                setTimeout(()=>document.getElementById("tip2").textContent="",2000); 
+                return; 
+            }
+            fetch(BACKEND_URL + "/register", {
+                method: "POST",
+                headers: { "Content-Type": "application/json" },
+                body: JSON.stringify({ username: u, password: p })
+            }).then(res => res.json()).then(j => {
+                if(j.code === 200){
+                    document.getElementById("tip2").textContent = "✅ " + j.msg;
+                    setTimeout(()=>{
+                        switchAuth("login");
+                        document.getElementById("u1").value = u;
+                    },1500);
+                }else{
+                    // ✅ 接收后端D1重复账号提示
+                    document.getElementById("tip2").textContent = "❌ " + j.msg;
+                }
+                setTimeout(()=>document.getElementById("tip2").textContent="",3000);
+            }).catch(()=>{
+                document.getElementById("tip2").textContent = "❌ 网络异常";
+                setTimeout(()=>document.getElementById("tip2").textContent="",3000);
+            });
+        }
 
-async function loadLatestNick() {
-  if (!userId) return;
-  try {
-    let res = await fetch(BACKEND_URL + "/api/get_user_info?user_id=" + userId);
-    let data = await res.json();
-    nickName = data.nickname || data.nick || data.account || userId;
-    document.getElementById("nick").textContent = nickName;
-    localStorage.setItem("chat_nickname", nickName);
-  } catch (e) {
-    nickName = localStorage.getItem("chat_nickname") || userId;
-    document.getElementById("nick").textContent = nickName;
-  }
-}
-function saveSwitches() {
-    localStorage.setItem("switch_burn", document.getElementById("burn").checked);
-    localStorage.setItem("switch_sound", document.getElementById("sound").checked);
-    localStorage.setItem("switch_read", document.getElementById("read").checked);
-}
-function loadSwitches() {
-    document.getElementById("burn").checked = localStorage.getItem("switch_burn") === "true";
-    document.getElementById("sound").checked = localStorage.getItem("switch_sound") === "true";
-    document.getElementById("read").checked = localStorage.getItem("switch_read") === "true";
-}
+        // ====================== ✅ WebSocket初始化（100%适配KV互踢+D1在线状态） ======================
+        function initSocket() {
+            // 连接后端WebSocket
+            socket = io(BACKEND_URL + "/ws");
+            
+            // 连接成功：触发上线（只传username，严格匹配后端KV绑定）
+            socket.on("connect", () => {
+                sendHeartbeatNow();
+                if (!hasOnline && userId) {
+                    socket.emit("user-online", { username: userId });
+                    hasOnline = true;
+                }
+                startHeartbeat(); // 启动心跳
+            });
 
-window.onload = function() {
-  loadSwitches();
-  const savedUserId = localStorage.getItem("chat_user_id");
-  if (savedUserId) {
-    userId = savedUserId;
-    document.getElementById("login").style.display = "none";
-    document.getElementById("main").style.display = "flex";
-    loadLatestNick();
-    C();
-  }
-  window.addEventListener("storage", (e) => {
-      if(e.key === "session_token" && e.newValue && e.newValue !== sessionToken){
-          alert("账号已在另一处登录，你已被下线");
-          logout();
-      }
-  });
-  document.getElementById("t1").onclick = () => {
-    document.getElementById("t1").classList.add("active");
-    document.getElementById("t2").classList.remove("active");
-    document.getElementById("f1").style.display = "block";
-    document.getElementById("f2").style.display = "none";
-  };
-  document.getElementById("t2").onclick = () => {
-    document.getElementById("t2").classList.add("active");
-    document.getElementById("t1").classList.remove("active");
-    document.getElementById("f1").style.display = "none";
-    document.getElementById("f2").style.display = "block";
-  };
-  document.getElementById("loginBtn").onclick = L;
-  document.getElementById("regBtn").onclick = R;
-  document.getElementById("exit").onclick = logout;
-  document.getElementById("send").onclick = S;
-  document.getElementById("msg").onkeydown = (e) => { if (e.key === "Enter") S(); };
-  document.getElementById("galleryImage").onchange = (e) => sendMedia(e, "image");
-  document.getElementById("galleryVideo").onchange = (e) => sendMedia(e, "video");
-  document.getElementById("cameraPhoto").onchange = (e) => sendMedia(e, "image");
-  document.getElementById("cameraVideo").onchange = (e) => sendMedia(e, "video");
-};
+            // ✅ 后端心跳回复（同步KV在线时间）
+            socket.on("pong", () => {});
 
-function showMatchModal(){
-    if(!userId){
-        alert("请先登录");
-        return;
-    }
-    document.getElementById("matchModal").style.display = "flex";
-}
-function cancelMatch(){
-    document.getElementById("matchModal").style.display = "none";
-}
-function confirmMatch(){
-    saveSwitches();
-    location.reload();
-}
+            // ✅ 匹配成功（和后端匹配逻辑完全对齐）
+            socket.on("match-found", (data) => {
+                isMatched = true;
+                document.getElementById("partnerName").textContent = data.partnerName;
+                document.getElementById("matchModal").style.display = "none";
+                addSystemMsg("✅ 匹配成功，开始聊天吧！");
+            });
 
-function openGalleryImage() { if (!partnerId) { alert("请先匹配"); return; } document.getElementById("galleryImage").click(); }
-function openGalleryVideo() { if (!partnerId) { alert("请先匹配"); return; } document.getElementById("galleryVideo").click(); }
-function openCamera() { if (!partnerId) { alert("请先匹配"); return; } document.getElementById("cameraPhoto").click(); }
-function openCameraVideo() { if (!partnerId) { alert("请先匹配"); return; } document.getElementById("cameraVideo").click(); }
+            // ✅ 对方离开聊天（后端心跳超时/KV离线触发）
+            socket.on("partner-leave", () => {
+                isMatched = false;
+                document.getElementById("partnerName").textContent = "等待匹配...";
+                addSystemMsg("❌ 对方已离开聊天");
+            });
 
-async function sendMedia(e, type) {
-  const file = e.target.files[0];
-  if (!file) { e.target.value = ""; return; }
-  const formData = new FormData();
-  formData.append("file", file);
-  try {
-    const res = await fetch(WORKER_URL, { method: "POST", body: formData });
-    const data = await res.json();
-    if (!data || !data.url) { alert("上传失败"); return; }
-    const url = data.url;
-    if (partnerId) {
-      const msgId = Date.now() + "";
-      const burn = document.getElementById("burn").checked;
-      socket.emit("send-msg", {
-        content: url, type: type, burn: burn, msgId: msgId, toId: partnerId, roomId: roomId
-      });
-      aM("我", "", burn, msgId, type, url);
-    }
-  } catch (err) { alert("上传失败"); }
-  e.target.value = "";
-}
+            // ✅ 接收新消息（D1消息库同步）
+            socket.on("new-msg", (data) => {
+                addOtherMsg(data.fromName, data.content);
+            });
 
-function logout() {
-  if (heartbeatTimer) clearInterval(heartbeatTimer);
-  if (socket) socket.disconnect();
-  localStorage.removeItem("chat_user_id");
-  localStorage.removeItem("chat_nickname");
-  localStorage.removeItem("session_token");
-  location.reload();
-}
+            // ✅ 清空聊天记录
+            socket.on("clear-chat-record", () => {
+                document.getElementById("chatContent").innerHTML = "";
+            });
 
-function b() {
-  try { let x = new AudioContext(); let o = x.createOscillator(); g = x.createGain(); o.type = "sine"; o.frequency.value = 660; g.gain.value = 0.3; o.connect(g); g.connect(x.destination); o.start(); o.stop(x.currentTime + 0.18); } catch (e) {}
-}
-function sy(text) {
-  let c = document.getElementById("chat");
-  let tip = document.createElement("div");
-  tip.style.textAlign = "center"; tip.style.color = "#999"; tip.style.fontSize = "15px"; tip.style.margin = "10px 0";
-  tip.textContent = text; c.appendChild(tip); c.scrollTop = c.scrollHeight;
-}
-function aM(who, text, burn = false, msgId = "", type = "text", url = "") {
-  const c = document.getElementById("chat");
-  const g = document.createElement("div");
-  g.className = "msg " + (who === "我" ? "me" : "other");
-  if (msgId) g.dataset.id = msgId;
-  if (type === "image") {
-    const img = document.createElement("img"); img.src = url; img.className = "media-img";
-    img.onerror = function () { img.style.border = "1px solid red"; img.alt = "加载失败"; };
-    img.onclick = function () {
-      const preview = document.getElementById("fullPreview");
-      const fullMedia = document.getElementById("fullMedia");
-      const fullVideo = document.getElementById("fullVideo");
-      fullMedia.style.display = "block"; fullVideo.style.display = "none"; fullMedia.src = url;
-      preview.style.display = "flex"; document.getElementById("saveBtn").style.display = "block"; document.getElementById("saveBtn").innerText = "保存图片";
-    };
-    g.appendChild(img);
-  } else if (type === "video") {
-    const video = document.createElement("video"); video.src = url; video.className = "media-video"; video.controls = true; video.playsInline = true;
-    video.onclick = function () {
-      const preview = document.getElementById("fullPreview");
-      const fullMedia = document.getElementById("fullMedia");
-      const fullVideo = document.getElementById("fullVideo");
-      fullMedia.style.display = "none"; fullVideo.style.display = "block"; fullVideo.src = url;
-      preview.style.display = "flex"; document.getElementById("saveBtn").style.display = "block"; document.getElementById("saveBtn").innerText = "保存视频";
-    };
-    g.appendChild(video);
-  } else {
-    const textDiv = document.createElement("div"); textDiv.className = "msg-text"; textDiv.textContent = text; g.appendChild(textDiv);
-  }
-  if (who === "我") { const readTag = document.createElement("div"); readTag.className = "read"; readTag.textContent = "未读"; g.appendChild(readTag); }
-  if (burn) {
-    g.classList.add("burn");
-    let burnTip = document.createElement("div"); burnTip.className = "burn-tip"; burnTip.textContent = "焚·100秒"; g.appendChild(burnTip);
-    let t = 100; let timer = setInterval(() => {
-      t--; burnTip.textContent = "焚·" + t + "秒";
-      if (t <= 0) { clearInterval(timer); if (g.parentNode) g.parentNode.removeChild(g); }
-    }, 1000);
-  }
-  c.appendChild(g); c.scrollTop = c.scrollHeight;
-}
+            // 连接断开（KV离线清理）
+            socket.on("disconnect", () => {
+                hasOnline = false;
+                isMatched = false;
+                clearInterval(heartbeatTimer);
+            });
+        }
 
-async function L() {
-  let u = document.getElementById("u1").value.trim();
-  let p = document.getElementById("p1").value.trim();
-  if (!u || !p) { document.getElementById("tip").textContent = "请输入账号密码"; setTimeout(()=>document.getElementById("tip").textContent="",2000); return; }
-  userId = u;
-  let newToken = Date.now().toString(36) + Math.random().toString(36).slice(2);
-  localStorage.setItem("session_token", newToken);
-  sessionToken = newToken;
-  try {
-    let res = await fetch(BACKEND_URL + "/login", {
-      method: "POST", headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({ username: u, password: p })
-    });
-    let j = await res.json();
-    if (j.code === 200) {
-      nickName = j.data.nickname || j.data.nick || j.data.username || userId;
-      localStorage.setItem("chat_user_id", userId);
-      localStorage.setItem("chat_nickname", nickName);
-      document.getElementById("nick").textContent = nickName;
-      document.getElementById("login").style.display = "none";
-      document.getElementById("main").style.display = "flex";
-      await loadLatestNick();
-      hasOnline = false;
-      C();
-    } else {
-      document.getElementById("tip").textContent = j.msg || "登录失败";
-      setTimeout(()=>document.getElementById("tip").textContent="",2000);
-      localStorage.removeItem("session_token");
-    }
-  } catch (e) {
-    document.getElementById("tip").textContent = "网络异常";
-    setTimeout(()=>document.getElementById("tip").textContent="",2000);
-    localStorage.removeItem("session_token");
-  }
-}
-function R() {
-  let u = document.getElementById("u2").value.trim();
-  let p = document.getElementById("p2").value.trim();
-  if (!u || !p) { document.getElementById("tip2").textContent = "请输入账号密码"; setTimeout(()=>document.getElementById("tip2").textContent="",2000); return; }
-  fetch(BACKEND_URL + "/register", {
-    method: "POST", headers: { "Content-Type": "application/json" },
-    body: JSON.stringify({ username: u, password: p })
-  }).then(res=>res.json()).then(j=>{
-    document.getElementById("tip2").textContent = j.msg || "注册成功";
-    setTimeout(()=>document.getElementById("tip2").textContent="",2000);
-  });
-}
-function C() {
-  if (socket) socket.disconnect();
-  // ========== WebSocket 核心地址替换 ==========
-  socket = io(BACKEND_URL, { transports: ["websocket", "polling"] });
-  socket.on("connect", () => {
-    sendHeartbeatNow();
-    if (!hasOnline && userId) {
-      socket.emit("user-online", {
-        username: userId,
-        nickname: nickName || userId
-      });
-      hasOnline = true;
-    }
-  });
-  socket.on("new-msg", (j) => {
-    aM(j.fromName, j.content, j.burn, j.msgId, j.type, j.content);
-    b();
-    if (document.getElementById("read").checked) {
-      socket.emit("msg-read", { msgId: j.msgId });
-    }
-  });
-  socket.on("msg-read", (j) => {
-    let ele = document.querySelector(`.msg[data-id="${j.msgId}"] .read`);
-    if (ele) ele.textContent = "已读";
-  });
-  socket.on("match-found", (j) => {
-    mState = true; partnerId = j.partnerId; roomId = j.roomId;
-    document.getElementById("match").textContent = "取消匹配";
-    sy("匹配成功：" + j.partnerName);
-  });
-  socket.on("partner-leave", () => {
-    mState = false; partnerId = ""; roomId = "";
-    document.getElementById("match").textContent = "匹配聊天";
-    sy("对方已离开");
-  });
-  startHeartbeat();
-}
-function S() {
-  let t = document.getElementById("msg").value.trim();
-  if (!t || !partnerId) { alert("请先匹配"); return; }
-  let msgId = Date.now() + "";
-  let burn = document.getElementById("burn").checked;
-  let showText = nickName + "：" + t;
-  socket.emit("send-msg", {
-    content: showText, type: "text", burn: burn, msgId: msgId, toId: partnerId, roomId: roomId
-  });
-  aM("我", showText, burn, msgId, "text");
-  b();
-  document.getElementById("msg").value = "";
-}
-function oM() { document.getElementById("modal").style.display = "flex"; }
-function cM() { document.getElementById("modal").style.display = "none"; }
-async function sN() {
-  let nn = document.getElementById("newNick").value.trim();
-  if (!nn || nn.length < 2 || nn.length > 20) { alert("昵称2-20字符"); return; }
-  try {
-    let res = await fetch(BACKEND_URL + "/update-nickname", {
-      method: "POST", headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({ username: userId, newNickname: nn })
-    });
-    let r = await res.json();
-    if (r.code === 200) {
-      nickName = nn; document.getElementById("nick").textContent = nn;
-      localStorage.setItem("chat_nickname", nickName);
-      document.getElementById("newNick").value = ""; cM(); alert("修改成功！");
-    } else { alert("失败：" + (r.msg || "服务器错误")); }
-  } catch (err) { alert("修改失败"); }
-}
-function clearChat(){ document.getElementById("chat").innerHTML = ""; }
-document.getElementById("fullPreview").onclick = function(e) {
-  this.style.display = "none";
-  document.getElementById("fullVideo").pause();
-};
-</script>
+        // ====================== ✅ 心跳机制（和后端3分钟保活完全对齐，适配KV） ======================
+        function sendHeartbeatNow() {
+            if (socket && socket.connected && userId) {
+                socket.emit("HEARTBEAT");
+            }
+        }
+        function startHeartbeat() {
+            if (heartbeatTimer) clearInterval(heartbeatTimer);
+            heartbeatTimer = setInterval(() => {
+                sendHeartbeatNow();
+            }, HEARTBEAT_INTERVAL);
+        }
+
+        // ====================== 匹配聊天逻辑（适配后端匹配池） ======================
+        function openMatch() {
+            if(isMatched) return;
+            document.getElementById("matchModal").style.display = "flex";
+            socket.emit("match-chat");
+        }
+        function stopMatch() {
+            socket.emit("stop-chat");
+            document.getElementById("matchModal").style.display = "none";
+            addSystemMsg("已停止匹配");
+        }
+
+        // ====================== 发送消息（D1消息入库+转发） ======================
+        function sendMsg() {
+            let content = document.getElementById("msgInput").value.trim();
+            if(!content || !isMatched || !socket) return;
+            socket.emit("send-msg", {
+                type: "text",
+                content: content,
+                msgId: Date.now()
+            });
+            addSelfMsg(content);
+            document.getElementById("msgInput").value = "";
+        }
+
+        // ====================== 清空聊天 ======================
+        function clearChat() {
+            socket.emit("clear-chat");
+            document.getElementById("chatContent").innerHTML = "";
+            document.getElementById("matchModal").style.display = "none";
+        }
+
+        // ====================== 消息渲染 ======================
+        function addSelfMsg(content) {
+            let html = `
+                <div class="msg-item msg-self">
+                    <div class="msg-bubble">${content}</div>
+                </div>
+            `;
+            document.getElementById("chatContent").innerHTML += html;
+            document.getElementById("chatContent").scrollTop = document.getElementById("chatContent").scrollHeight;
+        }
+        function addOtherMsg(name, content) {
+            let html = `
+                <div class="msg-item msg-other">
+                    <div>
+                        <div class="msg-name">${name}</div>
+                        <div class="msg-bubble">${content}</div>
+                    </div>
+                </div>
+            `;
+            document.getElementById("chatContent").innerHTML += html;
+            document.getElementById("chatContent").scrollTop = document.getElementById("chatContent").scrollHeight;
+        }
+        function addSystemMsg(text) {
+            let html = `<div style="text-align:center;color:#aaa;margin:10px 0;font-size:12px;">${text}</div>`;
+            document.getElementById("chatContent").innerHTML += html;
+        }
+    </script>
 </body>
 </html>
