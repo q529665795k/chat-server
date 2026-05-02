@@ -360,7 +360,7 @@ async function sendMedia(e, type) {
   const formData = new FormData();
   formData.append("file", file);
   try {
-    const res = await fetch("https://b.im6.qzz.io/upload", { method: "POST", body: formData });
+    const res = await fetch(`${BASE_URL}/upload`, { method: "POST", body: formData });
 
     const data = await res.json();
     if (!data || !data.url) { alert("上传失败"); return; }
