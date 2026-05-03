@@ -411,37 +411,35 @@ function loadSwitches() {
 }
 
 // ========== 【核心修改2】匹配按钮逻辑（永久可用，点击强制断开聊天） ==========
-function showMatchModal(){
-    if(!userId){alert("请先登录");return;}
-    document.getElementById("matchModal").style.display = "flex";
-}
-function cancelMatch(){
-    document.getElementById("matchModal").style.display = "none";
-}
 function confirmMatch(){
     saveSwitches();
     document.getElementById("matchModal").style.display = "none";
 
-    // ✅ 核心：不管是不是在聊天，先强制断开！
-    if (window.isInChat) {
-        socket.send(JSON.stringify({ type: "partner-leave" }));
-        partnerId = "";
-        roomId = "";
-        document.getElementById("chat").innerHTML = "";
-        window.isInChat = false;
-    }
+    // 🔑 第一步：前端强制清空所有状态
+    window.isInChat = false;
+    partnerId = "";
+    roomId = "";
+    mState = false;
+    document.getElementById("chat").innerHTML = "";
 
-    // ✅ 直接进匹配池，按钮永远可用！
+    // 🔑 第二步：连续给后端发3条指令，强制后端清空你的所有状态
     if (socket && socket.readyState === WebSocket.OPEN) {
+        // 1. 告诉后端：我要离开当前房间
+        socket.send(JSON.stringify({ type: "partner-leave" }));
+        // 2. 告诉后端：我要彻底取消本次匹配
+        socket.send(JSON.stringify({ type: "match_cancel" }));
+        // 3. 告诉后端：重置我的匹配状态，我要重新排队
         socket.send(JSON.stringify({ type: "match_reset" }));
+        // 4. 最后：重新进入真人匹配池
         socket.send(JSON.stringify({ type: "match-chat" }));
+
         document.getElementById("match").textContent = "取消匹配";
-        showSystemTip("正在匹配聊友...");
+        showSystemTip("✅ 已清空状态，重新匹配真人聊友...");
     } else {
-        showSystemTip("连接未就绪");
-        showGuideModal(true);
+        showSystemTip("❌ 连接断开，请等待重连");
     }
 }
+
 
 // 发送媒体文件
 function openGalleryImage() { if (!partnerId) { alert("请先匹配"); return; } document.getElementById("galleryImage").click(); }
