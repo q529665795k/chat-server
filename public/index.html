@@ -664,53 +664,31 @@ function cancelMatch(){
     document.getElementById("matchModal").style.display = "none";
 }
 // 【专门适配省电模式】匹配聊天函数：先强制同步前后端状态，再匹配，杜绝锁死
-function confirmMatch(){
-  saveSwitches();
-  document.getElementById("matchModal").style.display = "none";
+// 【终极强制版】匹配按钮点击事件
+async function toggleMatch() {
+    // ========== 1. 强制清空前端所有状态（一点匹配全归零） ==========
+    mState = false;
+    partnerId = "";
+    roomId = "";
+    isInChat = false;
+    document.getElementById("match").textContent = "匹配聊天";
 
-  // ============== 第一步：前端强制清空所有本地状态，不管之前是什么情况 ==============
-  mState = false;
-  partnerId = "";
-  roomId = "";
-  disconnectCount = 0;
-  clearMatchState(); // 清空本地存储的旧房间
-  document.getElementById("match").textContent = "匹配聊天";
-  // ==============================================================================
+    // ========== 2. 强制销毁旧WebSocket，不管死活直接杀 ==========
+    if (socket) {
+        socket.close();
+        socket = null;
+    }
 
-  // ============== 第二步：专门解决省电模式的核心：先强制确认WS连接是通的 ==============
-  // 情况1：连接已经断了/正在关闭，先强制重连，重连成功后再匹配
-  if (!socket || socket.readyState === WebSocket.CLOSED || socket.readyState === WebSocket.CLOSING) {
-    showSystemTip("连接恢复中，稍等...");
-    currentReconnectDelay = MIN_RECONNECT_DELAY;
-    // 强制重连
+    // ========== 3. 强制重新建连接，满血复活 ==========
+    await new Promise(resolve => setTimeout(resolve, 200));
     initSocket();
-    // 等2秒连接恢复后，自动重新执行匹配
-    setTimeout(() => confirmMatch(), 2000);
-    return;
-  }
 
-  // 情况2：连接是OPEN状态，先给后端发双重强制重置，确保后端状态清干净
-  if (socket.readyState === WebSocket.OPEN) {
-    // 发2次重置指令，防止省电模式下丢包，确保后端100%收到
-    socket.send(JSON.stringify({ type: "match_reset" }));
+    // ========== 4. 强制发匹配指令，后端那边直接全清空 ==========
     setTimeout(() => {
-      socket.send(JSON.stringify({ type: "match_reset" }));
-    }, 50);
-
-    // 延迟150ms，等后端完全清空状态后，再发起新匹配
-    setTimeout(() => {
-      // 再次确认连接是通的，再发匹配请求
-      if (socket && socket.readyState === WebSocket.OPEN) {
         socket.send(JSON.stringify({ type: "match-chat" }));
+        mState = true;
         document.getElementById("match").textContent = "取消匹配";
-        showSystemTip("正在匹配聊友...");
-      } else {
-        // 中间连接断了，重新走流程
-        confirmMatch();
-      }
-    }, 150);
-    return;
-  }
+    }, 500);
 }
 
 // 原有媒体函数完全保留，一字未动
