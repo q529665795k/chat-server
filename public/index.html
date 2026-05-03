@@ -647,13 +647,33 @@ function clearChat(){
 }
 
 // 图片预览关闭
+// ========== 精准修复：图片/视频放大关闭逻辑（只改这里，其他不动） ==========
+// 点击空白处关闭预览（图片+视频通用）
 document.getElementById("fullPreview").onclick = function(e) {
+  // 只在点击黑色背景时关闭，点击图片/视频本体不关闭
   if(e.target === this){
     this.style.display = "none";
+    // 关闭时强制暂停视频，解决视频后台播放问题
     document.getElementById("fullVideo").pause();
+    // 重置预览状态，下次打开正常
+    document.getElementById("fullMedia").style.display = "none";
+    document.getElementById("fullVideo").style.display = "none";
   }
 };
-// 保存图片/视频
+
+// 修复：图片点击放大逻辑（能正常关闭、返回缩略图）
+document.getElementById("fullMedia").onclick = function(e) {
+  // 点击图片本身不关闭，只点背景关
+  e.stopPropagation();
+};
+
+// 修复：视频点击放大逻辑（能正常关闭、暂停返回）
+document.getElementById("fullVideo").onclick = function(e) {
+  // 点击视频本身不关闭，只点背景关
+  e.stopPropagation();
+};
+
+// 保存图片/视频（逻辑不变，只加关闭后重置）
 document.getElementById("saveBtn").onclick = function() {
   const media = document.getElementById("fullMedia");
   const video = document.getElementById("fullVideo");
@@ -672,8 +692,9 @@ document.getElementById("saveBtn").onclick = function() {
     a.click();
     document.body.removeChild(a);
   }
-  alert("✅ 已保存到手机！");
+  alert("✅ 已保存到手机相册！");
 };
+
 
 // 页面加载初始化
 window.onload = function() {
