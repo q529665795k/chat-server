@@ -65,7 +65,7 @@ body{display:flex;flex-direction:column}
 .match-modal .btn-ok{background:#007AFF;color:#fff;border:none;padding:12px 24px;border-radius:12px;margin-right:8px;}
 .match-modal .btn-cancel{background:#444;color:#fff;border:none;padding:12px 24px;border-radius:12px;}
 
-/* ========== 新增：全自动识别引导弹窗样式（不影响原有样式） ========== */
+/* ========== 新增：全自动识别引导弹窗样式 ========== */
 .guide-modal{display:none;position:fixed;inset:0;background:rgba(0,0,0,0.92);z-index:99999;align-items:center;justify-content:center;}
 .guide-box{background:#1a1a2e;padding:28px;border-radius:20px;width:92%;max-width:380px;text-align:center;max-height:90vh;overflow-y:auto;}
 </style>
@@ -74,31 +74,24 @@ body{display:flex;flex-direction:column}
 <div class="online-count" id="onlineCount">在线：0</div>
 <div class="system-tip" id="systemTip"></div>
 
-<!-- ========== 新增：全自动识别断连引导弹窗 ========== -->
+<!-- 全自动识别断连引导弹窗 -->
 <div class="guide-modal" id="guideModal">
     <div class="guide-box">
         <h3 style="color:#fff;margin-bottom:12px;font-size:18px;">🚨 聊天频繁断开？10秒彻底根治</h3>
         <p class="guide-desc" style="color:#ccc;margin-bottom:18px;line-height:1.5;font-size:14px;">
             手机系统的省电模式会强制杀掉浏览器后台，导致聊天断连、匹配丢失。按下面步骤开启<span style="color:#5eead4;font-weight:bold;">后台无限制</span>，就能彻底解决问题！
         </p>
-
-        <!-- 【必做】系统级根治方案 -->
         <div style="margin-bottom:15px;">
             <h4 style="color:#ff9500;text-align:left;margin-bottom:8px;font-size:15px;">✅ 必做·根治方案（系统设置）</h4>
-            <div class="system-step" id="systemStep" style="text-align:left;color:#ccc;margin-bottom:10px;line-height:1.8;font-size:13px;background:rgba(255,255,255,0.05);padding:12px;border-radius:10px;">
-            </div>
+            <div class="system-step" id="systemStep" style="text-align:left;color:#ccc;margin-bottom:10px;line-height:1.8;font-size:13px;background:rgba(255,255,255,0.05);padding:12px;border-radius:10px;"></div>
             <button id="copySystemBtn" style="width:100%;padding:8px;border-radius:8px;background:#ff9500;color:#fff;border:none;font-size:13px;">
                 一键复制浏览器名称，去设置直接搜
             </button>
         </div>
-
-        <!-- 【选做】浏览器内补充优化 -->
         <div style="margin-bottom:20px;">
             <h4 style="color:#5eead4;text-align:left;margin-bottom:8px;font-size:15px;">🔧 选做·补充优化（浏览器内设置）</h4>
-            <div class="browser-step" id="browserStep" style="text-align:left;color:#ccc;margin-bottom:0;line-height:1.8;font-size:13px;background:rgba(255,255,255,0.05);padding:12px;border-radius:10px;">
-            </div>
+            <div class="browser-step" id="browserStep" style="text-align:left;color:#ccc;margin-bottom:0;line-height:1.8;font-size:13px;background:rgba(255,255,255,0.05);padding:12px;border-radius:10px;"></div>
         </div>
-
         <div class="guide-btns" style="display:flex;gap:10px;">
             <button class="guide-cancel" id="noMoreTipBtn" style="flex:1;padding:12px;border-radius:12px;border:none;color:#fff;background:#444;font-size:14px;">
                 不再提示
@@ -198,250 +191,84 @@ body{display:flex;flex-direction:column}
 <input type="file" id="cameraVideo" accept="video/*" capture="camera" hidden>
 
 <script>
-// ========== 【新增】第一层兜底：全浏览器兼容+防冻结保活 ==========
+// ========== 浏览器兼容修复 ==========
 (function mobileBrowserFix() {
   document.documentElement.style.touchAction = "manipulation";
   document.body.style.touchAction = "manipulation";
   window.addEventListener("touchstart", function () {}, { passive: true });
   window.WebSocket = window.WebSocket || window.MozWebSocket || window.webkitWebSocket;
-  try { new URL("https://test.com"); } catch (e) { window.URL = window.URL || window.webkitURL; }
 })();
 
-// ========== 【新增】第二层兜底：国产手机省电模式防断连 ==========
-(function antiSleepForChineseBrowser() {
-  // 1. 页面可见性欺骗：骗浏览器页面一直在前台，不冻结JS
-  try {
-    Object.defineProperty(document, 'hidden', { value: false, configurable: true });
-    Object.defineProperty(document, 'visibilityState', { value: 'visible', configurable: true });
-  } catch (e) {}
-  
-  // 2. 模拟用户持续操作：骗浏览器用户一直在用，不判定为空闲页面
-  window.lastUserActionTime = Date.now();
-  document.addEventListener('touchstart', () => {
-    window.lastUserActionTime = Date.now();
-  }, { passive: true });
-  setInterval(() => {
-    window.lastUserActionTime = Date.now();
-    try {
-      window.dispatchEvent(new Event('scroll', { bubbles: false }));
-      window.dispatchEvent(new Event('touchstart', { bubbles: false }));
-    } catch (e) {}
-  }, 2000);
+// ========== 核心：聊天状态全局标记（解决所有问题根源） ==========
+window.isInChat = false;
 
-  // 3. 轻量连接保活：维持WS不被掐断，不扣Worker次数
-  setInterval(() => {
-    if (window.socket && window.socket.readyState === WebSocket.OPEN) {
-      try {
-        window.socket.send(JSON.stringify({ type: "KEEP_ALIVE" }));
-      } catch (e) {}
-    }
-  }, 1000);
-})();
-
-// ========== 【新增】引导页全局变量+全自动识别逻辑 ==========
+// ========== 引导弹窗全局变量 ==========
 let guideShownCount = 0;
-const MAX_GUIDE_SHOW = 3; // 最多弹3次，防骚扰
-let disconnectCount = 0; // 断连计数
-// 自动识别到的用户环境
+const MAX_GUIDE_SHOW = 3;
+let disconnectCount = 0;
 let userPhoneBrand = "通用安卓";
 let userBrowserName = "浏览器";
 let userBrowserAppName = "浏览器";
 
-// 核心1：全自动识别手机品牌+浏览器品牌
+// 自动识别手机+浏览器
 function autoDetectUserEnv() {
   const ua = navigator.userAgent.toLowerCase();
-  // 识别手机品牌
-  if (ua.includes("xiaomi") || ua.includes("miui") || ua.includes("redmi")) {
-    userPhoneBrand = "小米/红米";
-  } else if (ua.includes("vivo") || ua.includes("bbk") || ua.includes("iqoo")) {
-    userPhoneBrand = "vivo/iQOO";
-  } else if (ua.includes("oppo") || ua.includes("heytap") || ua.includes("realme") || ua.includes("oneplus")) {
-    userPhoneBrand = "OPPO/一加/真我";
-  } else if (ua.includes("huawei") || ua.includes("honor")) {
-    userPhoneBrand = "华为/荣耀";
-  } else if (ua.includes("samsung")) {
-    userPhoneBrand = "三星";
-  } else {
-    userPhoneBrand = "通用安卓";
-  }
+  if (ua.includes("xiaomi") || ua.includes("miui") || ua.includes("redmi")) userPhoneBrand = "小米/红米";
+  else if (ua.includes("vivo") || ua.includes("bbk") || ua.includes("iqoo")) userPhoneBrand = "vivo/iQOO";
+  else if (ua.includes("oppo") || ua.includes("heytap") || ua.includes("realme")) userPhoneBrand = "OPPO/一加";
+  else if (ua.includes("huawei") || ua.includes("honor")) userPhoneBrand = "华为/荣耀";
+  else if (ua.includes("samsung")) userPhoneBrand = "三星";
 
-  // 识别浏览器品牌
-  if (ua.includes("quark")) {
-    userBrowserName = "夸克浏览器";
-    userBrowserAppName = "夸克";
-  } else if (ua.includes("ucbrowser") || ua.includes("uc ")) {
-    userBrowserName = "UC浏览器";
-    userBrowserAppName = "UC浏览器";
-  } else if (ua.includes("qqbrowser") || ua.includes("mqqbrowser")) {
-    userBrowserName = "QQ浏览器";
-    userBrowserAppName = "QQ浏览器";
-  } else if (ua.includes("miui") || ua.includes("mi browser")) {
-    userBrowserName = "小米浏览器";
-    userBrowserAppName = "浏览器";
-  } else if (ua.includes("vivo") || ua.includes("bbk browser")) {
-    userBrowserName = "vivo浏览器";
-    userBrowserAppName = "浏览器";
-  } else if (ua.includes("oppo") || ua.includes("heytap browser")) {
-    userBrowserName = "OPPO浏览器";
-    userBrowserAppName = "浏览器";
-  } else if (ua.includes("huawei") || ua.includes("honor")) {
-    userBrowserName = "华为浏览器";
-    userBrowserAppName = "浏览器";
-  } else if (ua.includes("micromessenger")) {
-    userBrowserName = "微信内置浏览器";
-    userBrowserAppName = "微信";
-  } else {
-    userBrowserName = "系统浏览器";
-    userBrowserAppName = "浏览器";
-  }
+  if (ua.includes("quark")) { userBrowserName = "夸克浏览器"; userBrowserAppName = "夸克"; }
+  else if (ua.includes("ucbrowser")) { userBrowserName = "UC浏览器"; userBrowserAppName = "UC浏览器"; }
+  else if (ua.includes("qqbrowser")) { userBrowserName = "QQ浏览器"; userBrowserAppName = "QQ浏览器"; }
+  else if (ua.includes("micromessenger")) { userBrowserName = "微信内置浏览器"; userBrowserAppName = "微信"; }
+  else { userBrowserName = "系统浏览器"; userBrowserAppName = "浏览器"; }
 }
 
-// 核心2：生成系统级根治步骤
+// 生成设置步骤
 function getSystemStep() {
-  if (userBrowserName === "微信内置浏览器") {
-    return `
-      <p>微信内置浏览器有强后台限制，无法永久保活，建议：</p>
-      <p>1. 点击页面右上角「···」按钮</p>
-      <p>2. 选择「在浏览器中打开」</p>
-      <p>3. 用系统浏览器/夸克/UC打开，再按步骤设置</p>
-    `;
-  }
-  switch (userPhoneBrand) {
-    case "小米/红米":
-      return `
-        <p>1. 打开手机桌面的「设置」APP</p>
-        <p>2. 找到「应用设置」→ 找到「${userBrowserAppName}」</p>
-        <p>3. 点击「省电策略」→ 选择「无限制」</p>
-        <p>4. 开启「后台无限制网络」「自启动」开关</p>
-      `;
-    case "vivo/iQOO":
-      return `
-        <p>1. 打开手机桌面的「设置」APP</p>
-        <p>2. 找到「应用与权限」→ 找到「${userBrowserAppName}」</p>
-        <p>3. 点击「耗电管理」→ 开启「后台高耗电」「后台运行」</p>
-        <p>4. 把「省电策略」设置为「无限制」</p>
-      `;
-    case "OPPO/一加/真我":
-      return `
-        <p>1. 打开手机桌面的「设置」APP</p>
-        <p>2. 找到「应用管理」→ 找到「${userBrowserAppName}」</p>
-        <p>3. 点击「耗电管理」→ 开启「后台运行」「后台联网」</p>
-        <p>4. 把「省电策略」设置为「不优化/无限制」</p>
-      `;
-    case "华为/荣耀":
-      return `
-        <p>1. 打开手机桌面的「设置」APP</p>
-        <p>2. 找到「应用和服务」→ 找到「${userBrowserAppName}」</p>
-        <p>3. 点击「耗电详情」→ 「启动管理」→ 关闭「自动管理」，开启「自启动/后台活动」</p>
-        <p>4. 把「省电策略」设置为「无限制」</p>
-      `;
-    case "三星":
-      return `
-        <p>1. 打开手机桌面的「设置」APP</p>
-        <p>2. 找到「应用程序」→ 找到「${userBrowserAppName}」</p>
-        <p>3. 点击「电池」→ 把「优化电池使用」设置为「无限制」</p>
-        <p>4. 开启「后台数据」「允许后台活动」开关</p>
-      `;
-    default:
-      return `
-        <p>1. 打开手机桌面的「设置」APP</p>
-        <p>2. 找到「应用管理」→ 找到「${userBrowserAppName}」</p>
-        <p>3. 找到「电池/耗电管理」→ 把省电策略设置为「无限制」</p>
-        <p>4. 开启「后台运行」「后台联网」「自启动」所有开关</p>
-      `;
+  if (userBrowserName === "微信内置浏览器") return `<p>微信限制后台，右上角「···」→「在浏览器打开」再设置</p>`;
+  switch(userPhoneBrand){
+    case "小米/红米":return`<p>1.设置→应用设置→${userBrowserAppName}</p><p>2.省电策略→无限制</p><p>3.开启后台联网、自启动</p>`;
+    case "vivo/iQOO":return`<p>1.设置→应用与权限→${userBrowserAppName}</p><p>2.耗电管理→后台高耗电+后台运行</p>`;
+    case "OPPO/一加":return`<p>1.设置→应用管理→${userBrowserAppName}</p><p>2.耗电→后台运行+无限制</p>`;
+    case "华为/荣耀":return`<p>1.设置→应用→${userBrowserAppName}</p><p>2.耗电→关闭自动管理，开启后台活动</p>`;
+    default:return`<p>1.设置→应用→${userBrowserAppName}</p><p>2.电池→省电策略设为无限制</p>`;
   }
 }
 
-// 核心3：生成浏览器补充优化步骤
 function getBrowserStep() {
-  if (userBrowserName === "微信内置浏览器") {
-    return `<p>微信内置浏览器无需额外设置，用外部浏览器打开即可</p>`;
-  }
-  switch (userBrowserName) {
-    case "夸克浏览器":
-      return `
-        <p>1. 点击页面右下角「☰」菜单按钮</p>
-        <p>2. 找到「设置」→「通用设置」</p>
-        <p>3. 开启「后台网页运行」开关</p>
-        <p>4. 关闭「智能省电模式」「网页资源优化」</p>
-      `;
-    case "UC浏览器":
-      return `
-        <p>1. 点击页面底部「☰」菜单按钮</p>
-        <p>2. 找到「设置」→「高级设置」</p>
-        <p>3. 开启「后台应用运行」「后台网页播放」</p>
-        <p>4. 关闭「网页省电优化」「智能内存清理」</p>
-      `;
-    case "QQ浏览器":
-      return `
-        <p>1. 点击页面底部「我的」→ 右上角「设置」</p>
-        <p>2. 找到「通用设置」</p>
-        <p>3. 开启「后台网页运行」「后台播放」开关</p>
-        <p>4. 关闭「省流量模式」「智能省电」</p>
-      `;
-    default:
-      return `
-        <p>1. 点击浏览器右上角/底部「☰」菜单按钮</p>
-        <p>2. 找到「设置」→「通用/高级设置」</p>
-        <p>3. 开启「后台网页运行」相关开关</p>
-        <p>4. 关闭所有「省电优化/省流量模式」</p>
-      `;
-  }
+  if(userBrowserName==="夸克浏览器")return`<p>菜单→设置→通用→开启后台网页运行，关闭省电</p>`;
+  if(userBrowserName==="UC浏览器")return`<p>菜单→设置→高级→开启后台应用运行</p>`;
+  return`<p>浏览器菜单→设置→关闭所有省电/省流量模式</p>`;
 }
 
-// 弹窗控制逻辑
-function showGuideModal(isForce = false) {
-  if (localStorage.getItem("guide_no_more") === "true" && !isForce) return;
-  if (guideShownCount >= MAX_GUIDE_SHOW && !isForce) return;
-  
-  // 自动识别环境+填充步骤
+// 弹窗控制
+function showGuideModal(isForce=false) {
+  if(localStorage.getItem("guide_no_more")==="true"&&!isForce)return;
+  if(guideShownCount>=MAX_GUIDE_SHOW&&!isForce)return;
   autoDetectUserEnv();
-  document.getElementById("systemStep").innerHTML = getSystemStep();
-  document.getElementById("browserStep").innerHTML = getBrowserStep();
-  document.getElementById("copySystemBtn").textContent = `一键复制「${userBrowserAppName}」，去设置直接搜`;
-  // 显示弹窗
-  document.getElementById("guideModal").style.display = "flex";
+  document.getElementById("systemStep").innerHTML=getSystemStep();
+  document.getElementById("browserStep").innerHTML=getBrowserStep();
+  document.getElementById("copySystemBtn").innerText=`一键复制「${userBrowserAppName}」`;
+  document.getElementById("guideModal").style.display="flex";
   guideShownCount++;
 }
-
-function closeGuide() {
-  document.getElementById("guideModal").style.display = "none";
-  localStorage.setItem("guide_shown", "true");
-}
-
-// 一键复制功能
-document.getElementById("copySystemBtn").onclick = function() {
-  navigator.clipboard.writeText(userBrowserAppName).then(() => {
-    this.textContent = "✅ 复制成功！去设置粘贴搜索";
-    setTimeout(() => {
-      this.textContent = `一键复制「${userBrowserAppName}」，去设置直接搜`;
-    }, 2500);
-  }).catch(() => {
-    const input = document.createElement("input");
-    input.value = userBrowserAppName;
-    document.body.appendChild(input);
-    input.select();
-    document.execCommand("copy");
-    document.body.removeChild(input);
-    this.textContent = "✅ 复制成功！去设置粘贴搜索";
-    setTimeout(() => {
-      this.textContent = `一键复制「${userBrowserAppName}」，去设置直接搜`;
-    }, 2500);
-  });
+function closeGuide(){document.getElementById("guideModal").style.display="none";}
+document.getElementById("copySystemBtn").onclick=()=>{
+  navigator.clipboard.writeText(userBrowserAppName).then(()=>alert("复制成功！"));
 };
-
-// 不再提示按钮
-document.getElementById("noMoreTipBtn").onclick = function() {
-  localStorage.setItem("guide_no_more", "true");
+document.getElementById("noMoreTipBtn").onclick=()=>{
+  localStorage.setItem("guide_no_more","true");
   closeGuide();
 };
 
-// ===================== 原有配置完全保留，一字未动 =====================
+// ========== 服务器配置 ==========
 const BASE_URL = "https://api.im6.qzz.io";
 const WS_PATH = BASE_URL + "/ws";
-// ==============================================================================
 
-// 原有全局变量完全保留
+// ========== 全局变量 ==========
 let socket = null;
 let nickName = "";
 let userId = "";
@@ -451,15 +278,12 @@ let mState = false;
 let heartbeatTimer = null;
 let hasOnline = false;
 const HEARTBEAT_INTERVAL = 30000;
-// 【修改1】新增：前端状态锁（和后端同步）
-let window.isInChat = false;
-// 新增：重连间隔配置
 const MIN_RECONNECT_DELAY = 3000;
 const MAX_RECONNECT_DELAY = 30000;
 let currentReconnectDelay = MIN_RECONNECT_DELAY;
 let reconnectTimer = null;
 
-// 原有函数完全保留
+// 系统提示
 function showSystemTip(text) {
     const tip = document.getElementById("systemTip");
     tip.textContent = text;
@@ -470,21 +294,16 @@ function updateOnlineCount(count) {
     document.getElementById("onlineCount").textContent = `在线：${count}`;
 }
 
-// ========== 优化：WebSocket初始化+重连逻辑（原有功能完全保留，新增断连引导） ==========
+// ========== 【核心修改1】WebSocket重连逻辑（后台回来不乱匹配） ==========
 function initSocket() {
-    // 防止重复创建连接
-    if (socket && (socket.readyState === WebSocket.OPEN || socket.readyState === WebSocket.CONNECTING)) {
-        return;
-    }
+    if (socket && (socket.readyState === WebSocket.OPEN || socket.readyState === WebSocket.CONNECTING)) return;
     clearTimeout(reconnectTimer);
 
     socket = new WebSocket(WS_PATH);
     socket.onopen = () => {
-        // 连接成功重置重连状态
         disconnectCount = 0;
         currentReconnectDelay = MIN_RECONNECT_DELAY;
         clearTimeout(reconnectTimer);
-
         sendHeartbeatNow();
         if (!hasOnline && userId) {
             socket.send(JSON.stringify({
@@ -494,25 +313,25 @@ function initSocket() {
             }));
             hasOnline = true;
         }
+        // ✅ 只空闲状态才自动匹配，聊天中切后台回来完全不动！
+        if (!window.isInChat) {
+            socket.send(JSON.stringify({ type: "match_reset" }));
+            socket.send(JSON.stringify({ type: "match-chat" }));
+            document.getElementById("match").textContent = "取消匹配";
+            showSystemTip("正在匹配聊友...");
+        }
     };
     socket.onmessage = (e) => {
         const j = JSON.parse(e.data);
-        if (j.type === "system_tip") {
-            showSystemTip(j.text);
-            return;
-        }
-        if (j.type === "online_update") {
-            updateOnlineCount(j.count);
-            return;
-        }
+        if (j.type === "system_tip") { showSystemTip(j.text); return; }
+        if (j.type === "online_update") { updateOnlineCount(j.count); return; }
         if (j.type === "HEARTBEAT-ACK") return;
         if (j.type === "match-found") {
             mState = true;
             partnerId = j.partnerId;
             roomId = j.roomId;
             document.getElementById("match").textContent = "取消匹配";
-            // 【修改2】匹配成功 → 前端打标记
-            window.isInChat = true;
+            window.isInChat = true; // ✅ 匹配成功标记正在聊天
             sy("✅ 匹配成功：" + j.partnerName);
             return;
         }
@@ -521,8 +340,7 @@ function initSocket() {
             partnerId = "";
             roomId = "";
             document.getElementById("match").textContent = "匹配聊天";
-            // 【修改3】退出聊天 → 前端清空标记
-            window.isInChat = false;
+            window.isInChat = false; // ✅ 对方离开标记空闲
             sy("❌ 对方已离开");
             return;
         }
@@ -543,35 +361,20 @@ function initSocket() {
             document.getElementById("chat").innerHTML = "";
             return;
         }
-        // 【新增】后端返回匹配错误（正在聊天），前端同步锁死
-        if (j.type === "match_error") {
-            showSystemTip(j.msg);
-            return;
-        }
     };
-    // 优化：断连重连+触发引导
     socket.onclose = () => {
-        console.log("❌ 连接断开，" + currentReconnectDelay/1000 + "秒后重连");
         disconnectCount++;
-        // 连续断连2次，弹引导
-        if (disconnectCount >= 2) {
-            showGuideModal(true);
-        }
-        // 指数退避重连
+        if (disconnectCount >= 2) showGuideModal(true);
         currentReconnectDelay = Math.min(currentReconnectDelay * 1.5, MAX_RECONNECT_DELAY);
         reconnectTimer = setTimeout(() => {
-            if (userId && (!socket || socket.readyState !== WebSocket.OPEN)) {
-                initSocket();
-            }
+            if (userId && (!socket || socket.readyState !== WebSocket.OPEN)) initSocket();
         }, currentReconnectDelay);
     };
-    socket.onerror = (err) => {
-        console.error("WebSocket错误：", err);
-    };
+    socket.onerror = (err) => { console.error("WebSocket错误：", err); };
     startHeartbeat();
 }
 
-// 原有心跳逻辑完全保留
+// 心跳保活
 function sendHeartbeatNow() {
   if (socket && socket.readyState === WebSocket.OPEN) {
     socket.send(JSON.stringify({ type: "HEARTBEAT" }));
@@ -581,16 +384,8 @@ function startHeartbeat() {
   if (heartbeatTimer) clearInterval(heartbeatTimer);
   heartbeatTimer = setInterval(sendHeartbeatNow, HEARTBEAT_INTERVAL);
 }
-document.addEventListener('visibilitychange', () => {
-  if (!socket) return;
-  if (!document.hidden) sendHeartbeatNow();
-});
-window.addEventListener('online', () => {
-  if (socket && socket.readyState !== WebSocket.OPEN) initSocket();
-  setTimeout(sendHeartbeatNow, 1000);
-});
 
-// 原有函数完全保留，一字未动
+// 加载昵称、开关
 async function loadLatestNick() {
   if (!userId) return;
   try {
@@ -615,53 +410,9 @@ function loadSwitches() {
     document.getElementById("read").checked = localStorage.getItem("switch_read") === "true";
 }
 
-// 优化：页面加载逻辑，新增自动识别
-window.onload = function() {
-  loadSwitches();
-  autoDetectUserEnv(); // 新增：页面加载自动识别环境
-  const savedUserId = localStorage.getItem("chat_user_id");
-  if (savedUserId) {
-    userId = savedUserId;
-    document.getElementById("login").style.display = "none";
-    document.getElementById("main").style.display = "flex";
-    loadLatestNick();
-    initSocket();
-    // 登录成功后5秒弹一次弱提醒
-    if (!localStorage.getItem("guide_shown")) {
-        setTimeout(() => showGuideModal(), 5000);
-    }
-  }
-  document.getElementById("t1").onclick = () => {
-    document.getElementById("t1").classList.add("active");
-    document.getElementById("t2").classList.remove("active");
-    document.getElementById("f1").style.display = "block";
-    document.getElementById("f2").style.display = "none";
-  };
-  document.getElementById("t2").onclick = () => {
-    document.getElementById("t2").classList.add("active");
-    document.getElementById("t1").classList.remove("active");
-    document.getElementById("f1").style.display = "none";
-    document.getElementById("f2").style.display = "block";
-  };
-  document.getElementById("loginBtn").onclick = L;
-  document.getElementById("regBtn").onclick = R;
-  document.getElementById("exit").onclick = logout;
-  document.getElementById("send").onclick = S;
-  document.getElementById("msg").onkeydown = (e) => { if (e.key === "Enter") S(); };
-  document.getElementById("galleryImage").onchange = (e) => sendMedia(e, "image");
-  document.getElementById("galleryVideo").onchange = (e) => sendMedia(e, "video");
-  document.getElementById("cameraPhoto").onchange = (e) => sendMedia(e, "image");
-  document.getElementById("cameraVideo").onchange = (e) => sendMedia(e, "video");
-};
-
-// 优化：匹配弹窗逻辑，新增连接异常触发引导
+// ========== 【核心修改2】匹配按钮逻辑（永久可用，点击强制断开聊天） ==========
 function showMatchModal(){
     if(!userId){alert("请先登录");return;}
-    // 【新增】前端拦截：正在聊天直接弹提示，不进弹窗
-    if (window.isInChat) {
-        showSystemTip("你正在聊天中，无法发起新匹配");
-        return;
-    }
     document.getElementById("matchModal").style.display = "flex";
 }
 function cancelMatch(){
@@ -671,28 +422,36 @@ function confirmMatch(){
     saveSwitches();
     document.getElementById("matchModal").style.display = "none";
 
+    // ✅ 核心：不管是不是在聊天，先强制断开！
+    if (window.isInChat) {
+        socket.send(JSON.stringify({ type: "partner-leave" }));
+        partnerId = "";
+        roomId = "";
+        document.getElementById("chat").innerHTML = "";
+        window.isInChat = false;
+    }
+
+    // ✅ 直接进匹配池，按钮永远可用！
     if (socket && socket.readyState === WebSocket.OPEN) {
         socket.send(JSON.stringify({ type: "match_reset" }));
         socket.send(JSON.stringify({ type: "match-chat" }));
         document.getElementById("match").textContent = "取消匹配";
         showSystemTip("正在匹配聊友...");
     } else {
-        showSystemTip("连接未就绪，开启后台无限制可彻底解决");
+        showSystemTip("连接未就绪");
         showGuideModal(true);
     }
 }
 
-// 原有媒体函数完全保留，一字未动
+// 发送媒体文件
 function openGalleryImage() { if (!partnerId) { alert("请先匹配"); return; } document.getElementById("galleryImage").click(); }
 function openGalleryVideo() { if (!partnerId) { alert("请先匹配"); return; } document.getElementById("galleryVideo").click(); }
 function openCamera() { if (!partnerId) { alert("请先匹配"); return; } document.getElementById("cameraPhoto").click(); }
 function openCameraVideo() { if (!partnerId) { alert("请先匹配"); return; } document.getElementById("cameraVideo").click(); }
 
-// 原有Base64发媒体逻辑完全保留，一字未动
 async function sendMedia(e, type) {
   const file = e.target.files[0];
   if (!file) { e.target.value = ""; return; }
-
   const reader = new FileReader();
   reader.onload = function() {
     const base64Data = reader.result;
@@ -715,7 +474,7 @@ async function sendMedia(e, type) {
   e.target.value = "";
 }
 
-// 原有函数完全保留，一字未动
+// 退出登录
 function logout() {
   if (heartbeatTimer) clearInterval(heartbeatTimer);
   clearTimeout(reconnectTimer);
@@ -724,15 +483,21 @@ function logout() {
   localStorage.removeItem("chat_nickname");
   location.reload();
 }
+
+// 提示音
 function b() {
   try { let x = new AudioContext(); let o = x.createOscillator(); let g = x.createGain(); o.type = "sine"; o.frequency.value = 660; g.gain.value = 0.3; o.connect(g); g.connect(x.destination); o.start(); o.stop(x.currentTime + 0.18); } catch (e) {}
 }
+
+// 系统消息
 function sy(text) {
   let c = document.getElementById("chat");
   let tip = document.createElement("div");
   tip.style.textAlign = "center"; tip.style.color = "#999"; tip.style.fontSize = "15px"; tip.style.margin = "10px 0";
   tip.textContent = text; c.appendChild(tip); c.scrollTop = c.scrollHeight;
 }
+
+// 添加消息
 function aM(who, text, burn = false, msgId = "", type = "text", url = "") {
   const c = document.getElementById("chat");
   const g = document.createElement("div");
@@ -740,27 +505,26 @@ function aM(who, text, burn = false, msgId = "", type = "text", url = "") {
   if (msgId) g.dataset.id = msgId;
   if (type === "image") {
     const img = document.createElement("img"); img.src = url; img.className = "media-img";
-    img.onerror = function () { img.style.border = "1px solid red"; img.alt = "加载失败"; };
     img.onclick = function () {
       const preview = document.getElementById("fullPreview");
       const fullMedia = document.getElementById("fullMedia");
       const fullVideo = document.getElementById("fullVideo");
       fullMedia.style.display = "block"; fullVideo.style.display = "none"; fullMedia.src = url;
-      preview.style.display = "flex"; document.getElementById("saveBtn").style.display = "block"; document.getElementById("saveBtn").innerText = "保存图片";
+      preview.style.display = "flex"; document.getElementById("saveBtn").style.display = "block";
     };
     g.appendChild(img);
   } else if (type === "video") {
-    const video = document.createElement("video"); video.src = url; video.className = "media-video"; video.controls = true; video.playsInline = true;
+    const video = document.createElement("video"); video.src = url; video.className = "media-video"; video.controls = true;
     video.onclick = function () {
       const preview = document.getElementById("fullPreview");
       const fullMedia = document.getElementById("fullMedia");
       const fullVideo = document.getElementById("fullVideo");
       fullMedia.style.display = "none"; fullVideo.style.display = "block"; fullVideo.src = url;
-      preview.style.display = "flex"; document.getElementById("saveBtn").style.display = "block"; document.getElementById("saveBtn").innerText = "保存视频";
+      preview.style.display = "flex"; document.getElementById("saveBtn").style.display = "block";
     };
     g.appendChild(video);
   } else {
-    const textDiv = document.createElement("div"); textDiv.className = "msg-text"; textDiv.textContent = text; g.appendChild(textDiv);
+    const textDiv = document.createElement("div"); textDiv.textContent = text; g.appendChild(textDiv);
   }
   if (who === "我") { const readTag = document.createElement("div"); readTag.className = "read"; readTag.textContent = "未读"; g.appendChild(readTag); }
   if (burn) {
@@ -774,7 +538,7 @@ function aM(who, text, burn = false, msgId = "", type = "text", url = "") {
   c.appendChild(g); c.scrollTop = c.scrollHeight;
 }
 
-// 原有登录注册逻辑完全保留，一字未动
+// 登录注册
 async function L() {
   let u = document.getElementById("u1").value.trim();
   let p = document.getElementById("p1").value.trim();
@@ -821,22 +585,18 @@ function R() {
   });
 }
 
-// 优化：发消息逻辑，新增发送失败触发引导，原有功能完全保留
+// 发送消息
 function S() {
   let t = document.getElementById("msg").value.trim();
   if (!t || !partnerId) { alert("请先匹配"); return; }
   let msgId = Date.now() + "";
   let burn = document.getElementById("burn").checked;
   let showText = nickName + "：" + t;
-
-  // 连接异常触发引导
   if (!socket || socket.readyState !== WebSocket.OPEN) {
-    showSystemTip("消息发送失败，开启后台无限制可彻底解决");
+    showSystemTip("消息发送失败");
     showGuideModal(true);
     return;
   }
-
-  // 原有发送逻辑完全保留
   socket.send(JSON.stringify({
     type: "send-msg",
     content: showText,
@@ -851,7 +611,7 @@ function S() {
   document.getElementById("msg").value = "";
 }
 
-// 原有函数完全保留，一字未动
+// 修改昵称
 function oM() { document.getElementById("modal").style.display = "flex"; }
 function cM() { document.getElementById("modal").style.display = "none"; }
 async function sN() {
@@ -877,18 +637,81 @@ async function sN() {
     alert("❌ 修改失败，网络异常");
   }
 }
+
+// 清空聊天记录
 function clearChat(){ 
   if (socket && socket.readyState === WebSocket.OPEN) {
     socket.send(JSON.stringify({ type: "clear-chat" }));
   }
-  document.getElementById("chat").innerHTML = ""; 
+  document.getElementById("chat").innerHTML = "";
 }
+
+// 图片预览关闭
 document.getElementById("fullPreview").onclick = function(e) {
-  this.style.display = "none";
-  document.getElementById("fullVideo").pause();
+  if(e.target === this){
+    this.style.display = "none";
+    document.getElementById("fullVideo").pause();
+  }
 };
+// 保存图片/视频
 document.getElementById("saveBtn").onclick = function() {
   const media = document.getElementById("fullMedia");
   const video = document.getElementById("fullVideo");
   if (media.style.display !== "none") {
     const a = document.createElement("a");
+    a.href = media.src;
+    a.download = "摸鱼基地_图片_" + Date.now() + ".png";
+    document.body.appendChild(a);
+    a.click();
+    document.body.removeChild(a);
+  } else {
+    const a = document.createElement("a");
+    a.href = video.src;
+    a.download = "摸鱼基地_视频_" + Date.now() + ".mp4";
+    document.body.appendChild(a);
+    a.click();
+    document.body.removeChild(a);
+  }
+  alert("✅ 已保存到手机！");
+};
+
+// 页面加载初始化
+window.onload = function() {
+  loadSwitches();
+  autoDetectUserEnv();
+  const savedUserId = localStorage.getItem("chat_user_id");
+  if (savedUserId) {
+    userId = savedUserId;
+    document.getElementById("login").style.display = "none";
+    document.getElementById("main").style.display = "flex";
+    loadLatestNick();
+    initSocket();
+    if (!localStorage.getItem("guide_shown")) {
+        setTimeout(() => showGuideModal(), 5000);
+    }
+  }
+  document.getElementById("t1").onclick = () => {
+    document.getElementById("t1").classList.add("active");
+    document.getElementById("t2").classList.remove("active");
+    document.getElementById("f1").style.display = "block";
+    document.getElementById("f2").style.display = "none";
+  };
+  document.getElementById("t2").onclick = () => {
+    document.getElementById("t2").classList.add("active");
+    document.getElementById("t1").classList.remove("active");
+    document.getElementById("f1").style.display = "none";
+    document.getElementById("f2").style.display = "block";
+  };
+  document.getElementById("loginBtn").onclick = L;
+  document.getElementById("regBtn").onclick = R;
+  document.getElementById("exit").onclick = logout;
+  document.getElementById("send").onclick = S;
+  document.getElementById("msg").onkeydown = (e) => { if (e.key === "Enter") S(); };
+  document.getElementById("galleryImage").onchange = (e) => sendMedia(e, "image");
+  document.getElementById("galleryVideo").onchange = (e) => sendMedia(e, "video");
+  document.getElementById("cameraPhoto").onchange = (e) => sendMedia(e, "image");
+  document.getElementById("cameraVideo").onchange = (e) => sendMedia(e, "video");
+};
+</script>
+</body>
+</html>
