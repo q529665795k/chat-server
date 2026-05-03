@@ -1,4 +1,4 @@
- <!DOCTYPE html>
+<!DOCTYPE html>
 <html lang="zh-CN">
 <head>
 <meta charset="UTF-8">
@@ -451,6 +451,8 @@ let mState = false;
 let heartbeatTimer = null;
 let hasOnline = false;
 const HEARTBEAT_INTERVAL = 30000;
+// 【修改1】新增：前端状态锁（和后端同步）
+let window.isInChat = false;
 // 新增：重连间隔配置
 const MIN_RECONNECT_DELAY = 3000;
 const MAX_RECONNECT_DELAY = 30000;
@@ -509,6 +511,8 @@ function initSocket() {
             partnerId = j.partnerId;
             roomId = j.roomId;
             document.getElementById("match").textContent = "取消匹配";
+            // 【修改2】匹配成功 → 前端打标记
+            window.isInChat = true;
             sy("✅ 匹配成功：" + j.partnerName);
             return;
         }
@@ -517,6 +521,8 @@ function initSocket() {
             partnerId = "";
             roomId = "";
             document.getElementById("match").textContent = "匹配聊天";
+            // 【修改3】退出聊天 → 前端清空标记
+            window.isInChat = false;
             sy("❌ 对方已离开");
             return;
         }
@@ -535,6 +541,11 @@ function initSocket() {
         }
         if (j.type === "clear-chat-record") {
             document.getElementById("chat").innerHTML = "";
+            return;
+        }
+        // 【新增】后端返回匹配错误（正在聊天），前端同步锁死
+        if (j.type === "match_error") {
+            showSystemTip(j.msg);
             return;
         }
     };
@@ -646,6 +657,11 @@ window.onload = function() {
 // 优化：匹配弹窗逻辑，新增连接异常触发引导
 function showMatchModal(){
     if(!userId){alert("请先登录");return;}
+    // 【新增】前端拦截：正在聊天直接弹提示，不进弹窗
+    if (window.isInChat) {
+        showSystemTip("你正在聊天中，无法发起新匹配");
+        return;
+    }
     document.getElementById("matchModal").style.display = "flex";
 }
 function cancelMatch(){
@@ -876,16 +892,3 @@ document.getElementById("saveBtn").onclick = function() {
   const video = document.getElementById("fullVideo");
   if (media.style.display !== "none") {
     const a = document.createElement("a");
-    a.href = media.src;
-    a.download = "摸鱼基地图片_" + Date.now();
-    a.click();
-  } else {
-    const a = document.createElement("a");
-    a.href = video.src;
-    a.download = "摸鱼基地视频_" + Date.now();
-    a.click();
-  }
-};
-</script>
-</body>
-</html>
