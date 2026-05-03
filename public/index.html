@@ -415,30 +415,27 @@ function confirmMatch(){
     saveSwitches();
     document.getElementById("matchModal").style.display = "none";
 
-    // 🔑 第一步：前端强制清空所有状态
+    // 🔑 第一步：前端强制清空所有聊天/匹配状态（必须先清）
     window.isInChat = false;
     partnerId = "";
     roomId = "";
     mState = false;
     document.getElementById("chat").innerHTML = "";
 
-    // 🔑 第二步：连续给后端发3条指令，强制后端清空你的所有状态
+    // 🔑 第二步：只发后端能识别、不冲突的2条核心指令（不多发、不乱发）
     if (socket && socket.readyState === WebSocket.OPEN) {
-        // 1. 告诉后端：我要离开当前房间
+        // 1. 核心：告诉后端 → 我退出房间、清空所有状态（后端必响应）
         socket.send(JSON.stringify({ type: "partner-leave" }));
-        // 2. 告诉后端：我要彻底取消本次匹配
-        socket.send(JSON.stringify({ type: "match_cancel" }));
-        // 3. 告诉后端：重置我的匹配状态，我要重新排队
-        socket.send(JSON.stringify({ type: "match_reset" }));
-        // 4. 最后：重新进入真人匹配池
+        // 2. 核心：告诉后端 → 我现在是空闲，重新进真人匹配池（后端必响应）
         socket.send(JSON.stringify({ type: "match-chat" }));
 
         document.getElementById("match").textContent = "取消匹配";
-        showSystemTip("✅ 已清空状态，重新匹配真人聊友...");
+        showSystemTip("正在匹配真人聊友...");
     } else {
-        showSystemTip("❌ 连接断开，请等待重连");
+        showSystemTip("❌ 连接未就绪，等待重连");
     }
 }
+
 
 
 // 发送媒体文件
