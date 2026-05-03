@@ -155,23 +155,10 @@ body{display:flex;flex-direction:column}
 <input type="file" id="galleryVideo" accept="video/*" hidden>
 <input type="file" id="cameraPhoto" accept="image/*" capture="camera" hidden>
 <input type="file" id="cameraVideo" accept="video/*" capture="camera" hidden>
-
 <script>
-// ========== 补丁4：超级全浏览器兼容（最强版） ==========
-(function mobileBrowserFix() {
-  document.documentElement.style.touchAction = "manipulation";
-  document.body.style.touchAction = "manipulation";
-  window.addEventListener("touchstart", function () {}, { passive: true });
-  window.addEventListener("touchmove", function () {}, { passive: true });
-  window.addEventListener("touchend", function () {}, { passive: true });
-  window.WebSocket = window.WebSocket || window.MozWebSocket || window.webkitWebSocket;
-  try { new URL("https://test.com"); } catch (e) { window.URL = window.URL || window.webkitURL; }
-  setInterval(function () {}, 2500);
-})();
-
 // ===================== 仅需修改这里的后端地址，其他全不用动 =====================
-const BASE_URL = "https://api.im6.qzz.io";
-const WS_PATH = BASE_URL.replace("https://", "wss://").replace("http://", "ws:");
+const BASE_URL = "https://api.im6.qzz.io"; // 你的后端Worker绑定的子域名
+const WS_PATH = BASE_URL + "/ws";
 // ==============================================================================
 
 let socket = null;
@@ -182,7 +169,7 @@ let roomId = "";
 let mState = false;
 let heartbeatTimer = null;
 let hasOnline = false;
-const HEARTBEAT_INTERVAL = 1500;
+const HEARTBEAT_INTERVAL = 30000;
 
 function showSystemTip(text) {
     const tip = document.getElementById("systemTip");
@@ -194,73 +181,77 @@ function updateOnlineCount(count) {
     document.getElementById("onlineCount").textContent = `在线：${count}`;
 }
 
-// ========== 补丁1：WebSocket自动重连（防断连） ==========
 function initSocket() {
-  if (socket && socket.readyState === WebSocket.OPEN) return;
-  
-  socket = new WebSocket(WS_PATH);
-  
-  socket.onopen = () => {
-    console.log("✅ WebSocket已连接");
-    sendHeartbeatNow();
-    if (!hasOnline && userId) {
-      socket.send(JSON.stringify({
-        type: "user-online",
-        username: userId,
-        nickname: nickName || userId
-      }));
-      hasOnline = true;
-    }
-  };
-
-  socket.onmessage = (e) => {
-    const j = JSON.parse(e.data);
-    if (j.type === "system_tip") { showSystemTip(j.text); return; }
-    if (j.type === "online_update") { updateOnlineCount(j.count); return; }
-    if (j.type === "HEARTBEAT-ACK") return;
-    if (j.type === "match-found") {
-      mState = true; partnerId = j.partnerId; roomId = j.roomId;
-      document.getElementById("match").textContent = "取消匹配";
-      sy("✅ 匹配成功：" + j.partnerName);
-      return;
-    }
-    if (j.type === "partner-leave") {
-      mState = false; partnerId = ""; roomId = "";
-      document.getElementById("match").textContent = "匹配聊天";
-      sy("❌ 对方已离开");
-      return;
-    }
-    if (j.type === "new-msg") {
-      aM(j.fromName, j.content, j.burn, j.msgId, j.msgType, j.content);
-      if (document.getElementById("sound").checked) b();
-      if (document.getElementById("read").checked) {
-        socket.send(JSON.stringify({ type: "msg-read", msgId: j.msgId }));
-      }
-      return;
-    }
-    if (j.type === "msg-read") {
-      let ele = document.querySelector(`.msg[data-id="${j.msgId}"] .read`);
-      if (ele) ele.textContent = "已读";
-      return;
-    }
-    if (j.type === "clear-chat-record") {
-      document.getElementById("chat").innerHTML = "";
-      return;
-    }
-  };
-
-  socket.onclose = () => {
-    console.log("❌ 断开，2秒后重连");
-    setTimeout(initSocket, 2000);
-  };
-
-  socket.onerror = (err) => {
-    console.error("WS错误", err);
-    setTimeout(initSocket, 2000);
-  };
+    socket = new WebSocket(WS_PATH);
+    socket.onopen = () => {
+        sendHeartbeatNow();
+        if (!hasOnline && userId) {
+            socket.send(JSON.stringify({
+                type: "user-online",
+                username: userId,
+                nickname: nickName || userId
+            }));
+            hasOnline = true;
+        }
+    };
+    socket.onmessage = (e) => {
+        const j = JSON.parse(e.data);
+        if (j.type === "system_tip") {
+            showSystemTip(j.text);
+            return;
+        }
+        if (j.type === "online_update") {
+            updateOnlineCount(j.count);
+            return;
+        }
+        if (j.type === "HEARTBEAT-ACK") return;
+        if (j.type === "match-found") {
+            mState = true;
+            partnerId = j.partnerId;
+            roomId = j.roomId;
+            document.getElementById("match").textContent = "取消匹配";
+            sy("✅ 匹配成功：" + j.partnerName);
+            return;
+        }
+        if (j.type === "partner-leave") {
+            mState = false;
+            partnerId = "";
+            roomId = "";
+            document.getElementById("match").textContent = "匹配聊天";
+            sy("❌ 对方已离开");
+            return;
+        }
+        if (j.type === "new-msg") {
+            aM(j.fromName, j.content, j.burn, j.msgId, j.msgType, j.content);
+            if (document.getElementById("sound").checked) b();
+            if (document.getElementById("read").checked) {
+                socket.send(JSON.stringify({ type: "msg-read", msgId: j.msgId }));
+            }
+            return;
+        }
+        if (j.type === "msg-read") {
+            let ele = document.querySelector(`.msg[data-id="${j.msgId}"] .read`);
+            if (ele) ele.textContent = "已读";
+            return;
+        }
+        if (j.type === "clear-chat-record") {
+            document.getElementById("chat").innerHTML = "";
+            return;
+        }
+    };
+    socket.onclose = () => {
+        setTimeout(() => {
+            if (userId && !socket || socket.readyState !== WebSocket.OPEN) {
+                initSocket();
+            }
+        }, 3000);
+    };
+    socket.onerror = (err) => {
+        console.error("WebSocket错误：", err);
+    };
+    startHeartbeat();
 }
 
-// ========== 补丁3：超强心跳（防被踢） ==========
 function sendHeartbeatNow() {
   if (socket && socket.readyState === WebSocket.OPEN) {
     socket.send(JSON.stringify({ type: "HEARTBEAT" }));
@@ -270,16 +261,12 @@ function startHeartbeat() {
   if (heartbeatTimer) clearInterval(heartbeatTimer);
   heartbeatTimer = setInterval(sendHeartbeatNow, HEARTBEAT_INTERVAL);
 }
-
-// ========== 补丁2：页面切回重连、保活 ==========
 document.addEventListener('visibilitychange', () => {
-  if (!document.hidden) {
-    if (!socket || socket.readyState !== WebSocket.OPEN) initSocket();
-    sendHeartbeatNow();
-  }
+  if (!socket) return;
+  if (!document.hidden) sendHeartbeatNow();
 });
 window.addEventListener('online', () => {
-  initSocket();
+  if (socket && socket.readyState !== WebSocket.OPEN) initSocket();
   setTimeout(sendHeartbeatNow, 1000);
 });
 
@@ -316,7 +303,6 @@ window.onload = function() {
     document.getElementById("main").style.display = "flex";
     loadLatestNick();
     initSocket();
-    startHeartbeat();
   }
   document.getElementById("t1").onclick = () => {
     document.getElementById("t1").classList.add("active");
@@ -345,13 +331,19 @@ function showMatchModal(){
     if(!userId){alert("请先登录");return;}
     document.getElementById("matchModal").style.display = "flex";
 }
-function cancelMatch(){ document.getElementById("matchModal").style.display = "none"; }
+
+function cancelMatch(){
+    document.getElementById("matchModal").style.display = "none";
+}
+
 function confirmMatch(){
     saveSwitches();
     document.getElementById("matchModal").style.display = "none";
+
     if (socket && socket.readyState === WebSocket.OPEN) {
         socket.send(JSON.stringify({ type: "match_reset" }));
         socket.send(JSON.stringify({ type: "match-chat" }));
+        
         document.getElementById("match").textContent = "取消匹配";
         showSystemTip("正在匹配聊友...");
     }
@@ -362,31 +354,40 @@ function openGalleryVideo() { if (!partnerId) { alert("请先匹配"); return; }
 function openCamera() { if (!partnerId) { alert("请先匹配"); return; } document.getElementById("cameraPhoto").click(); }
 function openCameraVideo() { if (!partnerId) { alert("请先匹配"); return; } document.getElementById("cameraVideo").click(); }
 
-// ========== Base64发图/视频（不走接口，不扣次数） ==========
 async function sendMedia(e, type) {
   const file = e.target.files[0];
   if (!file) { e.target.value = ""; return; }
+
+  // 本地转 Base64，不上传服务器！
   const reader = new FileReader();
   reader.onload = function() {
-    const base64Data = reader.result;
+    const base64Data = reader.result; // 这就是 Base64
+
     if (partnerId) {
       const msgId = Date.now() + "";
       const burn = document.getElementById("burn").checked;
+
+      // ✅ 直接走 WebSocket 发！不走 HTTP！不扣次数！
       socket.send(JSON.stringify({
         type: "send-msg",
-        content: base64Data,
+        content: base64Data,  // 直接发 Base64
         msgType: type,
         burn: burn,
         msgId: msgId,
         toId: partnerId,
         roomId: roomId
       }));
+
+      // 本地显示
       aM("我", "", burn, msgId, type, base64Data);
     }
   };
+
+  // 转 Base64
   reader.readAsDataURL(file);
   e.target.value = "";
 }
+
 
 function logout() {
   if (heartbeatTimer) clearInterval(heartbeatTimer);
