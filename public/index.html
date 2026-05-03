@@ -570,14 +570,26 @@ function startHeartbeat() {
   if (heartbeatTimer) clearInterval(heartbeatTimer);
   heartbeatTimer = setInterval(sendHeartbeatNow, HEARTBEAT_INTERVAL);
 }
+// 【省电模式专属】锁屏/切后台回来，自动校准状态，不锁死
 document.addEventListener('visibilitychange', () => {
-  if (!socket) return;
-  if (!document.hidden) sendHeartbeatNow();
+  // 切回前台（JS从省电冻结里解冻）
+  if (!document.hidden) {
+    sendHeartbeatNow();
+    // 断了就立刻重连
+    if (!socket || socket.readyState !== WebSocket.OPEN) {
+      currentReconnectDelay = MIN_RECONNECT_DELAY;
+      initSocket();
+    }
+    // ✅ 核心：按钮显示「取消匹配」但实际没房间 → 强制重置
+    if (document.getElementById("match").textContent === "取消匹配" && (!roomId || !partnerId)) {
+      mState = false;
+      partnerId = "";
+      roomId = "";
+      document.getElementById("match").textContent = "匹配聊天";
+    }
+  }
 });
-window.addEventListener('online', () => {
-  if (socket && socket.readyState !== WebSocket.OPEN) initSocket();
-  setTimeout(sendHeartbeatNow, 1000);
-});
+
 
 // 原有函数完全保留，一字未动
 async function loadLatestNick() {
