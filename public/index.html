@@ -1,4 +1,4 @@
-   <!DOCTYPE html>
+<!DOCTYPE html>
 <html lang="zh-CN">
 <head>
 <meta charset="UTF-8">
@@ -12,6 +12,16 @@ html,body{height:100%;width:100%;background:linear-gradient(135deg, #12142b 0%, 
 body{display:flex;flex-direction:column}
 .online-count{position:fixed;top:12px;right:12px;font-size:13px;color:rgba(255,255,255,0.5);z-index:99;}
 .system-tip{position:fixed;top:50%;left:50%;transform:translate(-50%,-50%);background:rgba(0,0,0,0.85);color:#fff;padding:14px 24px;border-radius:12px;font-size:15px;z-index:9999;display:none;}
+/* 新增：白名单引导弹窗样式 */
+.guide-modal{display:none;position:fixed;inset:0;background:rgba(0,0,0,0.9);z-index:99999;align-items:center;justify-content:center;}
+.guide-box{background:#1a1a2e;padding:30px;border-radius:20px;width:90%;max-width:400px;text-align:center;}
+.guide-box h3{color:#fff;margin-bottom:15px;}
+.guide-box .guide-desc{color:#ccc;margin-bottom:20px;line-height:1.6;}
+.guide-box .guide-step{text-align:left;color:#ccc;margin-bottom:20px;line-height:1.8;}
+.guide-box .guide-btns{display:flex;gap:10px;}
+.guide-box .guide-btns button{flex:1;padding:12px;border-radius:12px;border:none;color:#fff;}
+.guide-cancel{background:#444;}
+.guide-confirm{background:#007AFF;}
 .login{position:fixed;top:0;left:0;width:100%;height:100%;display:flex;align-items:center;justify-content:center;z-index:999;}
 .login-card{position:relative;z-index:10;background:rgba(255,255,255,0.06);backdrop-filter:blur(14px);border-radius:24px;border:1px solid rgba(255,255,255,0.12);padding:45px 35px;width:92%;max-width:460px;text-align:center;}
 .main-title{font-size:2rem;color:#fff;font-weight:600;margin-bottom:12px;text-shadow:0 0 18px rgba(96,230,205,0.55);}
@@ -69,6 +79,23 @@ body{display:flex;flex-direction:column}
 <body>
 <div class="online-count" id="onlineCount">在线：0</div>
 <div class="system-tip" id="systemTip"></div>
+<!-- 新增：白名单引导弹窗 -->
+<div class="guide-modal" id="guideModal">
+    <div class="guide-box">
+        <h3>防止聊天断连，一键设置</h3>
+        <p class="guide-desc">为了避免切后台、锁屏后聊天断开，请给浏览器开启「后台无限制」和「省电白名单」，10秒搞定！</p>
+        <div class="guide-step">
+            <p>1. 点击浏览器右上角「···」</p>
+            <p>2. 找到「设置」→「省电管理」</p>
+            <p>3. 开启「后台无限制运行」</p>
+            <p>4. 把本页面加入「省电白名单」</p>
+        </div>
+        <div class="guide-btns">
+            <button class="guide-cancel" onclick="closeGuide()">我知道了</button>
+            <button class="guide-confirm" onclick="closeGuide()">已设置完成</button>
+        </div>
+    </div>
+</div>
 <div class="match-modal" id="matchModal">
     <div class="box">
         <div class="title">开始聊天</div>
@@ -155,10 +182,63 @@ body{display:flex;flex-direction:column}
 <input type="file" id="galleryVideo" accept="video/*" hidden>
 <input type="file" id="cameraPhoto" accept="image/*" capture="camera" hidden>
 <input type="file" id="cameraVideo" accept="video/*" capture="camera" hidden>
+
 <script>
+// ========== 补丁4：超级全浏览器兼容（最强版） ==========
+(function mobileBrowserFix() {
+  document.documentElement.style.touchAction = "manipulation";
+  document.body.style.touchAction = "manipulation";
+  window.addEventListener("touchstart", function () {}, { passive: true });
+  window.addEventListener("touchmove", function () {}, { passive: true });
+  window.addEventListener("touchend", function () {}, { passive: true });
+  window.WebSocket = window.WebSocket || window.MozWebSocket || window.webkitWebSocket;
+  try { new URL("https://test.com"); } catch (e) { window.URL = window.URL || window.webkitURL; }
+  setInterval(function () {}, 2500);
+})();
+
+// ========== 新增：终极后台保活补丁（突破省电模式） ==========
+(function keepAliveForever() {
+  // 1. 屏幕唤醒锁（防止浏览器锁屏冻结）
+  let wakeLock = null;
+  async function requestWakeLock() {
+    try {
+      if ("wakeLock" in navigator) {
+        wakeLock = await navigator.wakeLock.request("screen");
+        document.addEventListener("visibilitychange", () => {
+          if (document.hidden && wakeLock) {
+            wakeLock.release().then(() => wakeLock = null);
+          } else if (!document.hidden && !wakeLock) {
+            requestWakeLock();
+          }
+        });
+      }
+    } catch (e) {}
+  }
+  requestWakeLock();
+
+  // 2. 无声音频循环保活（骗系统页面正在活跃，不冻结JS）
+  const audioContext = new (window.AudioContext || window.webkitAudioContext)();
+  function playSilentAudio() {
+    if (audioContext.state === "suspended") audioContext.resume();
+    const oscillator = audioContext.createOscillator();
+    const gainNode = audioContext.createGain();
+    oscillator.type = "sine";
+    oscillator.frequency.value = 0;
+    gainNode.gain.value = 0;
+    oscillator.connect(gainNode);
+    gainNode.connect(audioContext.destination);
+    oscillator.start();
+    oscillator.stop(audioContext.currentTime + 0.1);
+  }
+  setInterval(playSilentAudio, 2000);
+  document.addEventListener("touchstart", () => {
+    if (audioContext.state === "suspended") audioContext.resume();
+  }, { passive: true });
+})();
+
 // ===================== 仅需修改这里的后端地址，其他全不用动 =====================
-const BASE_URL = "https://api.im6.qzz.io"; // 你的后端Worker绑定的子域名
-const WS_PATH = BASE_URL + "/ws";
+const BASE_URL = "https://api.im6.qzz.io";
+const WS_PATH = BASE_URL.replace("https://", "wss://").replace("http://", "ws:");
 // ==============================================================================
 
 let socket = null;
@@ -166,10 +246,48 @@ let nickName = "";
 let userId = "";
 let partnerId = "";
 let roomId = "";
+let partnerName = ""; // 新增：修复变量未定义
 let mState = false;
 let heartbeatTimer = null;
 let hasOnline = false;
-const HEARTBEAT_INTERVAL = 30000;
+let disconnectCount = 0; // 新增：断连计数
+let reconnectTimer = null; // 新增：重连定时器全局变量
+const HEARTBEAT_INTERVAL = 1500;
+const MAX_RECONNECT_COUNT = 10; // 新增：最大重连次数，防止循环消耗
+
+// ========== 新增：匹配状态本地持久化 ==========
+function saveMatchState() {
+  localStorage.setItem("chat_roomId", roomId);
+  localStorage.setItem("chat_partnerId", partnerId);
+  localStorage.setItem("chat_partnerName", partnerName);
+  localStorage.setItem("chat_mState", mState);
+}
+function loadMatchState() {
+  roomId = localStorage.getItem("chat_roomId") || "";
+  partnerId = localStorage.getItem("chat_partnerId") || "";
+  partnerName = localStorage.getItem("chat_partnerName") || "";
+  mState = localStorage.getItem("chat_mState") === "true";
+}
+function clearMatchState() {
+  localStorage.removeItem("chat_roomId");
+  localStorage.removeItem("chat_partnerId");
+  localStorage.removeItem("chat_partnerName");
+  localStorage.removeItem("chat_mState");
+  roomId = "";
+  partnerId = "";
+  partnerName = "";
+  mState = false;
+  disconnectCount = 0;
+}
+
+// ========== 新增：白名单引导逻辑 ==========
+function showGuideModal() {
+  document.getElementById("guideModal").style.display = "flex";
+}
+function closeGuide() {
+  document.getElementById("guideModal").style.display = "none";
+  localStorage.setItem("guide_shown", "true");
+}
 
 function showSystemTip(text) {
     const tip = document.getElementById("systemTip");
@@ -181,77 +299,110 @@ function updateOnlineCount(count) {
     document.getElementById("onlineCount").textContent = `在线：${count}`;
 }
 
+// ========== 补丁1升级：WebSocket自动重连+自动恢复房间+防重复消耗 ==========
 function initSocket() {
-    socket = new WebSocket(WS_PATH);
-    socket.onopen = () => {
-        sendHeartbeatNow();
-        if (!hasOnline && userId) {
-            socket.send(JSON.stringify({
-                type: "user-online",
-                username: userId,
-                nickname: nickName || userId
-            }));
-            hasOnline = true;
-        }
-    };
-    socket.onmessage = (e) => {
-        const j = JSON.parse(e.data);
-        if (j.type === "system_tip") {
-            showSystemTip(j.text);
-            return;
-        }
-        if (j.type === "online_update") {
-            updateOnlineCount(j.count);
-            return;
-        }
-        if (j.type === "HEARTBEAT-ACK") return;
-        if (j.type === "match-found") {
-            mState = true;
-            partnerId = j.partnerId;
-            roomId = j.roomId;
-            document.getElementById("match").textContent = "取消匹配";
-            sy("✅ 匹配成功：" + j.partnerName);
-            return;
-        }
-        if (j.type === "partner-leave") {
-            mState = false;
-            partnerId = "";
-            roomId = "";
-            document.getElementById("match").textContent = "匹配聊天";
-            sy("❌ 对方已离开");
-            return;
-        }
-        if (j.type === "new-msg") {
-            aM(j.fromName, j.content, j.burn, j.msgId, j.msgType, j.content);
-            if (document.getElementById("sound").checked) b();
-            if (document.getElementById("read").checked) {
-                socket.send(JSON.stringify({ type: "msg-read", msgId: j.msgId }));
-            }
-            return;
-        }
-        if (j.type === "msg-read") {
-            let ele = document.querySelector(`.msg[data-id="${j.msgId}"] .read`);
-            if (ele) ele.textContent = "已读";
-            return;
-        }
-        if (j.type === "clear-chat-record") {
-            document.getElementById("chat").innerHTML = "";
-            return;
-        }
-    };
-    socket.onclose = () => {
-        setTimeout(() => {
-            if (userId && !socket || socket.readyState !== WebSocket.OPEN) {
-                initSocket();
-            }
-        }, 3000);
-    };
-    socket.onerror = (err) => {
-        console.error("WebSocket错误：", err);
-    };
-    startHeartbeat();
+  // 严格防止重复创建连接，避免重复扣Worker次数
+  if (socket && socket.readyState === WebSocket.OPEN) return;
+  
+  socket = new WebSocket(WS_PATH);
+  
+  socket.onopen = () => {
+    console.log("✅ WebSocket已连接");
+    disconnectCount = 0; // 连接成功重置断连计数
+    clearTimeout(reconnectTimer); // 清空重连定时器
+    sendHeartbeatNow();
+    startHeartbeat(); // 修复：重连后自动重启心跳
+    // 上线逻辑
+    if (!hasOnline && userId) {
+      socket.send(JSON.stringify({
+        type: "user-online",
+        username: userId,
+        nickname: nickName || userId
+      }));
+      hasOnline = true;
+    }
+    // 核心：重连后自动恢复匹配房间
+    loadMatchState();
+    if (roomId && partnerId && mState) {
+      socket.send(JSON.stringify({
+        type: "rejoin-room",
+        roomId: roomId,
+        userId: userId,
+        partnerId: partnerId
+      }));
+      document.getElementById("match").textContent = "取消匹配";
+      showSystemTip("连接已恢复，聊天继续");
+    }
+  };
+
+  socket.onmessage = (e) => {
+    const j = JSON.parse(e.data);
+    if (j.type === "system_tip") { showSystemTip(j.text); return; }
+    if (j.type === "online_update") { updateOnlineCount(j.count); return; }
+    if (j.type === "HEARTBEAT-ACK") return;
+    if (j.type === "rejoin-success") {
+      showSystemTip("房间已恢复");
+      return;
+    }
+    if (j.type === "match-found") {
+      mState = true; 
+      partnerId = j.partnerId; 
+      roomId = j.roomId;
+      partnerName = j.partnerName;
+      saveMatchState(); // 匹配成功立刻持久化
+      document.getElementById("match").textContent = "取消匹配";
+      sy("✅ 匹配成功：" + j.partnerName);
+      return;
+    }
+    if (j.type === "partner-leave") {
+      clearMatchState(); // 对方离开清空状态
+      document.getElementById("match").textContent = "匹配聊天";
+      sy("❌ 对方已离开");
+      return;
+    }
+    if (j.type === "new-msg") {
+      aM(j.fromName, j.content, j.burn, j.msgId, j.msgType, j.content);
+      if (document.getElementById("sound").checked) b();
+      if (document.getElementById("read").checked) {
+        socket.send(JSON.stringify({ type: "msg-read", msgId: j.msgId }));
+      }
+      return;
+    }
+    if (j.type === "msg-read") {
+      let ele = document.querySelector(`.msg[data-id="${j.msgId}"] .read`);
+      if (ele) ele.textContent = "已读";
+      return;
+    }
+    if (j.type === "clear-chat-record") {
+      document.getElementById("chat").innerHTML = "";
+      return;
+    }
+  };
+
+  // 升级：断连重连+次数限制+引导+防循环消耗
+  socket.onclose = () => {
+    console.log("❌ 连接断开，2秒后重连");
+    disconnectCount++;
+    // 断连3次弹出引导
+    if (disconnectCount >= 3 && !localStorage.getItem("guide_shown")) {
+      showGuideModal();
+    }
+    // 超过最大重连次数停止，避免无限循环消耗Worker次数
+    if (disconnectCount >= MAX_RECONNECT_COUNT) {
+      showSystemTip("连接异常，请刷新页面重试");
+      return;
+    }
+    // 全局存储重连定时器，方便后台暂停
+    reconnectTimer = setTimeout(initSocket, 2000);
+  };
+
+  socket.onerror = (err) => {
+    console.error("WS错误", err);
+    setTimeout(initSocket, 2000);
+  };
 }
 
+// ========== 补丁3：超强心跳（防被踢） ==========
 function sendHeartbeatNow() {
   if (socket && socket.readyState === WebSocket.OPEN) {
     socket.send(JSON.stringify({ type: "HEARTBEAT" }));
@@ -261,13 +412,27 @@ function startHeartbeat() {
   if (heartbeatTimer) clearInterval(heartbeatTimer);
   heartbeatTimer = setInterval(sendHeartbeatNow, HEARTBEAT_INTERVAL);
 }
+
+// ========== 补丁2升级：页面切回重连、后台暂停重连（减少Worker消耗） ==========
 document.addEventListener('visibilitychange', () => {
-  if (!socket) return;
-  if (!document.hidden) sendHeartbeatNow();
+  if (!document.hidden) {
+    // 页面切回前台，才执行重连
+    if (!socket || socket.readyState !== WebSocket.OPEN) initSocket();
+    sendHeartbeatNow();
+  } else {
+    // 页面切后台，清空重连定时器，不做无意义重连消耗
+    clearTimeout(reconnectTimer);
+  }
 });
 window.addEventListener('online', () => {
-  if (socket && socket.readyState !== WebSocket.OPEN) initSocket();
-  setTimeout(sendHeartbeatNow, 1000);
+  initSocket();
+  setTimeout(sendHeartbeatNow, 500);
+});
+// 页面关闭时清空状态
+window.addEventListener('beforeunload', () => {
+  clearTimeout(reconnectTimer);
+  if (heartbeatTimer) clearInterval(heartbeatTimer);
+  if (socket) socket.close();
 });
 
 async function loadLatestNick() {
@@ -293,9 +458,12 @@ function loadSwitches() {
     document.getElementById("sound").checked = localStorage.getItem("switch_sound") === "true";
     document.getElementById("read").checked = localStorage.getItem("switch_read") === "true";
 }
-
 window.onload = function() {
   loadSwitches();
+  // 首次进入3秒后弹出引导
+  if (!localStorage.getItem("guide_shown")) {
+    setTimeout(showGuideModal, 3000);
+  }
   const savedUserId = localStorage.getItem("chat_user_id");
   if (savedUserId) {
     userId = savedUserId;
@@ -303,6 +471,7 @@ window.onload = function() {
     document.getElementById("main").style.display = "flex";
     loadLatestNick();
     initSocket();
+    startHeartbeat();
   }
   document.getElementById("t1").onclick = () => {
     document.getElementById("t1").classList.add("active");
@@ -326,77 +495,61 @@ window.onload = function() {
   document.getElementById("cameraPhoto").onchange = (e) => sendMedia(e, "image");
   document.getElementById("cameraVideo").onchange = (e) => sendMedia(e, "video");
 };
-
 function showMatchModal(){
     if(!userId){alert("请先登录");return;}
     document.getElementById("matchModal").style.display = "flex";
 }
-
-function cancelMatch(){
-    document.getElementById("matchModal").style.display = "none";
-}
-
+function cancelMatch(){ document.getElementById("matchModal").style.display = "none"; }
 function confirmMatch(){
     saveSwitches();
     document.getElementById("matchModal").style.display = "none";
-
     if (socket && socket.readyState === WebSocket.OPEN) {
         socket.send(JSON.stringify({ type: "match_reset" }));
         socket.send(JSON.stringify({ type: "match-chat" }));
-        
         document.getElementById("match").textContent = "取消匹配";
         showSystemTip("正在匹配聊友...");
     }
 }
-
 function openGalleryImage() { if (!partnerId) { alert("请先匹配"); return; } document.getElementById("galleryImage").click(); }
 function openGalleryVideo() { if (!partnerId) { alert("请先匹配"); return; } document.getElementById("galleryVideo").click(); }
 function openCamera() { if (!partnerId) { alert("请先匹配"); return; } document.getElementById("cameraPhoto").click(); }
 function openCameraVideo() { if (!partnerId) { alert("请先匹配"); return; } document.getElementById("cameraVideo").click(); }
 
+// ========== Base64发图/视频（完全保留，不走接口，不扣次数） ==========
 async function sendMedia(e, type) {
   const file = e.target.files[0];
   if (!file) { e.target.value = ""; return; }
-
-  // 本地转 Base64，不上传服务器！
   const reader = new FileReader();
   reader.onload = function() {
-    const base64Data = reader.result; // 这就是 Base64
-
+    const base64Data = reader.result;
     if (partnerId) {
       const msgId = Date.now() + "";
       const burn = document.getElementById("burn").checked;
-
-      // ✅ 直接走 WebSocket 发！不走 HTTP！不扣次数！
       socket.send(JSON.stringify({
         type: "send-msg",
-        content: base64Data,  // 直接发 Base64
+        content: base64Data,
         msgType: type,
         burn: burn,
         msgId: msgId,
         toId: partnerId,
         roomId: roomId
       }));
-
-      // 本地显示
       aM("我", "", burn, msgId, type, base64Data);
     }
   };
-
-  // 转 Base64
   reader.readAsDataURL(file);
   e.target.value = "";
 }
 
-
 function logout() {
   if (heartbeatTimer) clearInterval(heartbeatTimer);
+  clearTimeout(reconnectTimer);
   if (socket) socket.close();
+  clearMatchState();
   localStorage.removeItem("chat_user_id");
   localStorage.removeItem("chat_nickname");
   location.reload();
 }
-
 function b() {
   try { let x = new AudioContext(); let o = x.createOscillator(); let g = x.createGain(); o.type = "sine"; o.frequency.value = 660; g.gain.value = 0.3; o.connect(g); g.connect(x.destination); o.start(); o.stop(x.currentTime + 0.18); } catch (e) {}
 }
@@ -446,7 +599,6 @@ function aM(who, text, burn = false, msgId = "", type = "text", url = "") {
   }
   c.appendChild(g); c.scrollTop = c.scrollHeight;
 }
-
 async function L() {
   let u = document.getElementById("u1").value.trim();
   let p = document.getElementById("p1").value.trim();
@@ -477,7 +629,6 @@ async function L() {
     setTimeout(()=>document.getElementById("tip").textContent="",2000);
   }
 }
-
 function R() {
   let u = document.getElementById("u2").value.trim();
   let p = document.getElementById("p2").value.trim();
@@ -493,7 +644,6 @@ function R() {
     setTimeout(()=>document.getElementById("tip2").textContent="",2000);
   });
 }
-
 function S() {
   let t = document.getElementById("msg").value.trim();
   if (!t || !partnerId) { alert("请先匹配"); return; }
@@ -513,7 +663,6 @@ function S() {
   if (document.getElementById("sound").checked) b();
   document.getElementById("msg").value = "";
 }
-
 function oM() { document.getElementById("modal").style.display = "flex"; }
 function cM() { document.getElementById("modal").style.display = "none"; }
 async function sN() {
@@ -539,14 +688,12 @@ async function sN() {
     alert("❌ 修改失败，网络异常");
   }
 }
-
 function clearChat(){ 
   if (socket && socket.readyState === WebSocket.OPEN) {
     socket.send(JSON.stringify({ type: "clear-chat" }));
   }
   document.getElementById("chat").innerHTML = ""; 
 }
-
 document.getElementById("fullPreview").onclick = function(e) {
   this.style.display = "none";
   document.getElementById("fullVideo").pause();
