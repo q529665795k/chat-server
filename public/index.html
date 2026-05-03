@@ -412,26 +412,29 @@ function loadSwitches() {
 
 // ========== 【核心修改2】匹配按钮逻辑（永久可用，点击强制断开聊天） ==========
 function confirmMatch(){
-    saveSwitches();
     document.getElementById("matchModal").style.display = "none";
 
-    // ========== 只做最必要的事，不多发一条多余指令 ==========
-    // 1. 前端强制断开，清空所有聊天标记
-    if (window.isInChat) {
+    // 1. 强制断开（AI/真人都直接断）
+    if (socket && socket.readyState === WebSocket.OPEN) {
         socket.send(JSON.stringify({ type: "partner-leave" }));
-        window.isInChat = false;
-        partnerId = "";
-        roomId = "";
-        document.getElementById("chat").innerHTML = "";
     }
 
-    // 2. 直接进匹配，不搞花里胡哨，后端绝对识别
-    if (socket && socket.readyState === WebSocket.OPEN) {
-        socket.send(JSON.stringify({ type: "match-chat" }));
-        document.getElementById("match").textContent = "取消匹配";
-        showSystemTip("正在匹配聊友...");
-    }
+    // 2. 前端强制清空所有状态
+    window.isInChat = false;
+    partnerId = "";
+    roomId = "";
+    document.getElementById("chat").innerHTML = "";
+
+    // 3. 马上重新匹配
+    setTimeout(() => {
+        if (socket && socket.readyState === WebSocket.OPEN) {
+            socket.send(JSON.stringify({ type: "match-chat" }));
+            document.getElementById("match").textContent = "取消匹配";
+            showSystemTip("正在匹配聊友...");
+        }
+    }, 150);
 }
+
 
 
 
