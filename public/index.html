@@ -357,31 +357,37 @@ function openCameraVideo() { if (!partnerId) { alert("请先匹配"); return; } 
 async function sendMedia(e, type) {
   const file = e.target.files[0];
   if (!file) { e.target.value = ""; return; }
-  const formData = new FormData();
-  formData.append("file", file);
-  try {
-    const res = await fetch(`${BASE_URL}/upload`, { method: "POST", body: formData });
 
-    const data = await res.json();
-    if (!data || !data.url) { alert("上传失败"); return; }
-    const url = data.url;
+  // 本地转 Base64，不上传服务器！
+  const reader = new FileReader();
+  reader.onload = function() {
+    const base64Data = reader.result; // 这就是 Base64
+
     if (partnerId) {
       const msgId = Date.now() + "";
       const burn = document.getElementById("burn").checked;
+
+      // ✅ 直接走 WebSocket 发！不走 HTTP！不扣次数！
       socket.send(JSON.stringify({
         type: "send-msg",
-        content: url,
+        content: base64Data,  // 直接发 Base64
         msgType: type,
         burn: burn,
         msgId: msgId,
         toId: partnerId,
         roomId: roomId
       }));
-      aM("我", "", burn, msgId, type, url);
+
+      // 本地显示
+      aM("我", "", burn, msgId, type, base64Data);
     }
-  } catch (err) { alert("上传失败"); }
+  };
+
+  // 转 Base64
+  reader.readAsDataURL(file);
   e.target.value = "";
 }
+
 
 function logout() {
   if (heartbeatTimer) clearInterval(heartbeatTimer);
