@@ -410,6 +410,59 @@ function loadSwitches() {
     document.getElementById("read").checked = localStorage.getItem("switch_read") === "true";
 }
 
+
+// 弹出匹配确认
+function showMatchModal(){
+  // 【关键判断】：如果正在匹配，直接取消，不弹框！
+  if(document.getElementById("match").innerText === "取消匹配"){
+    stopMatch();
+    return;
+  }
+  document.getElementById("matchModal").style.display = "flex";
+}
+
+// 取消弹窗
+function cancelMatch(){
+  document.getElementById("matchModal").style.display = "none";
+}
+
+// 确认开始匹配
+function confirmMatch(){
+  document.getElementById("matchModal").style.display = "none";
+
+  // 1. 前端清空所有聊天状态
+  window.isInChat = false;
+  partnerId = "";
+  roomId = "";
+  document.getElementById("chat").innerHTML = "";
+
+  // 2. 后端断开当前聊天
+  if(socket && socket.readyState === WebSocket.OPEN){
+    socket.send(JSON.stringify({type:"partner-leave"}));
+  }
+
+  // 3. 开始匹配
+  if(socket && socket.readyState === WebSocket.OPEN){
+    socket.send(JSON.stringify({type:"match-chat"}));
+    document.getElementById("match").innerText = "取消匹配";
+    showSystemTip("正在匹配...");
+  }
+}
+
+// 【新增】：停止匹配（就是你缺的这段！！！）
+function stopMatch(){
+  // 1. 前端恢复
+  document.getElementById("match").innerText = "匹配聊天";
+  
+  // 2. 后端取消排队
+  if(socket && socket.readyState === WebSocket.OPEN){
+    socket.send(JSON.stringify({type:"match_reset"}));
+  }
+
+  showSystemTip("已停止匹配");
+}
+
+    
 // ========== 【核心修改2】匹配按钮逻辑（永久可用，点击强制断开聊天） ==========
 function confirmMatch(){
     document.getElementById("matchModal").style.display = "none";
