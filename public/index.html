@@ -1,4 +1,4 @@
- <!DOCTYPE html>
+<!DOCTYPE html>
 <html lang="zh-CN">
 <head>
 <meta charset="UTF-8">
@@ -12,17 +12,6 @@ html,body{height:100%;width:100%;background:linear-gradient(135deg, #12142b 0%, 
 body{display:flex;flex-direction:column}
 .online-count{position:fixed;top:12px;right:12px;font-size:13px;color:rgba(255,255,255,0.5);z-index:99;}
 .system-tip{position:fixed;top:50%;left:50%;transform:translate(-50%,-50%);background:rgba(0,0,0,0.85);color:#fff;padding:14px 24px;border-radius:12px;font-size:15px;z-index:9999;display:none;}
-/* 新增：弱提示样式，不强制弹窗，不打断用户 */
-.weak-tip{position:fixed;top:60px;left:50%;transform:translateX(-50%);background:rgba(255,149,0,0.9);color:#fff;padding:8px 16px;border-radius:8px;font-size:13px;z-index:9998;display:none;}
-.guide-modal{display:none;position:fixed;inset:0;background:rgba(0,0,0,0.9);z-index:99999;align-items:center;justify-content:center;}
-.guide-box{background:#1a1a2e;padding:30px;border-radius:20px;width:90%;max-width:400px;text-align:center;}
-.guide-box h3{color:#fff;margin-bottom:15px;}
-.guide-box .guide-desc{color:#ccc;margin-bottom:20px;line-height:1.6;}
-.guide-box .guide-step{text-align:left;color:#ccc;margin-bottom:20px;line-height:1.8;}
-.guide-box .guide-btns{display:flex;gap:10px;}
-.guide-box .guide-btns button{flex:1;padding:12px;border-radius:12px;border:none;color:#fff;}
-.guide-cancel{background:#444;}
-.guide-confirm{background:#007AFF;}
 .login{position:fixed;top:0;left:0;width:100%;height:100%;display:flex;align-items:center;justify-content:center;z-index:999;}
 .login-card{position:relative;z-index:10;background:rgba(255,255,255,0.06);backdrop-filter:blur(14px);border-radius:24px;border:1px solid rgba(255,255,255,0.12);padding:45px 35px;width:92%;max-width:460px;text-align:center;}
 .main-title{font-size:2rem;color:#fff;font-weight:600;margin-bottom:12px;text-shadow:0 0 18px rgba(96,230,205,0.55);}
@@ -80,23 +69,6 @@ body{display:flex;flex-direction:column}
 <body>
 <div class="online-count" id="onlineCount">在线：0</div>
 <div class="system-tip" id="systemTip"></div>
-<div class="weak-tip" id="weakTip"></div>
-<div class="guide-modal" id="guideModal">
-    <div class="guide-box">
-        <h3>防止聊天断连，一键设置</h3>
-        <p class="guide-desc">为了避免切后台、锁屏后聊天断开，请给浏览器开启「后台无限制」和「省电白名单」，10秒搞定！</p>
-        <div class="guide-step">
-            <p>1. 点击浏览器右上角「···」</p>
-            <p>2. 找到「设置」→「省电管理」</p>
-            <p>3. 开启「后台无限制运行」</p>
-            <p>4. 把本页面加入「省电白名单」</p>
-        </div>
-        <div class="guide-btns">
-            <button class="guide-cancel" onclick="closeGuide()">我知道了</button>
-            <button class="guide-confirm" onclick="closeGuide()">已设置完成</button>
-        </div>
-    </div>
-</div>
 <div class="match-modal" id="matchModal">
     <div class="box">
         <div class="title">开始聊天</div>
@@ -197,59 +169,6 @@ body{display:flex;flex-direction:column}
   setInterval(function () {}, 2500);
 })();
 
-// ========== 升级：国产浏览器终极保活（防冻结） ==========
-(function keepAliveForever() {
-  // 1. 屏幕唤醒锁（防止锁屏冻结）
-  let wakeLock = null;
-  async function requestWakeLock() {
-    try {
-      if ("wakeLock" in navigator) {
-        wakeLock = await navigator.wakeLock.request("screen");
-        document.addEventListener("visibilitychange", () => {
-          if (document.hidden && wakeLock) {
-            wakeLock.release().then(() => wakeLock = null);
-          } else if (!document.hidden && !wakeLock) {
-            requestWakeLock();
-          }
-        });
-      }
-    } catch (e) {}
-  }
-  requestWakeLock();
-
-  // 2. 无声音频循环保活（骗系统页面活跃，国产浏览器专属）
-  const audioContext = new (window.AudioContext || window.webkitAudioContext)();
-  function playSilentAudio() {
-    if (audioContext.state === "suspended") audioContext.resume();
-    const oscillator = audioContext.createOscillator();
-    const gainNode = audioContext.createGain();
-    oscillator.type = "sine";
-    oscillator.frequency.value = 0;
-    gainNode.gain.value = 0;
-    oscillator.connect(gainNode);
-    gainNode.connect(audioContext.destination);
-    oscillator.start();
-    oscillator.stop(audioContext.currentTime + 0.1);
-  }
-  setInterval(playSilentAudio, 1500);
-  document.addEventListener("touchstart", () => {
-    if (audioContext.state === "suspended") audioContext.resume();
-  }, { passive: true });
-
-  // 3. 隐藏iframe保活（防止页面被浏览器回收）
-  const keepAliveIframe = document.createElement("iframe");
-  keepAliveIframe.src = "about:blank";
-  keepAliveIframe.style.width = "0";
-  keepAliveIframe.style.height = "0";
-  keepAliveIframe.style.border = "none";
-  keepAliveIframe.style.position = "absolute";
-  keepAliveIframe.style.left = "-9999px";
-  document.body.appendChild(keepAliveIframe);
-  setInterval(() => {
-    keepAliveIframe.contentWindow.location.href = "about:blank";
-  }, 3000);
-})();
-
 // ===================== 仅需修改这里的后端地址，其他全不用动 =====================
 const BASE_URL = "https://api.im6.qzz.io";
 const WS_PATH = BASE_URL.replace("https://", "wss://").replace("http://", "ws:");
@@ -260,92 +179,30 @@ let nickName = "";
 let userId = "";
 let partnerId = "";
 let roomId = "";
-let partnerName = "";
 let mState = false;
 let heartbeatTimer = null;
 let hasOnline = false;
-let disconnectCount = 0;
-let reconnectTimer = null;
-let lastTipTime = 0;
 const HEARTBEAT_INTERVAL = 1500;
-// 升级：指数退避重连，最小1秒，最大10秒，不会无限循环也不会停止
-const MIN_RECONNECT_DELAY = 1000;
-const MAX_RECONNECT_DELAY = 10000;
-let currentReconnectDelay = MIN_RECONNECT_DELAY;
 
-// ========== 匹配状态本地持久化 ==========
-function saveMatchState() {
-  localStorage.setItem("chat_roomId", roomId);
-  localStorage.setItem("chat_partnerId", partnerId);
-  localStorage.setItem("chat_partnerName", partnerName);
-  localStorage.setItem("chat_mState", mState);
-}
-function loadMatchState() {
-  roomId = localStorage.getItem("chat_roomId") || "";
-  partnerId = localStorage.getItem("chat_partnerId") || "";
-  partnerName = localStorage.getItem("chat_partnerName") || "";
-  mState = localStorage.getItem("chat_mState") === "true";
-}
-function clearMatchState() {
-  localStorage.removeItem("chat_roomId");
-  localStorage.removeItem("chat_partnerId");
-  localStorage.removeItem("chat_partnerName");
-  localStorage.removeItem("chat_mState");
-  roomId = "";
-  partnerId = "";
-  partnerName = "";
-  mState = false;
-  disconnectCount = 0;
-}
-
-// ========== 提示逻辑优化：弱提示不打断用户，不频繁弹 ==========
-function showSystemTip(text, isForce = false) {
-  const tip = document.getElementById("systemTip");
-  tip.textContent = text;
-  tip.style.display = "block";
-  setTimeout(() => tip.style.display = "none", isForce ? 5000 : 3000);
-}
-function showWeakTip(text) {
-  const now = Date.now();
-  // 30秒内最多弹一次弱提示，不频繁打扰
-  if (now - lastTipTime < 30000) return;
-  lastTipTime = now;
-  const tip = document.getElementById("weakTip");
-  tip.textContent = text;
-  tip.style.display = "block";
-  setTimeout(() => tip.style.display = "none", 3000);
+function showSystemTip(text) {
+    const tip = document.getElementById("systemTip");
+    tip.textContent = text;
+    tip.style.display = "block";
+    setTimeout(() => tip.style.display = "none", 3000);
 }
 function updateOnlineCount(count) {
-  document.getElementById("onlineCount").textContent = `在线：${count}`;
-}
-function showGuideModal() {
-  document.getElementById("guideModal").style.display = "flex";
-}
-function closeGuide() {
-  document.getElementById("guideModal").style.display = "none";
-  localStorage.setItem("guide_shown", "true");
+    document.getElementById("onlineCount").textContent = `在线：${count}`;
 }
 
-// ========== 升级：WebSocket自动重连+指数退避+永不停止 ==========
+// ========== 补丁1：WebSocket自动重连（防断连） ==========
 function initSocket() {
-  // 严格防止重复创建连接
   if (socket && socket.readyState === WebSocket.OPEN) return;
-  // 清空旧定时器
-  clearTimeout(reconnectTimer);
   
   socket = new WebSocket(WS_PATH);
-  // 强制设置WS超时，防止浏览器挂起连接
-  socket.binaryType = "arraybuffer";
   
   socket.onopen = () => {
     console.log("✅ WebSocket已连接");
-    // 连接成功重置所有重连状态
-    disconnectCount = 0;
-    currentReconnectDelay = MIN_RECONNECT_DELAY;
-    clearTimeout(reconnectTimer);
     sendHeartbeatNow();
-    startHeartbeat();
-    // 上线逻辑
     if (!hasOnline && userId) {
       socket.send(JSON.stringify({
         type: "user-online",
@@ -354,18 +211,6 @@ function initSocket() {
       }));
       hasOnline = true;
     }
-    // 重连后自动恢复房间
-    loadMatchState();
-    if (roomId && partnerId && mState) {
-      socket.send(JSON.stringify({
-        type: "rejoin-room",
-        roomId: roomId,
-        userId: userId,
-        partnerId: partnerId
-      }));
-      document.getElementById("match").textContent = "取消匹配";
-      showWeakTip("连接已恢复，聊天继续");
-    }
   };
 
   socket.onmessage = (e) => {
@@ -373,22 +218,14 @@ function initSocket() {
     if (j.type === "system_tip") { showSystemTip(j.text); return; }
     if (j.type === "online_update") { updateOnlineCount(j.count); return; }
     if (j.type === "HEARTBEAT-ACK") return;
-    if (j.type === "rejoin-success") {
-      showWeakTip("房间已恢复");
-      return;
-    }
     if (j.type === "match-found") {
-      mState = true; 
-      partnerId = j.partnerId; 
-      roomId = j.roomId;
-      partnerName = j.partnerName;
-      saveMatchState();
+      mState = true; partnerId = j.partnerId; roomId = j.roomId;
       document.getElementById("match").textContent = "取消匹配";
       sy("✅ 匹配成功：" + j.partnerName);
       return;
     }
     if (j.type === "partner-leave") {
-      clearMatchState();
+      mState = false; partnerId = ""; roomId = "";
       document.getElementById("match").textContent = "匹配聊天";
       sy("❌ 对方已离开");
       return;
@@ -412,29 +249,18 @@ function initSocket() {
     }
   };
 
-  // 升级：断连后指数退避重连，永不停止，不强制弹刷新
   socket.onclose = () => {
-    console.log("❌ 连接断开，" + currentReconnectDelay/1000 + "秒后重连");
-    disconnectCount++;
-    // 断连3次弹弱提示，5次弹引导
-    if (disconnectCount >= 3) {
-      showWeakTip("网络不稳定，正在自动重连...");
-    }
-    if (disconnectCount >= 5 && !localStorage.getItem("guide_shown")) {
-      showGuideModal();
-    }
-    // 指数退避，最大10秒
-    currentReconnectDelay = Math.min(currentReconnectDelay * 1.5, MAX_RECONNECT_DELAY);
-    // 永不停止重连，取消之前的10次限制
-    reconnectTimer = setTimeout(initSocket, currentReconnectDelay);
+    console.log("❌ 断开，2秒后重连");
+    setTimeout(initSocket, 2000);
   };
 
   socket.onerror = (err) => {
     console.error("WS错误", err);
+    setTimeout(initSocket, 2000);
   };
 }
 
-// ========== 超强心跳（防被踢） ==========
+// ========== 补丁3：超强心跳（防被踢） ==========
 function sendHeartbeatNow() {
   if (socket && socket.readyState === WebSocket.OPEN) {
     socket.send(JSON.stringify({ type: "HEARTBEAT" }));
@@ -445,27 +271,16 @@ function startHeartbeat() {
   heartbeatTimer = setInterval(sendHeartbeatNow, HEARTBEAT_INTERVAL);
 }
 
-// ========== 升级：页面切回立刻强制重连，重置状态 ==========
+// ========== 补丁2：页面切回重连、保活 ==========
 document.addEventListener('visibilitychange', () => {
   if (!document.hidden) {
-    // 页面切回前台，立刻强制重连，重置断连计数
-    if (!socket || socket.readyState !== WebSocket.OPEN) {
-      currentReconnectDelay = MIN_RECONNECT_DELAY;
-      initSocket();
-    }
+    if (!socket || socket.readyState !== WebSocket.OPEN) initSocket();
     sendHeartbeatNow();
   }
 });
 window.addEventListener('online', () => {
-  currentReconnectDelay = MIN_RECONNECT_DELAY;
   initSocket();
-  setTimeout(sendHeartbeatNow, 500);
-});
-// 页面关闭时清理
-window.addEventListener('beforeunload', () => {
-  clearTimeout(reconnectTimer);
-  if (heartbeatTimer) clearInterval(heartbeatTimer);
-  if (socket) socket.close();
+  setTimeout(sendHeartbeatNow, 1000);
 });
 
 async function loadLatestNick() {
@@ -491,11 +306,9 @@ function loadSwitches() {
     document.getElementById("sound").checked = localStorage.getItem("switch_sound") === "true";
     document.getElementById("read").checked = localStorage.getItem("switch_read") === "true";
 }
+
 window.onload = function() {
   loadSwitches();
-  if (!localStorage.getItem("guide_shown")) {
-    setTimeout(showGuideModal, 5000);
-  }
   const savedUserId = localStorage.getItem("chat_user_id");
   if (savedUserId) {
     userId = savedUserId;
@@ -527,6 +340,7 @@ window.onload = function() {
   document.getElementById("cameraPhoto").onchange = (e) => sendMedia(e, "image");
   document.getElementById("cameraVideo").onchange = (e) => sendMedia(e, "video");
 };
+
 function showMatchModal(){
     if(!userId){alert("请先登录");return;}
     document.getElementById("matchModal").style.display = "flex";
@@ -540,10 +354,9 @@ function confirmMatch(){
         socket.send(JSON.stringify({ type: "match-chat" }));
         document.getElementById("match").textContent = "取消匹配";
         showSystemTip("正在匹配聊友...");
-    } else {
-        showWeakTip("连接未就绪，正在重连...");
     }
 }
+
 function openGalleryImage() { if (!partnerId) { alert("请先匹配"); return; } document.getElementById("galleryImage").click(); }
 function openGalleryVideo() { if (!partnerId) { alert("请先匹配"); return; } document.getElementById("galleryVideo").click(); }
 function openCamera() { if (!partnerId) { alert("请先匹配"); return; } document.getElementById("cameraPhoto").click(); }
@@ -577,13 +390,12 @@ async function sendMedia(e, type) {
 
 function logout() {
   if (heartbeatTimer) clearInterval(heartbeatTimer);
-  clearTimeout(reconnectTimer);
   if (socket) socket.close();
-  clearMatchState();
   localStorage.removeItem("chat_user_id");
   localStorage.removeItem("chat_nickname");
   location.reload();
 }
+
 function b() {
   try { let x = new AudioContext(); let o = x.createOscillator(); let g = x.createGain(); o.type = "sine"; o.frequency.value = 660; g.gain.value = 0.3; o.connect(g); g.connect(x.destination); o.start(); o.stop(x.currentTime + 0.18); } catch (e) {}
 }
@@ -633,6 +445,7 @@ function aM(who, text, burn = false, msgId = "", type = "text", url = "") {
   }
   c.appendChild(g); c.scrollTop = c.scrollHeight;
 }
+
 async function L() {
   let u = document.getElementById("u1").value.trim();
   let p = document.getElementById("p1").value.trim();
@@ -663,6 +476,7 @@ async function L() {
     setTimeout(()=>document.getElementById("tip").textContent="",2000);
   }
 }
+
 function R() {
   let u = document.getElementById("u2").value.trim();
   let p = document.getElementById("p2").value.trim();
@@ -679,52 +493,12 @@ function R() {
   });
 }
 
-// ========== 升级：发消息逻辑，AI聊天前端直调HF接口，零Worker消耗 ==========
 function S() {
   let t = document.getElementById("msg").value.trim();
-  if (!t) { alert("请输入消息"); return; }
+  if (!t || !partnerId) { alert("请先匹配"); return; }
   let msgId = Date.now() + "";
   let burn = document.getElementById("burn").checked;
   let showText = nickName + "：" + t;
-
-  // ========== 核心：AI聊天前端直调HF接口，不经过Worker ==========
-  if (partnerId === "ai_bot") {
-    aM("我", showText, burn, msgId, "text");
-    document.getElementById("msg").value = "";
-    if (document.getElementById("sound").checked) b();
-
-    // 前端直接调用你的HF大模型接口，零Worker消耗
-    (async () => {
-      try {
-        const res = await fetch("https://useavnmd-mm.hf.space/api/chat", {
-          method: "POST",
-          headers: { "Content-Type": "application/json" },
-          body: JSON.stringify({ 
-            model: "qwen2:0.5b", 
-            messages: [{ role: "user", content: t }], 
-            stream: false 
-          }),
-          signal: AbortSignal.timeout(15000)
-        });
-        if (!res.ok) throw new Error("AI接口响应异常");
-        const data = await res.json();
-        const aiReply = data.message?.content || "爸爸～在呢😘";
-        aM("AI陪伴者", aiReply, false, Date.now() + "", "text");
-        if (document.getElementById("sound").checked) b();
-      } catch (e) {
-        console.error("AI调用失败：", e);
-        aM("AI陪伴者", "爸爸～我掉线啦🥺", false, Date.now() + "", "text");
-      }
-    })();
-    return;
-  }
-
-  // 双人聊天逻辑不变
-  if (!partnerId) { alert("请先匹配"); return; }
-  if (!socket || socket.readyState !== WebSocket.OPEN) {
-    showWeakTip("连接未就绪，正在重连...");
-    return;
-  }
   socket.send(JSON.stringify({
     type: "send-msg",
     content: showText,
@@ -764,12 +538,14 @@ async function sN() {
     alert("❌ 修改失败，网络异常");
   }
 }
+
 function clearChat(){ 
   if (socket && socket.readyState === WebSocket.OPEN) {
     socket.send(JSON.stringify({ type: "clear-chat" }));
   }
   document.getElementById("chat").innerHTML = ""; 
 }
+
 document.getElementById("fullPreview").onclick = function(e) {
   this.style.display = "none";
   document.getElementById("fullVideo").pause();
