@@ -277,11 +277,28 @@ let roomId = "";
 let mState = false;
 let heartbeatTimer = null;
 let hasOnline = false;
-const HEARTBEAT_INTERVAL = 30000;
+const HEARTBEAT_INTERVAL = 300000;
 const MIN_RECONNECT_DELAY = 3000;
 const MAX_RECONNECT_DELAY = 30000;
 let currentReconnectDelay = MIN_RECONNECT_DELAY;
 let reconnectTimer = null;
+
+
+ // ========== 新增：切回前台检测（省Worker核心） ==========
+document.addEventListener('visibilitychange', () => {
+    if (!document.hidden) sendIAmBack();
+});
+document.addEventListener('resume', sendIAmBack);
+
+function sendIAmBack() {
+    if (userId && socket && socket.readyState === WebSocket.OPEN) {
+        socket.send(JSON.stringify({
+            type: "i_am_back",
+            userId: userId,
+            userName: nickName
+        }));
+    }
+}
 
 // 系统提示
 function showSystemTip(text) {
@@ -350,6 +367,13 @@ function initSocket() {
             if (document.getElementById("read").checked) {
                 socket.send(JSON.stringify({ type: "msg-read", msgId: j.msgId }));
             }
+
+         // 新增：接收后端单发个人提示（省Worker核心）
+if (j.type === "self_tips") {
+    showSystemTip(j.content);
+    return;
+}
+
             return;
         }
         if (j.type === "msg-read") {
