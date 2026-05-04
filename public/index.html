@@ -805,6 +805,32 @@ window.onload = function() {
   document.getElementById("galleryVideo").onchange = (e) => sendMedia(e, "video");
   document.getElementById("cameraPhoto").onchange = (e) => sendMedia(e, "image");
   document.getElementById("cameraVideo").onchange = (e) => sendMedia(e, "video");
+
+// ========== 核心修复：切回前台立即检查连接 + 补发心跳 ==========
+document.addEventListener("visibilitychange", function() {
+    if (document.visibilityState === "visible") {
+        console.log("切回前台，检查WS状态");
+        
+        // 如果WS不存在 或 未连接 → 立即重连
+        if (!socket || socket.readyState !== WebSocket.OPEN) {
+            console.log("WS已断开，强制重连");
+            initSocket();
+        } else {
+            // 连接正常 → 立即发一次心跳，让后端知道你在线
+            sendHeartbeatNow();
+            console.log("切回前台，立即补发心跳");
+        }
+    }
+});
+
+// 兜底：手机焦点回来也触发
+window.addEventListener("focus", function() {
+    if (!socket || socket.readyState !== WebSocket.OPEN) {
+        initSocket();
+    }
+});
+
+
 };
 </script>
 </body>
