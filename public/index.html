@@ -71,6 +71,136 @@ body{display:flex;flex-direction:column}
 </style>
 </head>
 <body>
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+<title>摸鱼基地 - 登录</title>
+<style>
+*{margin:0;padding:0;box-sizing:border-box;font-family:system-ui,-apple-system,"Microsoft YaHei",sans-serif;}
+body{background:#f5f7fa;height:100vh;display:flex;flex-direction:column;}
+/* 登录盒子居中 */
+.login-box{flex:1;display:flex;align-items:center;justify-content:center;padding:20px;}
+.login-card{width:100%;max-width:360px;background:#fff;border-radius:12px;padding:25px;box-shadow:0 4px 15px rgba(0,0,0,0.08);}
+.title{text-align:center;font-size:22px;font-weight:bold;color:#333;margin-bottom:25px;}
+.input-item{margin-bottom:18px;}
+.input-item input{width:100%;height:44px;padding:0 15px;border:1px solid #ddd;border-radius:8px;font-size:15px;outline:none;transition:border 0.3s;}
+.input-item input:focus{border-color:#409eff;}
+.btn{width:100%;height:44px;background:#409eff;color:#fff;border:none;border-radius:8px;font-size:16px;cursor:pointer;margin-bottom:15px;}
+.btn:active{opacity:0.9;}
+.tip{text-align:center;font-size:13px;color:#666;}
+.tip a{color:#409eff;text-decoration:none;}
+
+/* 底部固定说明栏 */
+#privacy-tip{width:100%;padding:12px 15px;text-align:center;font-size:12px;line-height:1.6;color:#666;background:#fff;border-top:1px solid #eee;}
+
+/* 协议弹窗样式 */
+#agreementMask{position:fixed;top:0;left:0;width:100%;height:100%;background:rgba(0,0,0,0.85);z-index:9999;display:flex;align-items:center;justify-content:center;padding:15px;}
+.agreement-box{background:#fff;width:100%;max-width:420px;border-radius:12px;overflow:hidden;display:flex;flex-direction:column;}
+.agreement-title{padding:15px;text-align:center;font-size:18px;font-weight:bold;color:#333;border-bottom:1px solid #eee;}
+.agreement-content{padding:15px;height:320px;overflow-y:auto;font-size:13px;line-height:1.7;color:#555;}
+.agreement-buttons{display:flex;border-top:1px solid #eee;}
+.agreement-buttons button{flex:1;padding:14px;border:none;font-size:15px;cursor:pointer;}
+#cancelBtn{background:#f5f5f5;color:#666;}
+#agreeBtn{background:#409eff;color:#fff;cursor:not-allowed;}
+</style>
+</head>
+<body>
+
+<!-- ========== 1. 协议弹窗（一打开就弹） ========== -->
+<div id="agreementMask">
+    <div class="agreement-box">
+        <div class="agreement-title">摸鱼基地 用户协议及免责声明</div>
+        <div class="agreement-content">
+本应用为个人开发、完全免费、非盈利工具，无任何收费项目。本应用无服务器、无后台、无日志、无云端存储，所有内容仅在用户设备本地显示。
+<br><br>
+本应用不要求实名、不收集手机号、不收集姓名、不收集身份证、不收集任何个人信息，不获取位置、不采集设备信息、无第三方数据上报、无数据分析。
+<br><br>
+聊天数据不存库、不留痕、聊完即消失，开发者无法查看、无法获取、无法恢复任何内容。账号密码仅本地临时留存，每3个月自动清理；忘记密码直接重新注册即可，无找回机制、无数据保留。
+<br><br>
+1. 本应用按现状免费提供，无任何明示或暗示担保，不承诺功能可用、稳定、持续运行。
+<br><br>
+2. 开发者有权随时停止维护、随时关闭服务、随时终止项目，无需提前通知，无需承担任何责任。
+<br><br>
+3. 用户自愿下载、安装、使用本应用，一切风险与后果自行承担。
+<br><br>
+4. 本应用仅限合法合规、正当交流使用，用户不得用于违法、违规、侵权、骚扰、诈骗、涉黄涉赌等任何不当行为。因用户违法违规、侵权、泄露账号、泄露信息、账号丢失等产生的一切责任与后果，均由用户自行承担，与开发者无关。
+<br><br>
+5. 无论出现任何问题，包括数据丢失、账号异常、服务中断、设备损坏、用户之间纠纷等，全部由用户自行承担，开发者一律不承担任何责任。
+<br><br>
+6. 凡下载、安装、运行、使用本应用，即视为已阅读、理解并完全同意本协议全部内容。
+<br><br>
+<span style="font-weight:bold;color:#f56c6c;">无承诺、无担保、无责任、可随时停止服务。使用者责任自负，与开发者无任何关联。</span>
+        </div>
+        <div class="agreement-buttons">
+            <button id="cancelBtn" onclick="closeApp()">取消</button>
+            <button id="agreeBtn" disabled onclick="agreeAgreement()">请阅读(<span id="countDown">5</span>秒后同意)</button>
+        </div>
+    </div>
+</div>
+
+<!-- ========== 2. 登录/注册主界面 ========== -->
+<div class="login-box">
+    <div class="login-card">
+        <div class="title">摸鱼基地</div>
+        <div class="input-item">
+            <input type="text" placeholder="请输入账号">
+        </div>
+        <div class="input-item">
+            <input type="password" placeholder="请输入密码">
+        </div>
+        <button class="btn">登录</button>
+        <div class="tip">
+            没有账号？<a href="#">立即注册</a>
+        </div>
+    </div>
+</div>
+
+<!-- ========== 3. 底部固定：聊天说明 + 免责短句 ========== -->
+<div id="privacy-tip">
+摸鱼基地介绍<br>
+聊天不留记录，看完就消失<br>
+账号每3个月自动清理<br>
+来无痕迹，去无牵挂<br>
+个人免费工具，仅供合法使用<br>
+用户责任自负，与作者无关
+</div>
+
+<script>
+// 5秒倒计时逻辑
+let time = 5;
+let timer = setInterval(function(){
+    time--;
+    document.getElementById('countDown').innerText = time;
+    if(time <= 0){
+        clearInterval(timer);
+        document.getElementById('agreeBtn').disabled = false;
+        document.getElementById('agreeBtn').style.cursor = 'pointer';
+        document.getElementById('agreeBtn').innerText = '我已阅读并同意';
+    }
+},1000);
+
+// 同意协议 → 关闭弹窗
+function agreeAgreement(){
+    document.getElementById('agreementMask').style.display = 'none';
+}
+
+// 取消 → 退出APP
+function closeApp(){
+    if(window.Android){
+        Android.closeApp();
+    }else{
+        window.close();
+        location.href = "about:blank";
+    }
+}
+</script>
+
+</body>
+</html>
+
+
 <div class="online-count" id="onlineCount">在线：0</div>
 <div class="system-tip" id="systemTip"></div>
 
@@ -128,7 +258,12 @@ body{display:flex;flex-direction:column}
                 <input id="p1" type="password" placeholder="密码记牢，不然摸鱼号都登不上">
             </div>
             <button class="btn" id="loginBtn">上线摸鱼！</button>
-            <div class="tip" id="tip"></div>
+            
+          <div style="text-align:center; margin-top:12px; font-size:12px; color:#999;">
+登录即同意 <a href="javascript:showAgreement()" style="color:#5eead4; text-decoration:none;">用户协议&免责声明</a>
+</div>
+
+          <div class="tip" id="tip"></div>
         </div>
         <div id="f2" style="display:none;">
             <div class="input-group">
@@ -165,6 +300,20 @@ body{display:flex;flex-direction:column}
         <button onclick="openCamera()" style="background:#ff9500;">📷 拍照</button>
         <button onclick="openCameraVideo()" style="background:#ff9500;">🎥 录像</button>
     </div>
+
+<div style="text-align:center; padding:10px 0; font-size:12px; color:#999; line-height:1.6;">
+摸鱼基地介绍<br>
+聊天不留记录，看完就消失<br>
+账号每3个月自动清理<br>
+忘记账号密码，重新注册就行<br>
+来无痕迹，去无牵挂<br>
+你的话只留在你和对方的屏幕上<br>
+别人看不到，查不到，也找不到<br>
+个人免费工具，仅供合法使用<br>
+用户责任自负，与作者无关
+</div>
+
+  
     <div class="chat" id="chat"></div>
     <div class="input-box">
         <input id="msg" placeholder="输入消息...">
