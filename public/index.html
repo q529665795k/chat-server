@@ -1,4 +1,4 @@
-   <!DOCTYPE html>
+<!DOCTYPE html>
 <html lang="zh-CN">
 <head>
 <meta charset="UTF-8">
@@ -9,8 +9,6 @@
 <style>
 *{margin:0;padding:0;box-sizing:border-box;-webkit-tap-highlight-color:transparent;-webkit-touch-callout:none}
 html,body{height:100%;width:100%;display:flex;flex-direction:column;background:#0f1730;}
-
-
 body{display:flex;flex-direction:column}
 .online-count{position:fixed;top:12px;right:12px;font-size:13px;color:rgba(255,255,255,0.5);z-index:99;}
 .system-tip{position:fixed;top:50%;left:50%;transform:translate(-50%,-50%);background:rgba(0,0,0,0.85);color:#fff;padding:14px 24px;border-radius:12px;font-size:15px;z-index:9999;display:none;}
@@ -66,46 +64,9 @@ body{display:flex;flex-direction:column}
 .match-modal .title{font-size:18px;margin-bottom:20px;color:#fff;}
 .match-modal .btn-ok{background:#007AFF;color:#fff;border:none;padding:12px 24px;border-radius:12px;margin-right:8px;}
 .match-modal .btn-cancel{background:#444;color:#fff;border:none;padding:12px 24px;border-radius:12px;}
-
 /* ========== 新增：全自动识别引导弹窗样式 ========== */
 .guide-modal{display:none;position:fixed;inset:0;background:rgba(0,0,0,0.92);z-index:99999;align-items:center;justify-content:center;}
 .guide-box{background:#1a1a2e;padding:28px;border-radius:20px;width:92%;max-width:380px;text-align:center;max-height:90vh;overflow-y:auto;}
-</style>
-</head>
-<body>
-<!DOCTYPE html>
-<html lang="zh-CN">
-<head>
-<meta charset="UTF-8">
-<meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
-<title>摸鱼基地 - 登录</title>
-<style>
-*{margin:0;padding:0;box-sizing:border-box;font-family:system-ui,-apple-system,"Microsoft YaHei",sans-serif;}
-body{background:#f5f7fa;height:100vh;display:flex;flex-direction:column;}
-/* 登录盒子居中 */
-.login-box{flex:1;display:flex;align-items:center;justify-content:center;padding:20px;}
-.login-card{width:100%;max-width:360px;background:#fff;border-radius:12px;padding:25px;box-shadow:0 4px 15px rgba(0,0,0,0.08);}
-.title{text-align:center;font-size:22px;font-weight:bold;color:#333;margin-bottom:25px;}
-.input-item{margin-bottom:18px;}
-.input-item input{width:100%;height:44px;padding:0 15px;border:1px solid #ddd;border-radius:8px;font-size:15px;outline:none;transition:border 0.3s;}
-.input-item input:focus{border-color:#409eff;}
-.btn{width:100%;height:44px;background:#409eff;color:#fff;border:none;border-radius:8px;font-size:16px;cursor:pointer;margin-bottom:15px;}
-.btn:active{opacity:0.9;}
-.tip{text-align:center;font-size:13px;color:#666;}
-.tip a{color:#409eff;text-decoration:none;}
-
-/* 底部固定说明栏 */
-#privacy-tip{width:100%;padding:12px 15px;text-align:center;font-size:12px;line-height:1.6;color:#666;background:#fff;border-top:1px solid #eee;}
-
-/* 协议弹窗样式 */
-#agreementMask{position:fixed;top:0;left:0;width:100%;height:100%;background:rgba(0,0,0,0.85);z-index:9999;display:flex;align-items:center;justify-content:center;padding:15px;}
-.agreement-box{background:#fff;width:100%;max-width:420px;border-radius:12px;overflow:hidden;display:flex;flex-direction:column;}
-.agreement-title{padding:15px;text-align:center;font-size:18px;font-weight:bold;color:#333;border-bottom:1px solid #eee;}
-.agreement-content{padding:15px;height:320px;overflow-y:auto;font-size:13px;line-height:1.7;color:#555;}
-.agreement-buttons{display:flex;border-top:1px solid #eee;}
-.agreement-buttons button{flex:1;padding:14px;border:none;font-size:15px;cursor:pointer;}
-#cancelBtn{background:#f5f5f5;color:#666;}
-#agreeBtn{background:#409eff;color:#fff;cursor:not-allowed;}
 </style>
 </head>
 <body>
@@ -136,7 +97,6 @@ body{background:#f5f7fa;height:100vh;display:flex;flex-direction:column;}
 7. 凡下载、安装、运行、使用本应用，即视为已阅读、理解并完全同意本协议全部内容。
 <br><br>
 <span style="font-weight:bold;color:#f56c6c;">无承诺、无担保、无责任、可随时停止服务。使用者责任自负，与开发者无任何关联。</span>
-
 <br><br>
 <span style="font-weight:bold;color:#f56c6c;">无承诺、无担保、无责任、可随时停止服务。使用者责任自负，与开发者无任何关联。</span>
         </div>
@@ -147,70 +107,8 @@ body{background:#f5f7fa;height:100vh;display:flex;flex-direction:column;}
     </div>
 </div>
 
-<!-- ========== 2. 登录/注册主界面 ========== -->
-<div class="login-box">
-    <div class="login-card">
-        <div class="title">摸鱼基地</div>
-        <div class="input-item">
-            <input type="text" placeholder="请输入账号">
-        </div>
-        <div class="input-item">
-            <input type="password" placeholder="请输入密码">
-        </div>
-        <button class="btn">登录</button>
-        <div class="tip">
-            没有账号？<a href="#">立即注册</a>
-        </div>
-    </div>
-</div>
-
-<!-- ========== 3. 底部固定：聊天说明 + 免责短句 ========== -->
-<div id="privacy-tip">
-摸鱼基地介绍<br>
-聊天不留记录，看完就消失<br>
-账号每3个月自动清理<br>
-来无痕迹，去无牵挂<br>
-个人免费工具，仅供合法使用<br>
-用户责任自负，与作者无关
-</div>
-
-<script>
-// 5秒倒计时逻辑
-let time = 5;
-let timer = setInterval(function(){
-    time--;
-    document.getElementById('countDown').innerText = time;
-    if(time <= 0){
-        clearInterval(timer);
-        document.getElementById('agreeBtn').disabled = false;
-        document.getElementById('agreeBtn').style.cursor = 'pointer';
-        document.getElementById('agreeBtn').innerText = '我已阅读并同意';
-    }
-},1000);
-
-// 同意协议 → 关闭弹窗
-function agreeAgreement(){
-    document.getElementById('agreementMask').style.display = 'none';
-}
-
-// 取消 → 退出APP
-function closeApp(){
-    if(window.Android){
-        Android.closeApp();
-    }else{
-        window.close();
-        location.href = "about:blank";
-    }
-}
-</script>
-
-</body>
-</html>
-
-
 <div class="online-count" id="onlineCount">在线：0</div>
 <div class="system-tip" id="systemTip"></div>
-
 <!-- 全自动识别断连引导弹窗 -->
 <div class="guide-modal" id="guideModal">
     <div class="guide-box">
@@ -239,7 +137,6 @@ function closeApp(){
         </div>
     </div>
 </div>
-
 <div class="match-modal" id="matchModal">
     <div class="box">
         <div class="title">开始聊天</div>
@@ -269,7 +166,6 @@ function closeApp(){
           <div style="text-align:center; margin-top:12px; font-size:12px; color:#999;">
 登录即同意 <a href="javascript:showAgreement()" style="color:#5eead4; text-decoration:none;">用户协议&免责声明</a>
 </div>
-
           <div class="tip" id="tip"></div>
         </div>
         <div id="f2" style="display:none;">
@@ -319,7 +215,6 @@ function closeApp(){
 个人免费工具，仅供合法使用<br>
 用户责任自负，与作者无关
 </div>
-
   
     <div class="chat" id="chat"></div>
     <div class="input-box">
@@ -345,7 +240,6 @@ function closeApp(){
 <input type="file" id="galleryVideo" accept="video/*" hidden>
 <input type="file" id="cameraPhoto" accept="image/*" capture="camera" hidden>
 <input type="file" id="cameraVideo" accept="video/*" capture="camera" hidden>
-
 <script>
 // ========== 浏览器兼容修复 ==========
 (function mobileBrowserFix() {
@@ -354,10 +248,8 @@ function closeApp(){
   window.addEventListener("touchstart", function () {}, { passive: true });
   window.WebSocket = window.WebSocket || window.MozWebSocket || window.webkitWebSocket;
 })();
-
 // ========== 核心：聊天状态全局标记（解决所有问题根源） ==========
 window.isInChat = false;
-
 // ========== 引导弹窗全局变量 ==========
 let guideShownCount = 0;
 const MAX_GUIDE_SHOW = 3;
@@ -365,7 +257,6 @@ let disconnectCount = 0;
 let userPhoneBrand = "通用安卓";
 let userBrowserName = "浏览器";
 let userBrowserAppName = "浏览器";
-
 // 自动识别手机+浏览器
 function autoDetectUserEnv() {
   const ua = navigator.userAgent.toLowerCase();
@@ -374,14 +265,12 @@ function autoDetectUserEnv() {
   else if (ua.includes("oppo") || ua.includes("heytap") || ua.includes("realme")) userPhoneBrand = "OPPO/一加";
   else if (ua.includes("huawei") || ua.includes("honor")) userPhoneBrand = "华为/荣耀";
   else if (ua.includes("samsung")) userPhoneBrand = "三星";
-
   if (ua.includes("quark")) { userBrowserName = "夸克浏览器"; userBrowserAppName = "夸克"; }
   else if (ua.includes("ucbrowser")) { userBrowserName = "UC浏览器"; userBrowserAppName = "UC浏览器"; }
   else if (ua.includes("qqbrowser")) { userBrowserName = "QQ浏览器"; userBrowserAppName = "QQ浏览器"; }
   else if (ua.includes("micromessenger")) { userBrowserName = "微信内置浏览器"; userBrowserAppName = "微信"; }
   else { userBrowserName = "系统浏览器"; userBrowserAppName = "浏览器"; }
 }
-
 // 生成设置步骤
 function getSystemStep() {
   if (userBrowserName === "微信内置浏览器") return `<p>微信限制后台，右上角「···」→「在浏览器打开」再设置</p>`;
@@ -393,13 +282,11 @@ function getSystemStep() {
     default:return`<p>1.设置→应用→${userBrowserAppName}</p><p>2.电池→省电策略设为无限制</p>`;
   }
 }
-
 function getBrowserStep() {
   if(userBrowserName==="夸克浏览器")return`<p>菜单→设置→通用→开启后台网页运行，关闭省电</p>`;
   if(userBrowserName==="UC浏览器")return`<p>菜单→设置→高级→开启后台应用运行</p>`;
   return`<p>浏览器菜单→设置→关闭所有省电/省流量模式</p>`;
 }
-
 // 弹窗控制
 function showGuideModal(isForce=false) {
   if(localStorage.getItem("guide_no_more")==="true"&&!isForce)return;
@@ -419,11 +306,9 @@ document.getElementById("noMoreTipBtn").onclick=()=>{
   localStorage.setItem("guide_no_more","true");
   closeGuide();
 };
-
 // ========== 服务器配置 ==========
 const BASE_URL = "https://api.im6.qzz.io";
 const WS_PATH = BASE_URL + "/ws";
-
 // ========== 全局变量 ==========
 let socket = null;
 let nickName = "";
@@ -438,14 +323,11 @@ const MIN_RECONNECT_DELAY = 3000;
 const MAX_RECONNECT_DELAY = 30000;
 let currentReconnectDelay = MIN_RECONNECT_DELAY;
 let reconnectTimer = null;
-
-
  // ========== 新增：切回前台检测（省Worker核心） ==========
 document.addEventListener('visibilitychange', () => {
     if (!document.hidden) sendIAmBack();
 });
 document.addEventListener('resume', sendIAmBack);
-
 function sendIAmBack() {
     if (userId && socket && socket.readyState === WebSocket.OPEN) {
         socket.send(JSON.stringify({
@@ -455,7 +337,6 @@ function sendIAmBack() {
         }));
     }
 }
-
 // 系统提示
 function showSystemTip(text) {
     const tip = document.getElementById("systemTip");
@@ -466,12 +347,10 @@ function showSystemTip(text) {
 function updateOnlineCount(count) {
     document.getElementById("onlineCount").textContent = `在线：${count}`;
 }
-
 // ========== 【核心修改1】WebSocket重连逻辑（后台回来不乱匹配） ==========
 function initSocket() {
     if (socket && (socket.readyState === WebSocket.OPEN || socket.readyState === WebSocket.CONNECTING)) return;
     clearTimeout(reconnectTimer);
-
     socket = new WebSocket(WS_PATH);
     socket.onopen = () => {
         disconnectCount = 0;
@@ -523,13 +402,11 @@ function initSocket() {
             if (document.getElementById("read").checked) {
                 socket.send(JSON.stringify({ type: "msg-read", msgId: j.msgId }));
             }
-
          // 新增：接收后端单发个人提示（省Worker核心）
 if (j.type === "self_tips") {
     showSystemTip(j.content);
     return;
 }
-
             return;
         }
         if (j.type === "msg-read") {
@@ -553,7 +430,6 @@ if (j.type === "self_tips") {
     socket.onerror = (err) => { console.error("WebSocket错误：", err); };
     startHeartbeat();
 }
-
 // 心跳保活
 function sendHeartbeatNow() {
   if (socket && socket.readyState === WebSocket.OPEN) {
@@ -564,7 +440,6 @@ function startHeartbeat() {
   if (heartbeatTimer) clearInterval(heartbeatTimer);
   heartbeatTimer = setInterval(sendHeartbeatNow, HEARTBEAT_INTERVAL);
 }
-
 // 加载昵称、开关
 async function loadLatestNick() {
   if (!userId) return;
@@ -589,8 +464,6 @@ function loadSwitches() {
     document.getElementById("sound").checked = localStorage.getItem("switch_sound") === "true";
     document.getElementById("read").checked = localStorage.getItem("switch_read") === "true";
 }
-
-
 // 弹出匹配确认
 function showMatchModal(){
   // 【关键判断】：如果正在匹配，直接取消，不弹框！
@@ -600,27 +473,22 @@ function showMatchModal(){
   }
   document.getElementById("matchModal").style.display = "flex";
 }
-
 // 取消弹窗
 function cancelMatch(){
   document.getElementById("matchModal").style.display = "none";
 }
-
 // 确认开始匹配
 function confirmMatch(){
   document.getElementById("matchModal").style.display = "none";
-
   // 1. 前端清空所有聊天状态
   window.isInChat = false;
   partnerId = "";
   roomId = "";
   document.getElementById("chat").innerHTML = "";
-
   // 2. 后端断开当前聊天
   if(socket && socket.readyState === WebSocket.OPEN){
     socket.send(JSON.stringify({type:"partner-leave"}));
   }
-
   // 3. 开始匹配
   if(socket && socket.readyState === WebSocket.OPEN){
     socket.send(JSON.stringify({type:"match-chat"}));
@@ -628,7 +496,6 @@ function confirmMatch(){
     showSystemTip("正在匹配...");
   }
 }
-
 // 【新增】：停止匹配（就是你缺的这段！！！）
 function stopMatch(){
   // 1. 前端恢复
@@ -638,26 +505,21 @@ function stopMatch(){
   if(socket && socket.readyState === WebSocket.OPEN){
     socket.send(JSON.stringify({type:"match_reset"}));
   }
-
   showSystemTip("已停止匹配");
 }
-
     
 // ========== 【核心修改2】匹配按钮逻辑（永久可用，点击强制断开聊天） ==========
 function confirmMatch(){
     document.getElementById("matchModal").style.display = "none";
-
     // 1. 强制断开（AI/真人都直接断）
     if (socket && socket.readyState === WebSocket.OPEN) {
         socket.send(JSON.stringify({ type: "partner-leave" }));
     }
-
     // 2. 前端强制清空所有状态
     window.isInChat = false;
     partnerId = "";
     roomId = "";
     document.getElementById("chat").innerHTML = "";
-
     // 3. 马上重新匹配
     setTimeout(() => {
         if (socket && socket.readyState === WebSocket.OPEN) {
@@ -667,17 +529,11 @@ function confirmMatch(){
         }
     }, 150);
 }
-
-
-
-
-
 // 发送媒体文件
 function openGalleryImage() { if (!partnerId) { alert("请先匹配"); return; } document.getElementById("galleryImage").click(); }
 function openGalleryVideo() { if (!partnerId) { alert("请先匹配"); return; } document.getElementById("galleryVideo").click(); }
 function openCamera() { if (!partnerId) { alert("请先匹配"); return; } document.getElementById("cameraPhoto").click(); }
 function openCameraVideo() { if (!partnerId) { alert("请先匹配"); return; } document.getElementById("cameraVideo").click(); }
-
 async function sendMedia(e, type) {
   const file = e.target.files[0];
   if (!file) { e.target.value = ""; return; }
@@ -702,7 +558,6 @@ async function sendMedia(e, type) {
   reader.readAsDataURL(file);
   e.target.value = "";
 }
-
 // 退出登录
 function logout() {
   if (heartbeatTimer) clearInterval(heartbeatTimer);
@@ -712,12 +567,10 @@ function logout() {
   localStorage.removeItem("chat_nickname");
   location.reload();
 }
-
 // 提示音
 function b() {
   try { let x = new AudioContext(); let o = x.createOscillator(); let g = x.createGain(); o.type = "sine"; o.frequency.value = 660; g.gain.value = 0.3; o.connect(g); g.connect(x.destination); o.start(); o.stop(x.currentTime + 0.18); } catch (e) {}
 }
-
 // 系统消息
 function sy(text) {
   let c = document.getElementById("chat");
@@ -725,7 +578,6 @@ function sy(text) {
   tip.style.textAlign = "center"; tip.style.color = "#999"; tip.style.fontSize = "15px"; tip.style.margin = "10px 0";
   tip.textContent = text; c.appendChild(tip); c.scrollTop = c.scrollHeight;
 }
-
 // 添加消息
 function aM(who, text, burn = false, msgId = "", type = "text", url = "") {
   const c = document.getElementById("chat");
@@ -735,21 +587,21 @@ function aM(who, text, burn = false, msgId = "", type = "text", url = "") {
   if (type === "image") {
     const img = document.createElement("img"); img.src = url; img.className = "media-img";
     img.onclick = function () {
-      const preview = document.getElementById("fullPreview");
+      const fullPreview = document.getElementById("fullPreview");
       const fullMedia = document.getElementById("fullMedia");
       const fullVideo = document.getElementById("fullVideo");
       fullMedia.style.display = "block"; fullVideo.style.display = "none"; fullMedia.src = url;
-      preview.style.display = "flex"; document.getElementById("saveBtn").style.display = "block";
+      fullPreview.style.display = "flex"; document.getElementById("saveBtn").style.display = "block";
     };
     g.appendChild(img);
   } else if (type === "video") {
     const video = document.createElement("video"); video.src = url; video.className = "media-video"; video.controls = true;
     video.onclick = function () {
-      const preview = document.getElementById("fullPreview");
+      const fullPreview = document.getElementById("fullPreview");
       const fullMedia = document.getElementById("fullMedia");
       const fullVideo = document.getElementById("fullVideo");
       fullMedia.style.display = "none"; fullVideo.style.display = "block"; fullVideo.src = url;
-      preview.style.display = "flex"; document.getElementById("saveBtn").style.display = "block";
+      fullPreview.style.display = "flex"; document.getElementById("saveBtn").style.display = "block";
     };
     g.appendChild(video);
   } else {
@@ -766,7 +618,6 @@ function aM(who, text, burn = false, msgId = "", type = "text", url = "") {
   }
   c.appendChild(g); c.scrollTop = c.scrollHeight;
 }
-
 // 登录注册
 async function L() {
   let u = document.getElementById("u1").value.trim();
@@ -813,7 +664,6 @@ function R() {
     setTimeout(()=>document.getElementById("tip2").textContent="",2000);
   });
 }
-
 // 发送消息
 function S() {
   let t = document.getElementById("msg").value.trim();
@@ -835,11 +685,10 @@ function S() {
     toId: partnerId,
     roomId: roomId
   }));
-  aM("我", showText, burn, msgId, "text");
+  aM("我", showText, burn, msgId, "text", showText);
   if (document.getElementById("sound").checked) b();
   document.getElementById("msg").value = "";
 }
-
 // 修改昵称
 function oM() { document.getElementById("modal").style.display = "flex"; }
 function cM() { document.getElementById("modal").style.display = "none"; }
@@ -866,7 +715,6 @@ async function sN() {
     alert("❌ 修改失败，网络异常");
   }
 }
-
 // 清空聊天记录
 function clearChat(){ 
   if (socket && socket.readyState === WebSocket.OPEN) {
@@ -874,7 +722,6 @@ function clearChat(){
   }
   document.getElementById("chat").innerHTML = "";
 }
-
 // 图片预览关闭
 // ========== 精准修复：图片/视频放大关闭逻辑（只改这里，其他不动） ==========
 // 点击空白处关闭预览（图片+视频通用）
@@ -889,19 +736,16 @@ document.getElementById("fullPreview").onclick = function(e) {
     document.getElementById("fullVideo").style.display = "none";
   }
 };
-
 // 修复：图片点击放大逻辑（能正常关闭、返回缩略图）
 document.getElementById("fullMedia").onclick = function(e) {
   // 点击图片本身不关闭，只点背景关
   e.stopPropagation();
 };
-
 // 修复：视频点击放大逻辑（能正常关闭、暂停返回）
 document.getElementById("fullVideo").onclick = function(e) {
   // 点击视频本身不关闭，只点背景关
   e.stopPropagation();
 };
-
 // 保存图片/视频（逻辑不变，只加关闭后重置）
 document.getElementById("saveBtn").onclick = function() {
   const media = document.getElementById("fullMedia");
@@ -923,8 +767,6 @@ document.getElementById("saveBtn").onclick = function() {
   }
   alert("✅ 已保存到手机相册！");
 };
-
-
 // 页面加载初始化
 window.onload = function() {
   loadSwitches();
@@ -961,7 +803,6 @@ window.onload = function() {
   document.getElementById("galleryVideo").onchange = (e) => sendMedia(e, "video");
   document.getElementById("cameraPhoto").onchange = (e) => sendMedia(e, "image");
   document.getElementById("cameraVideo").onchange = (e) => sendMedia(e, "video");
-
 // ========== 核心修复：切回前台立即检查连接 + 补发心跳 ==========
 document.addEventListener("visibilitychange", function() {
     if (document.visibilityState === "visible") {
@@ -978,21 +819,44 @@ document.addEventListener("visibilitychange", function() {
         }
     }
 });
-
 // 兜底：手机焦点回来也触发
 window.addEventListener("focus", function() {
     if (!socket || socket.readyState !== WebSocket.OPEN) {
         initSocket();
     }
 });
-
-
 };
-
 function showAgreement(){
   document.getElementById('agreementMask').style.display = 'flex';
 }
 
+// 协议倒计时
+let time = 5;
+let timer = setInterval(function(){
+    time--;
+    document.getElementById('countDown').innerText = time;
+    if(time <= 0){
+        clearInterval(timer);
+        document.getElementById('agreeBtn').disabled = false;
+        document.getElementById('agreeBtn').style.cursor = 'pointer';
+        document.getElementById('agreeBtn').innerText = '我已阅读并同意';
+    }
+},1000);
+
+// 同意协议
+function agreeAgreement(){
+    document.getElementById('agreementMask').style.display = 'none';
+}
+
+// 取消退出
+function closeApp(){
+    if(window.Android){
+        Android.closeApp();
+    }else{
+        window.close();
+        location.href = "about:blank";
+    }
+}
 </script>
 </body>
 </html>
