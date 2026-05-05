@@ -29,10 +29,12 @@ body{display:flex;flex-direction:column}
 .tip,.tip2{color:#ff3b30;text-align:center;margin-top:8px;font-size:13px;}
 .container{display:none;flex:1;padding:14px;flex-direction:column;gap:10px;height:100%;min-height:0;position:relative;z-index:2;}
 .header{display:flex;justify-content:space-between;align-items:center;}
-.nick{font-size:20px;font-weight:600;}
+.nick{font-size:20px;font-weight:600;color:#ffffff;}
+
 .exit{background:#ff3b30;padding:6px 16px;border-radius:8px;font-size:14px;width:70px;text-align:center;}
 .bar{display:flex;flex-wrap:wrap;gap:10px 14px;align-items:center;font-size:14px;}
-.bar label{display:flex;align-items:center;gap:4px;}
+.bar label{display:flex;align-items:center;gap:4px;color:#ffffff;}
+
 .btn-nick{background:#007AFF;padding:6px 12px;border-radius:8px;font-size:13px;}
 .match{background:#ff9500;padding:12px;border-radius:10px;font-size:16px;width:100%;font-weight:bold;transition:all 0.15s ease;}
 .match:active{transform:scale(0.96);opacity:0.9;}
@@ -793,32 +795,42 @@ window.onload = function() {
   });
 };
 
-// ========== 协议弹窗核心逻辑（修复点击不弹） ==========
+// ========== 协议弹窗：只在登录页弹，聊天页永不弹 ==========
 function showAgreement(){
   document.getElementById('agreementMask').style.display = 'flex';
 }
-let time = 5;
-let timer = setInterval(function(){
-    time--;
-    document.getElementById('countDown').innerText = time;
-    if(time <= 0){
-        clearInterval(timer);
-        document.getElementById('agreeBtn').disabled = false;
-        document.getElementById('agreeBtn').style.cursor = 'pointer';
-        document.getElementById('agreeBtn').innerText = '我已阅读并同意';
-    }
-},1000);
+
+// 判断：只要不在聊天页，才弹协议
+if (document.getElementById('main').style.display !== 'flex') {
+  let time = 5;
+  let timer = setInterval(function(){
+      time--;
+      document.getElementById('countDown').innerText = time;
+      if(time <= 0){
+          clearInterval(timer);
+          document.getElementById('agreeBtn').disabled = false;
+          document.getElementById('agreeBtn').style.cursor = 'pointer';
+          document.getElementById('agreeBtn').innerText = '我已阅读并同意';
+      }
+  }, 1000);
+} else {
+  // 已经在聊天页 → 直接关掉弹窗
+  document.getElementById('agreementMask').style.display = 'none';
+}
+
 function agreeAgreement(){
-    document.getElementById('agreementMask').style.display = 'none';
+  document.getElementById('agreementMask').style.display = 'none';
 }
+
 function closeApp(){
-    if(window.Android){
-        Android.closeApp();
-    }else{
-        window.close();
-        location.href = "about:blank";
-    }
+  if(window.Android){
+    Android.closeApp();
+  }else{
+    window.close();
+    location.href = "about:blank";
+  }
 }
+
 </script>
 </body>
 </html>
