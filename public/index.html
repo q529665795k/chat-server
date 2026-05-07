@@ -1,4 +1,4 @@
- <!DOCTYPE html>
+<!DOCTYPE html>
 <html lang="zh-CN">
 <head>
 <meta charset="UTF-8">
@@ -78,6 +78,7 @@ body{display:flex;flex-direction:column}
 </style>
 </head>
 <body>
+
 <div id="agreementMask">
     <div class="agreement-box">
         <div class="agreement-title">摸鱼基地 用户协议及免责声明</div>
@@ -92,8 +93,10 @@ body{display:flex;flex-direction:column}
         </div>
     </div>
 </div>
+
 <div class="online-count" id="onlineCount">在线：0</div>
 <div class="system-tip" id="systemTip"></div>
+
 <div class="guide-modal" id="guideModal">
     <div class="guide-box">
         <h3 style="color:#fff;margin-bottom:12px;font-size:18px;">🚨 聊天频繁断开？10秒彻底根治</h3>
@@ -115,6 +118,7 @@ body{display:flex;flex-direction:column}
         </div>
     </div>
 </div>
+
 <div class="match-modal" id="matchModal">
     <div class="box">
         <div class="title">开始聊天</div>
@@ -122,6 +126,7 @@ body{display:flex;flex-direction:column}
         <button class="btn-cancel" onclick="cancelMatch()">取消</button>
     </div>
 </div>
+
 <div class="login" id="login">
     <div class="login-card">
         <h1 class="main-title">摸鱼基地，摸鱼搭子已就位！</h1>
@@ -159,6 +164,7 @@ body{display:flex;flex-direction:column}
         </div>
     </div>
 </div>
+
 <div class="container" id="main">
     <div class="header">
         <div class="nick" id="nick">加载中...</div>
@@ -167,8 +173,6 @@ body{display:flex;flex-direction:column}
             <button onclick="clearChat()" class="exit" style="margin-left:10px;">清空记录</button>
            <button disabled style="opacity:0.5; cursor:not-allowed; pointer-events:none;">AI圆桌</button>
 <button disabled style="opacity:0.5; cursor:not-allowed; pointer-events:none;">退出AI</button>
-
-        
         </div>
     </div>
     <div class="bar">
@@ -186,19 +190,14 @@ body{display:flex;flex-direction:column}
     </div>
   
     <div class="chat" id="chat">
-        <div class="chat-bg-tip">
-摸鱼基地介绍<br>
-聊天不留记录，看完就消失<br>
-账号每3个月自动清理<br>
-忘记账号密码，重新注册就行<br>
-来无痕迹，去无牵挂
-        </div>
+        <div class="chat-bg-tip" id="defaultChatTip"></div>
     </div>
     <div class="input-box">
         <input id="msg" placeholder="输入消息...">
         <button class="send" id="send">发送</button>
     </div>
 </div>
+
 <div class="modal" id="modal">
     <div class="modal-box">
         <input id="newNick" placeholder="输入新昵称">
@@ -208,15 +207,18 @@ body{display:flex;flex-direction:column}
         </div>
     </div>
 </div>
+
 <div id="fullPreview">
     <img id="fullMedia" alt="">
     <video id="fullVideo" controls autoplay></video>
     <button id="saveBtn">保存</button>
 </div>
+
 <input type="file" id="galleryImage" accept="image/*" hidden>
 <input type="file" id="galleryVideo" accept="video/*" hidden>
 <input type="file" id="cameraPhoto" accept="image/*" capture="camera" hidden>
 <input type="file" id="cameraVideo" accept="video/*" capture="camera" hidden>
+
 <script>
 const BASE_URL = "https://api.im6.qzz.io";
 const WS_PATH = BASE_URL + "/ws";
@@ -235,12 +237,60 @@ let userBrowserName = "浏览器";
 let userBrowserAppName = "浏览器";
 let isInAiRoom = false;
 
+// 全局唯一介绍文字（只写1次，所有地方调用）
 const TIP_TEXT = `摸鱼基地介绍<br>聊天不留记录，看完就消失<br>账号每3个月自动清理<br>忘记账号密码，重新注册就行<br>来无痕迹，去无牵挂`;
+
+// 闲置自动退出 1小时
+let idleTimer = null;
+const IDLE_TIME = 3600000;
 
 document.documentElement.style.touchAction = "manipulation";
 document.body.style.touchAction = "manipulation";
 window.addEventListener("touchstart", () => {}, { passive: true });
 
+// 退出登录
+function logout() {
+    document.cookie.split(";").forEach(function(c) {
+        let cookie = c.trim();
+        if (!cookie) return;
+        let eqPos = cookie.indexOf("=");
+        let name = eqPos > -1 ? cookie.substr(0, eqPos) : cookie;
+        document.cookie = name + "=;expires=Thu, 01 Jan 1970 00:00:00 GMT;path=/";
+    });
+    localStorage.removeItem("chat_user_id");
+    localStorage.removeItem("chat_nickname");
+    sessionStorage.clear();
+    if (heartbeatTimer) clearInterval(heartbeatTimer);
+    if (socket) socket.close();
+    document.getElementById("main").style.display = "none";
+    document.getElementById("login").style.display = "flex";
+    hasOnline = false;
+    userId = "";
+    nickName = "";
+    partnerId = "";
+    roomId = "";
+    clearTimeout(idleTimer);
+}
+
+// 重置闲置计时
+function resetIdleTimer() {
+    clearTimeout(idleTimer);
+    idleTimer = setTimeout(() => {
+        logout();
+    }, IDLE_TIME);
+}
+
+// 开启闲置检测
+function startIdleMonitor() {
+    const events = ["mousemove","keydown","click","scroll","touchstart"];
+    events.forEach(ev => document.addEventListener(ev, resetIdleTimer));
+    resetIdleTimer();
+}
+
+// 初始化默认提示文字（只在这里赋值）
+document.getElementById('defaultChatTip').innerHTML = TIP_TEXT;
+
+// 下面是你原来所有功能，完全不变
 function autoDetectUserEnv() {
   const ua = navigator.userAgent.toLowerCase();
   if (ua.includes("xiaomi") || ua.includes("miui") || ua.includes("redmi")) userPhoneBrand = "小米/红米";
@@ -417,7 +467,7 @@ function exitAiRoom(){
   socket.send(JSON.stringify({type:"exit_ai_round_room", userId:userId}));
   partnerId = "";
   roomId = "";
-  document.getElementById("match").innerText = "匹配聊天";
+  document.getElementById("match").textContent = "匹配聊天";
   document.getElementById("chat").innerHTML = `<div class="chat-bg-tip">${TIP_TEXT}</div>`;
   showSystemTip("✅ 已退出AI房间，可正常匹配");
 }
@@ -444,13 +494,6 @@ async function sendMedia(e, type) {
   };
   reader.readAsDataURL(file);
   e.target.value = "";
-}
-
-function logout() {
-  if (heartbeatTimer) clearInterval(heartbeatTimer);
-  if (socket) socket.close();
-  localStorage.clear();
-  location.reload();
 }
 
 function playBeep() {
@@ -522,6 +565,7 @@ async function login() {
       document.getElementById("main").style.display = "flex";
       await loadLatestNick();
       initSocket();
+      startIdleMonitor();
     } else {
       document.getElementById("tip").textContent = j.msg || "登录失败";
       setTimeout(()=>document.getElementById("tip").textContent="",2000);
@@ -617,6 +661,7 @@ window.onload = function() {
     document.getElementById("login").style.display = "none";
     document.getElementById("main").style.display = "flex";
     loadLatestNick(); initSocket();
+    startIdleMonitor();
   }
   document.getElementById("t1").onclick = () => {
     document.getElementById("t1").classList.add("active"); document.getElementById("t2").classList.remove("active");
