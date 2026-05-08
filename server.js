@@ -368,7 +368,7 @@ function startKeepAliveCheck() {
 
 const allowOrigins = [
   "https://im6.qzz.io",
-  "https://www.im6.qzz.io"
+  "https://im6.ct.ws"
 ];
 
 app.use((req, res, next) => {
