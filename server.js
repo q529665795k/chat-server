@@ -371,6 +371,7 @@ const allowOrigins = [
   "https://im6.ct.ws"
 ];
 
+
 app.use((req, res, next) => {
   const origin = req.headers.origin || "";
   if (allowOrigins.includes(origin)) {
@@ -385,6 +386,7 @@ app.use((req, res, next) => {
   }
   next();
 });
+
 
 app.use(express.json({ limit: '10mb' }));
 app.use(express.urlencoded({ extended: true, limit: '10mb' }));
