@@ -509,6 +509,14 @@ io.on('connection', socket => {
     user.username = username;
     userSessionMap.set(username, sid);
     usernameToSocket.set(username, socket);
+    
+    // 新增：全局广播 进入摸鱼基地
+    const nick = loginMap.get(username)?.nickname || username;
+    io.emit('system-broadcast', {
+      type: 'enter',
+      message: `${nick} 进入摸鱼基地`
+    });
+
     sysLog('ONLINE', '用户上线', { username, sid });
     autoJoinMatchPool(sid);
   });
@@ -727,7 +735,7 @@ app.post("/api/clearChatOnly", async (req, res) => {
     offlineMsgMem.clear?.();
     res.json({ code: 200, msg: "清空成功" });
   } catch (err) {
-    res.json({ code: 500, msg: "清空失败" });
+    res.json({ code: 200, msg: "清空失败" });
   }
 });
 
