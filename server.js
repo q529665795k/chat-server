@@ -45,20 +45,32 @@ app.post('/api/log-frontend', (req, res) => {
 app.get('/api/get_user_info', async (req, res) => {
   try {
     const userId = req.query.user_id;
-    const [rows] = await pool.query('SELECT account, nick FROM users WHERE id = ?', [userId]);
+    // 修复1：把不存在的 account、nick 改成真实字段 username、nickname
+    // 修复2：查询条件从 id 改成 username 适配前端传参
+    const [rows] = await pool.query(
+      'SELECT username, nickname FROM users WHERE username = ?', 
+      [userId]
+    );
+
     if (rows.length > 0) {
       res.json({
         code: 200,
-        account: rows[0].account,
-        nick: rows[0].nick || rows[0].account
+        account: rows[0].username,
+        nick: rows[0].nickname || rows[0].username
       });
+      // 加成功日志
+      sysLog('API','获取用户信息成功',{userId});
     } else {
       res.json({ code: 404, msg: '用户不存在' });
+      sysLog('API','获取用户信息失败：用户不存在',{userId});
     }
   } catch (err) {
+    console.error('获取用户信息接口错误：',err);
+    sysLog('ERROR','获取用户信息接口异常',{err:err.message});
     res.json({ code: 500, msg: '查询失败' });
   }
 });
+
 
 // ====================== AI调用（修复：删除web_search，强化兜底）======================
 async function callAI(prompt) {
@@ -402,89 +414,154 @@ app.use(express.json({ limit: '10mb' }));
 app.use(express.urlencoded({ extended: true, limit: '10mb' }));
 
 // ====================== 注册 ======================
+// ====================== 注册接口（修复版，带日志）======================
 app.post('/register', async (req, res) => {
   try {
     const { username, password } = req.body;
-    const [existUser] = await pool.query(`SELECT username FROM users WHERE username = ?`, [username]);
-    if (existUser.length > 0) {
-      return res.json({ code: 400, msg: '用户名已被注册，请换一个' });
+
+    // 检查账号是否已存在
+    const [existRows] = await pool.query(
+      `SELECT username FROM users WHERE username = ?`,
+      [username]
+    );
+    if (existRows.length > 0) {
+      return res.json({ code: 400, msg: '账号已存在' });
     }
-    const defaultNickname = username;
-    await pool.query(`INSERT INTO users (username, password, nickname) VALUES (?, ?, ?)`, [username, password, defaultNickname]);
-    await pool.query(`INSERT INTO register_logs (username, password, register_time) VALUES (?, ?, NOW())`, [username, password]);
-    loginMap.set(username, { nickname: defaultNickname, password });
-    res.json({ code: 200, msg: '注册成功', data: { username, nickname: defaultNickname } });
+
+    // 插入新用户（同时兼容nick字段）
+    await pool.query(
+      `INSERT INTO users (username, password, nickname, nick) VALUES (?, ?, ?, ?)`,
+      [username, password, username, username]
+    );
+
+    // 插入注册日志
+    await pool.query(
+      `INSERT INTO register_logs (username, password) VALUES (?, ?)`,
+      [username, password]
+    );
+
+    res.json({ code: 200, msg: '注册成功' });
     sysLog('USER', '注册成功', { username });
   } catch (err) {
-    console.error('❌ 注册失败：', err);
+    console.error('🔥 注册接口服务器错误: ', err);
     res.json({ code: 500, msg: '服务器错误，注册失败' });
   }
 });
 
+
 // ====================== 登录 ======================
+// ====================== 登录接口（修复版，保留原日志逻辑）======================
 app.post('/login', async (req, res) => {
   try {
     const { username, password } = req.body;
+
+    // 【修复】补全SQL语句
     const [userRows] = await pool.query(
-      `SELECT username, password, nickname FROM users WHERE username = ?`, 
+      `SELECT username, password, nickname FROM users WHERE username = ?`,
       [username]
     );
+
     if (userRows.length === 0) {
       return res.json({ code: 400, msg: '账号不存在' });
     }
+
     const user = userRows[0];
     if (user.password !== password) {
       return res.json({ code: 400, msg: '密码错误' });
     }
-    await pool.query(`INSERT INTO login_logs (username, login_time) VALUES (?, NOW())`, [username]);
-    loginMap.set(username, { 
-      nickname: user.nickname, 
-      password: user.password 
+
+    // 【保留】原登录日志插入
+    await pool.query(
+      `INSERT INTO login_logs (username) VALUES (?)`,
+      [username]
+    );
+
+    // 【保留】原登录状态存储
+    loginMap.set(username, {
+      nickname: user.nickname,
+      password: user.password
     });
-    res.json({ 
-      code: 200, 
-      msg: '登录成功', 
-      data: { 
-        username: user.username, 
-        nickname: user.nickname 
-      } 
+
+    // 【保留】原响应格式
+    res.json({
+      code: 200,
+      msg: '登录成功',
+      data: {
+        username: user.username,
+        nickname: user.nickname
+      }
     });
+
+    // 【保留】原系统日志
     sysLog('USER', '登录成功', { username });
   } catch (err) {
-    console.error('💥 登录接口服务器错误：', err);
+    console.error('🔥 登录接口服务器错误: ', err);
     res.json({ code: 500, msg: '服务器错误，登录失败' });
   }
 });
+
 
 // ====================== 修改昵称 ======================
 app.post('/update-nickname', async (req, res) => {
   try {
     const { username, newNickname } = req.body;
-    const [nickRepeat] = await pool.query(`SELECT username FROM users WHERE nickname = ? AND username != ?`, [newNickname, username]);
+    sysLog('USER', '用户修改昵称请求', { username, newNickname });
+
+    const [nickRepeat] = await pool.query(
+      `SELECT username FROM users WHERE nickname = ? AND username != ?`,
+      [newNickname, username]
+    );
     if (nickRepeat.length > 0) {
+      sysLog('USER', '修改昵称失败：昵称已被占用', { username, newNickname });
       return res.json({ code: 400, msg: '昵称已被占用，请换一个' });
     }
-    const [userInfo] = await pool.query(`SELECT nickname FROM users WHERE username = ?`, [username]);
+
+    const [userInfo] = await pool.query(
+      `SELECT nickname FROM users WHERE username = ?`,
+      [username]
+    );
     if (userInfo.length === 0) {
+      sysLog('USER', '修改昵称失败：用户不存在', { username });
       return res.json({ code: 400, msg: '用户不存在' });
     }
+
     const oldNickname = userInfo[0].nickname;
     if (oldNickname === newNickname) {
+      sysLog('USER', '修改昵称：昵称未发生变化', { username, oldNickname });
       return res.json({ code: 200, msg: '昵称未发生变化' });
     }
-    await pool.query(`UPDATE users SET nickname = ? WHERE username = ?`, [newNickname, username]);
-    await pool.query(`INSERT INTO nickname_logs (username, old_nickname, new_nickname) VALUES (?, ?, ?)`, [username, oldNickname, newNickname]);
+
+    // 【修复】同时更新 nickname 和 nick 两个字段，适配前端读取
+    await pool.query(
+      `UPDATE users SET nickname = ?, nick = ? WHERE username = ?`,
+      [newNickname, newNickname, username]
+    );
+
+    await pool.query(
+      `INSERT INTO nickname_logs (username, old_nickname, new_nickname) VALUES (?, ?, ?)`,
+      [username, oldNickname, newNickname]
+    );
+
     if (loginMap.has(username)) {
       loginMap.set(username, { ...loginMap.get(username), nickname: newNickname });
     }
+
     io.emit('nickname-update', { username, oldNickname, newNickname, time: new Date().toLocaleString() });
-    res.json({ code: 200, msg: '昵称修改成功', data: { username, oldNickname, newNickname } });
-    sysLog('USER', '修改昵称', { username, oldNickname, newNickname });
+
+    res.json({
+      code: 200,
+      msg: '昵称修改成功',
+      data: { username, oldNickname, newNickname }
+    });
+
+    sysLog('USER', '修改昵称成功', { username, oldNickname, newNickname });
   } catch (err) {
     console.error('❌ 修改昵称失败：', err);
+    sysLog('ERROR', '修改昵称接口报错', { username, error: err.message });
     res.json({ code: 500, msg: '服务器错误，修改失败' });
   }
 });
+
 
 // ====================== Socket.io ======================
 const io = new Server(server, {
