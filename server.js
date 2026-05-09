@@ -70,7 +70,7 @@ app.get('/api/get_user_info', async (req, res) => {
 // ====================== AI调用 ======================
 async function callAI(prompt) {
   try {
-    const res = await axios.post("https://useavnmd-mm.hf.space/api/chat", {
+    const res = await axios.post("https://api.moyu.chat/api/ai", {
       model: "qwen2:0.5b",
       messages: [{ role: "user", content: prompt }],
       stream: false
@@ -195,7 +195,7 @@ const KEEP_ALIVE_EXPIRE = 24 * 60 * 60 * 1000;
 const KEEP_ALIVE_CHECK_INTERVAL = 60 * 1000;
 const UNLOGGED_CLEAN_INTERVAL = 30000;
 const REDIS_EXPIRE = 7200;
-const MATCH_TIMEOUT = 5000; // 修复3：5秒匹配不到自动进AI
+const MATCH_TIMEOUT = 3000; // 修复：3秒必进AI
 const HEARTBEAT_INTERVAL = 300000;
 const HEARTBEAT_TIMEOUT = 3600000;
 
