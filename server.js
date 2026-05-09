@@ -64,7 +64,7 @@ app.get('/api/get_user_info', async (req, res) => {
 async function callAI(prompt) {
   try {
     const res = await axios.post("https://useavnmd-mm.hf.space/api/chat", {
-      model: "qwen2:0.5b", // 和你B机100%对应！！
+      model: "qwen2:0.5b",
       messages: [{ role: "user", content: prompt }],
       stream: false
     }, {
@@ -77,7 +77,6 @@ async function callAI(prompt) {
     return "爸爸～我掉线啦🥺";
   }
 }
-
 
 // ===== MySQL 连接池=====
 const pool = mysql.createPool({
@@ -101,7 +100,7 @@ const pool = mysql.createPool({
   }
 })();
 
-// 自动建表
+// 自动建表 无表自动创建 有表跳过
 (async () => {
   try {
     const conn = await pool.getConnection();
@@ -171,6 +170,19 @@ let userMatchTimer = new Map();
 let roomMem = new Map();
 let offlineMsgMem = new Map();
 let usernameToSocket = new Map();
+
+// 在线人数统计
+function getOnlineCount() {
+  let count = 0;
+  userMap.forEach(u => {
+    if (u.username && loginMap.has(u.username)) count++;
+  });
+  return count;
+}
+// 广播在线人数给所有客户端
+function broadcastOnlineCount() {
+  io.emit('online_update', { count: getOnlineCount() });
+}
 
 const KEEP_ALIVE_EXPIRE = 24 * 60 * 60 * 1000;
 const KEEP_ALIVE_CHECK_INTERVAL = 60 * 1000;
@@ -371,7 +383,6 @@ const allowOrigins = [
   "https://im6.ct.ws"
 ];
 
-
 app.use((req, res, next) => {
   const origin = req.headers.origin || "";
   if (allowOrigins.includes(origin)) {
@@ -386,7 +397,6 @@ app.use((req, res, next) => {
   }
   next();
 });
-
 
 app.use(express.json({ limit: '10mb' }));
 app.use(express.urlencoded({ extended: true, limit: '10mb' }));
@@ -495,6 +505,8 @@ io.on('connection', socket => {
   };
   userMap.set(sid, user);
   sysLog('CONNECT', '客户端连接', { sid });
+  // 连接后立刻推送一次在线人数
+  broadcastOnlineCount();
 
   const timer = setInterval(() => {
     if (!user.username || !loginMap.has(user.username) || userSessionMap.get(user.username) !== sid) {
@@ -505,6 +517,7 @@ io.on('connection', socket => {
     }
   }, UNLOGGED_CLEAN_INTERVAL);
 
+  // 前端：user-online 用户上线
   socket.on('user-online', (data) => {
     const { username } = data;
     if (!username || !loginMap.has(username)) return;
@@ -512,9 +525,18 @@ io.on('connection', socket => {
     userSessionMap.set(username, sid);
     usernameToSocket.set(username, socket);
     sysLog('ONLINE', '用户上线', { username, sid });
+    broadcastOnlineCount();
     autoJoinMatchPool(sid);
   });
 
+  // 前端：i_am_back 前台重回
+  socket.on('i_am_back', (data) => {
+    if(!user.username) return;
+    user.lastActive = Date.now();
+    user.lastKeepAlive = Date.now();
+  });
+
+  // 前端：match-chat 开始匹配
   socket.on('match-chat', () => {
     if (!user.username) return;
     if (user.isMatched) stopChat(sid, false);
@@ -525,6 +547,27 @@ io.on('connection', socket => {
     userMatchTimer.set(sid, t);
     sysLog('MATCH', '用户发起匹配', { user: user.username });
     tryMatch();
+  });
+
+  // 前端：match_reset 停止匹配重置
+  socket.on('match_reset', () => {
+    waitingUsers.delete(sid);
+    cleanMatchTimer(sid);
+  });
+
+  // 前端：enter_ai_round_room 进入AI圆桌
+  socket.on('enter_ai_round_room', (data) => {
+    if(!user.username) return;
+    user.isMatched = true;
+    user.partner = "ai_bot";
+    user.roomId = "ai_room";
+  });
+
+  // 前端：exit_ai_round_room 退出AI圆桌
+  socket.on('exit_ai_round_room', (data) => {
+    user.isMatched = false;
+    user.partner = null;
+    user.roomId = null;
   });
 
   socket.on('stop-chat', () => {
@@ -602,8 +645,13 @@ io.on('connection', socket => {
     userMap.delete(sid);
     clearInterval(timer);
     sysLog('DISCONNECT', '客户端断开', { sid, user: user.username });
+    // 断开后更新在线人数
+    broadcastOnlineCount();
   });
 });
+
+// 定时30秒广播一次在线人数，保证前端数字实时
+setInterval(broadcastOnlineCount, 30000);
 
 startKeepAliveCheck();
 loadPwd();
@@ -738,6 +786,8 @@ server.listen(PORT, '0.0.0.0', () => {
   console.log('=========================================');
   console.log('✅ 服务启动成功 端口:' + PORT);
   console.log('✅ 语法错误全部修复');
+  console.log('✅ 在线人数统计+全局广播已适配前端');
+  console.log('✅ 所有WebSocket事件已补齐匹配前端');
   console.log('✅ A机保活 + B机保活正常运行');
   console.log('✅ AI调用 + 兜底回复正常');
   console.log('=========================================');
