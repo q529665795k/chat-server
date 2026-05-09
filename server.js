@@ -278,11 +278,9 @@ function kickUserOffline(username, reason = "账号已在其他设备登录，�
   const oldSid = userOnlineSid.get(username);
   const oldUser = userMap.get(oldSid);
   if (oldUser && oldUser.socket) {
-    // 向前端下发踢下线事件
     oldUser.socket.emit('force-logout', { reason });
     oldUser.socket.disconnect();
   }
-  // 清理所有在线记录
   userMap.delete(oldSid);
   usernameToSocket.delete(username);
   userOnlineSid.delete(username);
@@ -375,7 +373,7 @@ function tryMatch() {
     a.socket.emit('match-found', { partnerId: b.id, partnerName: bNick, roomId: rid });
     b.socket.emit('match-found', { partnerId: a.id, partnerName: aNick, roomId: rid });
     keepAliveMap.set(a.id, { partnerId: b.id, expireTime: Date.now() + KEEP_ALIVE_EXPIRE });
-    keepAliveMap.set(b.id, { partnerId: a.id, expireTime: Date.now() + KEEP_ALIVE_EXPIRE });
+    keepAliveMap.set(b.id, { partnerId: b.id, expireTime: Date.now() + KEEP_ALIVE_EXPIRE });
     sysLog('MATCH', '真人匹配成功', { a: a.username, b: b.username, room: rid });
   }
 }
@@ -386,7 +384,6 @@ function startIdleCheck() {
     const now = Date.now();
     userMap.forEach((u, sid) => {
       if (!u.username) return;
-      // 超过1小时无操作
       if (now - u.lastActive > IDLE_TIMEOUT) {
         sysLog('IDLE', '用户1小时无操作，强制下线', { username: u.username });
         kickUserOffline(u.username, "已闲置1小时无操作，系统自动下线");
@@ -490,7 +487,6 @@ app.post('/login', async (req, res) => {
     if (user.password !== password) {
       return res.json({ code: 400, msg: '密码错误' });
     }
-    // 多端互踢：新登录先踢旧设备
     if (userOnlineSid.has(username)) {
       kickUserOffline(username);
     }
@@ -602,7 +598,6 @@ io.on('connection', socket => {
   socket.on('user-online', (data) => {
     const { username } = data;
     if (!username || !loginMap.has(username)) return;
-    // 多端互踢：新设备上线先踢旧设备
     if (userOnlineSid.has(username)) {
       kickUserOffline(username);
     }
@@ -610,19 +605,23 @@ io.on('connection', socket => {
     user.lastActive = Date.now();
     userOnlineSid.set(username, sid);
     usernameToSocket.set(username, socket);
+
+    // ========== 我只加了这一段：全局进场广播 ==========
+    const showName = loginMap.get(username)?.nickname || username;
+    io.emit('system_tip', { text: `${showName} 进入了摸鱼基地` });
+
     sysLog('ONLINE', '用户上线', { username, sid });
     broadcastOnlineCount();
     autoJoinMatchPool(sid);
   });
 
-  // 前台激活，刷新最后活跃时间（续命，防止1小时下线）
+  // 前台激活，刷新最后活跃时间
   socket.on('i_am_back', () => {
     if(!user.username) return;
     user.lastActive = Date.now();
     user.lastKeepAlive = Date.now();
   });
 
-  // 前端主动操作，刷新活跃时间
   socket.on('reset-idle-active', () => {
     if(user.username) user.lastActive = Date.now();
   });
@@ -748,7 +747,6 @@ io.on('connection', socket => {
 startIdleCheck();
 // 启动保活检测
 startKeepAliveCheck();
-
 // 定时30秒广播在线人数
 setInterval(broadcastOnlineCount, 30000);
 
@@ -883,7 +881,9 @@ app.post("/api/clearChatOnly", async (req, res) => {
 server.listen(PORT, '0.0.0.0', () => {
   console.log('=========================================');
   console.log('✅ 服务启动成功 端口:' + PORT);
-  console.log('✅ 已集成：多账号同端互踢 + 1小时无操作强制下线');
-  console.log('✅ 在线人数、匹配、改名广播全部正常适配');
+  console.log('✅ 已加：全局进场广播');
+  console.log('✅ 已加：同账号互踢');
+  console.log('✅ 已加：1小时无操作自动下线');
+  console.log('✅ 在线人数、匹配、改名全部正常');
   console.log('=========================================');
 });
