@@ -618,9 +618,14 @@ async function login() {
  let btn = document.getElementById("sendCodeBtn");
  btn.disabled = true;
  fetch(`${BASE_URL}/send-code`, {
- method: "POST", headers: { "Content-Type": "application/json" },
- body: JSON.stringify({ email: email })
- }).then(res => res.json()).then(j => {
+  method: "POST",
+  headers: {
+    "Content-Type": "application/json",
+    "Origin": "https://808.qzz.io"
+  },
+  body: JSON.stringify({ email: email })
+})
+.then(res => res.json()).then(j => {
  if (j.success) {
   document.getElementById("tip2").style.color = "#5eead4";
   document.getElementById("tip2").textContent = "验证码已发送，请查收邮箱";
@@ -672,10 +677,14 @@ function register() {
     return;
   }
   fetch(`${BASE_URL}/register`, {
-    method: "POST",
-    headers: { "Content-Type": "application/json" },
-    body: JSON.stringify({ username: u, password: p, email: email, code: code })
-  }).then(res => res.json()).then(j => {
+  method: "POST",
+  headers: {
+    "Content-Type": "application/json",
+    "Origin": "https://808.qzz.io"
+  },
+  body: JSON.stringify({ username: u, password: p, email: email, code: code })
+})
+.then(res => res.json()).then(j => {
     document.getElementById("tip2").textContent = j.msg || "注册成功";
     if (j.code === 200) {
       document.getElementById("tip2").style.color = "#5eead4";
