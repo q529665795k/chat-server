@@ -21,10 +21,15 @@ body{display:flex;flex-direction:column}
 .tab.active{background:linear-gradient(90deg,#5eead4,#86efac);color:#0f1730;}
 .input-group{margin-bottom:22px;position:relative;}
 .input-group input{width:100%;padding:18px 18px 18px 55px;background:rgba(255,255,255,0.08);border:1px solid rgba(255,255,255,0.18);border-radius:35px;color:#fff;font-size:0.8rem;outline:none;transition:0.3s ease;}
-.input-group input::placeholder{color:rgba(255,255,255,0.65);font-size:0.75rem;}
-.input-group input:focus{border-color:#5eead4;box-shadow:0 0 12px rgba(94,234,212,0.4);}
+
+ input-group input::placeholder{color:rgba(94,234,212,0.7);font-size:0.75rem;}
+ 
+ .input-group input:focus{border-color:#5eead4;box-shadow:0 0 12px rgba(94,234,212,0.4);}
 .input-group .icon{position:absolute;left:20px;top:50%;transform:translateY(-50%);color:rgba(255,255,255,0.6);font-size:1.25rem;pointer-events:none;}
-.btn{width:100%;padding:17px;background:linear-gradient(90deg,#5eead4,#86efac);border:none;border-radius:35px;color:#0f1730;font-size:1.15rem;font-weight:bold;cursor:pointer;transition:all 0.3s ease;margin:0 0 12px 0;}
+
+ .input-group .required{color:#ff3b30;font-size:0.7rem;position:absolute;right:18px;top:50%;transform:translateY(-50%);} .code-row{display:flex;gap:10px;margin-bottom:22px;position:relative;} .code-row .code-input-wrap{flex:1;position:relative;} .code-row input{width:100%;padding:18px 18px 18px 55px;background:rgba(255,255,255,0.08);border:1px solid rgba(255,255,255,0.18);border-radius:35px;color:#fff;font-size:0.8rem;outline:none;transition:0.3s ease;} .code-row input::placeholder{color:rgba(94,234,212,0.7);font-size:0.75rem;} .code-row input:focus{border-color:#5eead4;box-shadow:0 0 12px rgba(94,234,212,0.4);} .code-row .icon{position:absolute;left:20px;top:50%;transform:translateY(-50%);color:rgba(255,255,255,0.6);font-size:1.25rem;pointer-events:none;} .code-row .required{color:#ff3b30;font-size:0.7rem;position:absolute;right:18px;top:50%;transform:translateY(-50%);} .send-code-btn{flex-shrink:0;width:110px;padding:0;background:linear-gradient(90deg,#5eead4,#86efac);border:none;border-radius:35px;color:#0f1730;font-size:0.75rem;font-weight:bold;cursor:pointer;transition:all 0.3s ease;white-space:nowrap;} .send-code-btn:disabled{background:rgba(255,255,255,0.15);color:rgba(255,255,255,0.5);cursor:not-allowed;} .send-code-btn:not(:disabled):hover{transform:translateY(-2px);box-shadow:0 4px 15px rgba(94,234,212,0.4);}
+ 
+ .btn{width:100%;padding:17px;background:linear-gradient(90deg,#5eead4,#86efac);border:none;border-radius:35px;color:#0f1730;font-size:1.15rem;font-weight:bold;cursor:pointer;transition:all 0.3s ease;margin:0 0 12px 0;}
 .btn:hover{transform:translateY(-3px);box-shadow:0 6px 25px rgba(94,234,212,0.45);}
 .tip,.tip2{color:#ff3b30;text-align:center;margin-top:8px;font-size:13px;}
 .container{display:none;flex:1;padding:14px;flex-direction:column;gap:10px;height:100%;min-height:0;position:relative;z-index:2;}
@@ -151,18 +156,35 @@ body{display:flex;flex-direction:column}
             <div class="tip" id="tip"></div>
         </div>
         <div id="f2" style="display:none;">
-            <div class="input-group">
-                <span class="icon">👤</span>
-                <input id="u2" placeholder="取个代号，别用真名，防止被老板查岗">
-            </div>
-            <div class="input-group">
-                <span class="icon">🔒</span>
-                <input id="p2" type="password" placeholder="密码记牢，不然摸鱼号都登不上">
-            </div>
-            <button class="btn" id="regBtn">入伙摸鱼大队</button>
-            <div class="tip2" id="tip2"></div>
-        </div>
+            <div id="f2" style="display:none;">
+  <div class="input-group">
+    <span class="icon">👤</span>
+    <input id="u2" placeholder="取个代号，别用真名，防止被老板查岗">
+    <span class="required">*</span>
+  </div>
+  <div class="input-group">
+    <span class="icon">🔒</span>
+    <input id="p2" type="password" placeholder="密码记牢，不然摸鱼号都登不上">
+    <span class="required">*</span>
+  </div>
+  <div class="input-group">
+    <span class="icon">📧</span>
+    <input id="regEmail" type="email" placeholder="输入邮箱，用于接收验证码">
+    <span class="required">*</span>
+  </div>
+  <div class="code-row">
+    <div class="code-input-wrap">
+      <span class="icon">🔑</span>
+      <input id="regCode" type="text" maxlength="6" placeholder="输入6位验证码">
+      <span class="required">*</span>
     </div>
+    <button class="send-code-btn" id="sendCodeBtn" onclick="sendCode()">获取验证码</button>
+  </div>
+  <button class="btn" id="regBtn">入伙摸鱼大队</button>
+  <div style="text-align:center; margin-top:8px; font-size:11px; color:rgba(255,255,255,0.4);">带 * 为必填项 · 验证码80秒内有效</div>
+  <div class="tip2" id="tip2"></div>
+</div>
+
 </div>
 
 <div class="container" id="main">
@@ -236,7 +258,7 @@ let userPhoneBrand = "通用安卓";
 let userBrowserName = "浏览器";
 let userBrowserAppName = "浏览器";
 let isInAiRoom = false;
-
+let codeCountdown = 0; let codeTimer = null;
 // 全局唯一介绍文字（只写1次，所有地方调用）
 const TIP_TEXT = `摸鱼基地介绍<br>聊天不留记录，看完就消失<br>账号每3个月自动清理<br>忘记账号密码，重新注册就行<br>来无痕迹，去无牵挂`;
 
@@ -576,21 +598,52 @@ async function login() {
   }
 }
 
+function sendCode() { let email = document.getElementById("regEmail").value.trim(); if (!email) { document.getElementById("tip2").textContent = "请先输入邮箱"; setTimeout(() => document.getElementById("tip2").textContent = "", 2000); return; } const emailRe = /^[^\s@]+@[^\s@]+\.[^\s@]+$/; if (!emailRe.test(email)) { document.getElementById("tip2").textContent = "邮箱格式不正确"; setTimeout(() => document.getElementById("tip2").textContent = "", 2000); return; } let btn = document.getElementById("sendCodeBtn"); btn.disabled = true; fetch(`${BASE_URL}/send-code`, { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ email: email }) }).then(res => res.json()).then(j => { if (j.code === 200) { document.getElementById("tip2").style.color = "#5eead4"; document.getElementById("tip2").textContent = "验证码已发送，请查收邮箱"; setTimeout(() => { document.getElementById("tip2").textContent = ""; document.getElementById("tip2").style.color = "#ff3b30"; }, 3000); codeCountdown = 60; btn.textContent = codeCountdown + "s"; codeTimer = setInterval(() => { codeCountdown--; if (codeCountdown <= 0) { clearInterval(codeTimer); btn.disabled = false; btn.textContent = "获取验证码"; } else { btn.textContent = codeCountdown + "s"; } }, 1000); } else { btn.disabled = false; btn.textContent = "获取验证码"; document.getElementById("tip2").textContent = j.msg || "发送失败"; setTimeout(() => document.getElementById("tip2").textContent = "", 2000); } }).catch(() => { btn.disabled = false; btn.textContent = "获取验证码"; document.getElementById("tip2").textContent = "网络异常"; setTimeout(() => document.getElementById("tip2").textContent = "", 2000); }); }
+
+ 
 function register() {
   let u = document.getElementById("u2").value.trim();
   let p = document.getElementById("p2").value.trim();
-  if (!u || !p) { document.getElementById("tip2").textContent = "请输入账号密码"; setTimeout(()=>document.getElementById("tip2").textContent="",2000); return; }
+  let email = document.getElementById("regEmail").value.trim();
+  let code = document.getElementById("regCode").value.trim();
+
+  if (!u || !p) {
+    document.getElementById("tip2").textContent = "请输入账号密码";
+    setTimeout(() => document.getElementById("tip2").textContent = "", 2000);
+    return;
+  }
+  if (!email) {
+    document.getElementById("tip2").textContent = "请输入邮箱";
+    setTimeout(() => document.getElementById("tip2").textContent = "", 2000);
+    return;
+  }
+  if (!code) {
+    document.getElementById("tip2").textContent = "请输入验证码";
+    setTimeout(() => document.getElementById("tip2").textContent = "", 2000);
+    return;
+  }
+
   fetch(`${BASE_URL}/register`, {
-    method: "POST", headers: { "Content-Type": "application/json" },
-    body: JSON.stringify({ username: u, password: p })
-  }).then(res=>res.json()).then(j=>{
+    method: "POST",
+    headers: { "Content-Type": "application/json" },
+    body: JSON.stringify({ username: u, password: p, email: email, code: code })
+  }).then(res => res.json()).then(j => {
     document.getElementById("tip2").textContent = j.msg || "注册成功";
-    setTimeout(()=>document.getElementById("tip2").textContent="",2000);
-  }).catch(()=>{
+    if (j.code === 200) {
+      document.getElementById("tip2").style.color = "#5eead4";
+      setTimeout(() => {
+        document.getElementById("tip2").textContent = "";
+        document.getElementById("tip2").style.color = "#ff3b30";
+      }, 2000);
+    } else {
+      setTimeout(() => document.getElementById("tip2").textContent = "", 2000);
+    }
+  }).catch(() => {
     document.getElementById("tip2").textContent = "网络异常";
-    setTimeout(()=>document.getElementById("tip2").textContent="",2000);
+    setTimeout(() => document.getElementById("tip2").textContent = "", 2000);
   });
 }
+
 
 function sendMsg() {
   let t = document.getElementById("msg").value.trim();
