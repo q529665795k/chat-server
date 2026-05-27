@@ -781,6 +781,11 @@ document.addEventListener('DOMContentLoaded', function() {
     }).catch(()=>{showSystemTip("复制失败，手动复制："+userBrowserAppName);});
   };
 });
+
+
+document.getElementById("sendCodeBtn").onclick = sendCode;
+window.sendCode = sendCode;
+
 </script>
 </body>
 </html>
