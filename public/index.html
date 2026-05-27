@@ -588,7 +588,31 @@ async function login() {
 }
 
 function sendCode() {
- let email = document.getElementById("regEmail").value.trim();
+
+  function sendCode() {
+  // 新增判断：倒计时中直接退出
+  if(codeCountdown > 0) return;
+
+  let email = document.getElementById("regEmail").value.trim();
+  // 原有校验逻辑不变
+  const emailRe = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
+  if (!email) {
+    document.getElementById("tip2").textContent = "请先输入邮箱";
+    setTimeout(() => document.getElementById("tip2").textContent = "", 2000);
+    return;
+  }
+  if (!emailRe.test(email)) {
+    document.getElementById("tip2").textContent = "邮箱格式不正确";
+    setTimeout(() => document.getElementById("tip2").textContent = "", 2000);
+    return;
+  }
+  let btn = document.getElementById("sendCodeBtn");
+  btn.disabled = true;
+  // 原有请求+倒计时逻辑不变
+  // ...
+}
+
+  let email = document.getElementById("regEmail").value.trim();
  if (!email) { document.getElementById("tip2").textContent = "请先输入邮箱"; setTimeout(() => document.getElementById("tip2").textContent = "", 2000); return; }
  const emailRe = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
  if (!emailRe.test(email)) { document.getElementById("tip2").textContent = "邮箱格式不正确"; setTimeout(() => document.getElementById("tip2").textContent = "", 2000); return; }
