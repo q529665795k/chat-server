@@ -198,7 +198,7 @@ body{display:flex;flex-direction:column}
                 <button class="send-code-btn" id="sendCodeBtn" onclick="sendCode()">获取验证码</button>
             </div>
             <button class="btn" id="regBtn">入伙摸鱼大队</button>
-            <div style="text-align:center; margin-top:8px; font-size:11px; color:rgba(255,255,255,0.4);">带 * 为必填项 · 验证码80秒内有效</div>
+            <div style="text-align:center; margin-top:8px; font-size:11px; color:rgba(255,255,255,0.4);">带 * 为必填项 · 验证码60秒内有效</div>
             <div class="tip2" id="tip2"></div>
         </div>
     </div>
@@ -401,12 +401,12 @@ function initSocket() {
         if (j.type === "match-found") {
             partnerId = j.partnerId; roomId = j.roomId;
             document.getElementById("match").textContent = "取消匹配";
-            showSystemTip("✅ 匹配成功：" + j.partnerName); return;
+            showTip("✅ 匹配成功：" + j.partnerName); return;
         }
         if (j.type === "partner-leave") {
             partnerId = ""; roomId = "";
             document.getElementById("match").textContent = "匹配聊天";
-            showSystemTip("❌ 对方已离开"); return;
+            showTip("❌ 对方已离开"); return;
         }
         if (j.type === "new-msg") {
             addMsg(j.fromName, j.content, j.burn, j.msgId, j.msgType, j.content);
@@ -473,14 +473,14 @@ function confirmMatch(){
     socket.send(JSON.stringify({type:"match_reset"}));
     socket.send(JSON.stringify({type:"match-chat"}));
     document.getElementById("match").innerText = "取消匹配";
-    showSystemTip("正在匹配...");
+    showTip("正在匹配...");
   }
 }
 
 function stopMatch(){
   document.getElementById("match").innerText = "匹配聊天";
   if(socket && socket.readyState === WebSocket.OPEN) socket.send(JSON.stringify({type:"match_reset"}));
-  showSystemTip("已停止匹配");
+  showTip("已停止匹配");
 }
 
 function openGalleryImage() { if (!partnerId) { alert("请先匹配或进入AI"); return; } document.getElementById("galleryImage").click(); }
@@ -587,13 +587,10 @@ async function login() {
   }
 }
 
-
-  function sendCode() {
-  // 新增判断：倒计时中直接退出
-  if(codeCountdown > 0) return;
+function sendCode() {
+  if (codeCountdown > 0) return;
 
   let email = document.getElementById("regEmail").value.trim();
-  // 原有校验逻辑不变
   const emailRe = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
   if (!email) {
     document.getElementById("tip2").textContent = "请先输入邮箱";
@@ -605,55 +602,46 @@ async function login() {
     setTimeout(() => document.getElementById("tip2").textContent = "", 2000);
     return;
   }
+
   let btn = document.getElementById("sendCodeBtn");
   btn.disabled = true;
-  // 原有请求+倒计时逻辑不变
-  // ...
-}
 
-  let email = document.getElementById("regEmail").value.trim();
- if (!email) { document.getElementById("tip2").textContent = "请先输入邮箱"; setTimeout(() => document.getElementById("tip2").textContent = "", 2000); return; }
- const emailRe = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
- if (!emailRe.test(email)) { document.getElementById("tip2").textContent = "邮箱格式不正确"; setTimeout(() => document.getElementById("tip2").textContent = "", 2000); return; }
- let btn = document.getElementById("sendCodeBtn");
- btn.disabled = true;
- fetch(`${BASE_URL}/send-code`, {
-  method: "POST",
-  headers: {
-    "Content-Type": "application/json",
-    "Origin": "https://808.qzz.io"
-  },
-  body: JSON.stringify({ email: email })
-})
-.then(res => res.json()).then(j => {
- if (j.success) {
-  document.getElementById("tip2").style.color = "#5eead4";
-  document.getElementById("tip2").textContent = "验证码已发送，请查收邮箱";
-  setTimeout(() => { document.getElementById("tip2").textContent = ""; document.getElementById("tip2").style.color = "#ff3b30"; }, 3000);
-  // 修改此处80→60
-  codeCountdown = 60;
-  btn.textContent = codeCountdown + "s";
-  codeTimer = setInterval(() => {
-    codeCountdown--;
-    if (codeCountdown <= 0) {
-      clearInterval(codeTimer);
+  fetch(`${BASE_URL}/send-code`, {
+    method: "POST",
+    headers: { "Content-Type": "application/json" },
+    body: JSON.stringify({ email: email })
+  })
+  .then(res => res.json())
+  .then(j => {
+    if (j.success) {
+      document.getElementById("tip2").style.color = "#5eead4";
+      document.getElementById("tip2").textContent = "验证码已发送，请查收邮箱";
+      setTimeout(() => { document.getElementById("tip2").textContent = ""; document.getElementById("tip2").style.color = "#ff3b30"; }, 3000);
+      codeCountdown = 60;
+      btn.textContent = codeCountdown + "s";
+      codeTimer = setInterval(() => {
+        codeCountdown--;
+        if (codeCountdown <= 0) {
+          clearInterval(codeTimer);
+          btn.disabled = false;
+          btn.textContent = "获取验证码";
+        } else {
+          btn.textContent = codeCountdown + "s";
+        }
+      }, 1000);
+    } else {
       btn.disabled = false;
       btn.textContent = "获取验证码";
-    } else {
-      btn.textContent = codeCountdown + "s";
+      document.getElementById("tip2").textContent = j.error || j.msg || "发送失败";
+      setTimeout(() => document.getElementById("tip2").textContent = "", 2000);
     }
-  }, 1000);
-}
- else {
- btn.disabled = false; btn.textContent = "获取验证码";
- document.getElementById("tip2").textContent = j.error || j.msg || "发送失败";
- setTimeout(() => document.getElementById("tip2").textContent = "", 2000);
- }
- }).catch(() => {
- btn.disabled = false; btn.textContent = "获取验证码";
- document.getElementById("tip2").textContent = "网络异常";
- setTimeout(() => document.getElementById("tip2").textContent = "", 2000);
- });
+  })
+  .catch(() => {
+    btn.disabled = false;
+    btn.textContent = "获取验证码";
+    document.getElementById("tip2").textContent = "网络异常";
+    setTimeout(() => document.getElementById("tip2").textContent = "", 2000);
+  });
 }
 
 function register() {
@@ -677,14 +665,12 @@ function register() {
     return;
   }
   fetch(`${BASE_URL}/register`, {
-  method: "POST",
-  headers: {
-    "Content-Type": "application/json",
-    "Origin": "https://808.qzz.io"
-  },
-  body: JSON.stringify({ username: u, password: p, email: email, code: code })
-})
-.then(res => res.json()).then(j => {
+    method: "POST",
+    headers: { "Content-Type": "application/json" },
+    body: JSON.stringify({ username: u, password: p, email: email, code: code })
+  })
+  .then(res => res.json())
+  .then(j => {
     document.getElementById("tip2").textContent = j.msg || "注册成功";
     if (j.code === 200) {
       document.getElementById("tip2").style.color = "#5eead4";
@@ -821,10 +807,6 @@ document.addEventListener('DOMContentLoaded', function() {
     }).catch(()=>{showSystemTip("复制失败，手动复制："+userBrowserAppName);});
   };
 });
-
-
-
-
 </script>
 </body>
 </html>
