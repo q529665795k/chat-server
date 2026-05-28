@@ -260,6 +260,7 @@ body{display:flex;flex-direction:column}
 <script>
 const BASE_URL = "https://api.808.qzz.io";
 const WS_PATH = "wss://api.808.qzz.io/ws";
+const API_SECRET = "Chat808_Secret_2026";
 
 let socket = null;
 let nickName = "";
@@ -440,7 +441,7 @@ function startHeartbeat() {
 async function loadLatestNick() {
   if (!userId) return;
   try {
-    let res = await fetch(`${BASE_URL}/api/get_user_info?user_id=${userId}`);
+    let res = await fetch(`${BASE_URL}/api/get_user_info?user_id=${userId}`, { headers: { "X-API-Secret": API_SECRET } });
     let data = await res.json();
     nickName = data.nick || data.account || userId;
     document.getElementById("nick").textContent = nickName;
@@ -563,7 +564,7 @@ async function login() {
   userId = u;
   try {
     let res = await fetch(`${BASE_URL}/login`, {
-      method: "POST", headers: { "Content-Type": "application/json" },
+      method: "POST", headers: { "Content-Type": "application/json", "X-API-Secret": API_SECRET },
       body: JSON.stringify({ username: u, password: p })
     });
     let j = await res.json();
@@ -608,13 +609,13 @@ function sendCode() {
 
   fetch(`${BASE_URL}/send-code`, {
     method: "POST",
-    headers: { "Content-Type": "application/json" },
+    headers: { "Content-Type": "application/json", "X-API-Secret": API_SECRET },
     body: JSON.stringify({ email: email })
   })
-  .then(res => res.json())
-  .then(j => {
-    if (j.success) {
-      document.getElementById("tip2").style.color = "#5eead4";
+  .then(async res => ({ res, j: await res.json() }))
+  .then(({res, j}) => {
+    if (res.ok && (j.success === true || j.code === 200)) {
+      document.getElementById("tip2").style.color = "#bfffe8";
       document.getElementById("tip2").textContent = "验证码已发送，请查收邮箱";
       setTimeout(() => { document.getElementById("tip2").textContent = ""; document.getElementById("tip2").style.color = "#ff3b30"; }, 3000);
       codeCountdown = 60;
@@ -666,7 +667,7 @@ function register() {
   }
   fetch(`${BASE_URL}/register`, {
     method: "POST",
-    headers: { "Content-Type": "application/json" },
+    headers: { "Content-Type": "application/json", "X-API-Secret": API_SECRET },
     body: JSON.stringify({ username: u, password: p, email: email, code: code })
   })
   .then(res => res.json())
@@ -709,7 +710,7 @@ async function saveNewNick() {
   if (!nn || nn.length < 2 || nn.length > 20) { alert("昵称2-20字符"); return; }
   try {
     let res = await fetch(`${BASE_URL}/update-nickname`, {
-      method: "POST", headers: { "Content-Type": "application/json" },
+      method: "POST", headers: { "Content-Type": "application/json", "X-API-Secret": API_SECRET },
       body: JSON.stringify({ username: userId, newNickname: nn })
     });
     let r = await res.json();
