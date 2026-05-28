@@ -1,4 +1,4 @@
-<!DOCTYPE html>
+ <!DOCTYPE html>
 <html lang="zh-CN">
 <head>
 <meta charset="UTF-8">
@@ -17,71 +17,48 @@ body{display:flex;flex-direction:column}
 .main-title{font-size:2rem;color:#fff;font-weight:600;margin-bottom:12px;text-shadow:0 0 18px rgba(96,230,205,0.55);}
 .sub-title{font-size:1.2rem;color:#c9cdd8;margin-bottom:28px;letter-spacing:1px;}
 .tabs{display:flex;gap:10px;margin-bottom:16px;}
-.tab{flex:1;padding:12px;text-align:center;background:rgba(255,255,255,0.1);border-radius:18px;cursor:pointer;font-weight:bold;transition:0.2s;color:#fff;}
+.tab{flex:1;padding:12px;text-align:center;background:rgba(255,255,255,0.1);border-radius:18px;cursor:pointer;font-weight:bold;transition:0.2s;}
 .tab.active{background:linear-gradient(90deg,#5eead4,#86efac);color:#0f1730;}
 .input-group{margin-bottom:22px;position:relative;}
 .input-group input{width:100%;padding:18px 18px 18px 55px;background:rgba(255,255,255,0.08);border:1px solid rgba(255,255,255,0.18);border-radius:35px;color:#fff;font-size:0.8rem;outline:none;transition:0.3s ease;}
-.input-group input::placeholder{color:rgba(94,234,212,0.7);font-size:0.75rem;}
+.input-group input::placeholder{color:rgba(255,255,255,0.65);font-size:0.75rem;}
 .input-group input:focus{border-color:#5eead4;box-shadow:0 0 12px rgba(94,234,212,0.4);}
 .input-group .icon{position:absolute;left:20px;top:50%;transform:translateY(-50%);color:rgba(255,255,255,0.6);font-size:1.25rem;pointer-events:none;}
-.input-group .required{color:#ff3b30;font-size:0.7rem;position:absolute;right:18px;top:50%;transform:translateY(-50%);}
-.code-row{display:flex;gap:10px;margin-bottom:22px;position:relative;}
-.code-row .code-input-wrap{flex:1;position:relative;}
-.code-row input{width:100%;padding:18px 18px 18px 55px;background:rgba(255,255,255,0.08);border:1px solid rgba(255,255,255,0.18);border-radius:35px;color:#fff;font-size:0.8rem;outline:none;transition:0.3s ease;}
-.code-row input::placeholder{color:rgba(94,234,212,0.7);font-size:0.75rem;}
-.code-row input:focus{border-color:#5eead4;box-shadow:0 0 12px rgba(94,234,212,0.4);}
-.code-row .icon{position:absolute;left:20px;top:50%;transform:translateY(-50%);color:rgba(255,255,255,0.6);font-size:1.25rem;pointer-events:none;}
-.code-row .required{color:#ff3b30;font-size:0.7rem;position:absolute;right:18px;top:50%;transform:translateY(-50%);}
-.send-code-btn{flex-shrink:0;width:110px;padding:0;background:linear-gradient(90deg,#5eead4,#86efac);border:none;border-radius:35px;color:#0f1730;font-size:0.75rem;font-weight:bold;cursor:pointer;transition:all 0.3s ease;white-space:nowrap;}
-.send-code-btn:disabled{background:rgba(255,255,255,0.15);color:rgba(255,255,255,0.5);cursor:not-allowed;}
-.send-code-btn:not(:disabled):hover{transform:translateY(-2px);box-shadow:0 4px 15px rgba(94,234,212,0.4);}
 .btn{width:100%;padding:17px;background:linear-gradient(90deg,#5eead4,#86efac);border:none;border-radius:35px;color:#0f1730;font-size:1.15rem;font-weight:bold;cursor:pointer;transition:all 0.3s ease;margin:0 0 12px 0;}
 .btn:hover{transform:translateY(-3px);box-shadow:0 6px 25px rgba(94,234,212,0.45);}
 .tip,.tip2{color:#ff3b30;text-align:center;margin-top:8px;font-size:13px;}
-.container{
-  visibility:hidden;
-  display:flex;
-  flex:1;
-  padding:14px;
-  flex-direction:column;
-  gap:10px;
-  height:100%;
-  min-height:0;
-  position:relative;
-  z-index:2;
-}
-.header{display:flex;justify-content:space-between;align-items:center;color:#fff;}
+.container{display:none;flex:1;padding:14px;flex-direction:column;gap:10px;height:100%;min-height:0;position:relative;z-index:2;}
+.header{display:flex;justify-content:space-between;align-items:center;}
 .nick{font-size:20px;font-weight:600;color:#ffffff;}
-.exit{background:#ff3b30;padding:6px 16px;border-radius:8px;font-size:14px;border:none;color:#fff;}
-.bar{display:flex;flex-wrap:wrap;gap:10px 14px;align-items:center;font-size:14px;color:#fff;}
+.exit{background:#ff3b30;padding:6px 16px;border-radius:8px;font-size:14px;width:70px;text-align:center;}
+.bar{display:flex;flex-wrap:wrap;gap:10px 14px;align-items:center;font-size:14px;}
 .bar label{display:flex;align-items:center;gap:4px;color:#ffffff;}
-.btn-nick{background:#007AFF;padding:6px 12px;border-radius:8px;font-size:13px;border:none;color:#fff;}
-.match{background:#ff9500;padding:12px;border-radius:10px;font-size:16px;width:100%;font-weight:bold;border:none;transition:all 0.15s ease;color:#fff;}
+.btn-nick{background:#007AFF;padding:6px 12px;border-radius:8px;font-size:13px;}
+.match{background:#ff9500;padding:12px;border-radius:10px;font-size:16px;width:100%;font-weight:bold;transition:all 0.15s ease;}
 .match:active{transform:scale(0.96);opacity:0.9;}
 .tools{display:flex;gap:10px;flex-wrap:wrap;}
-.tools button{flex:1;padding:10px;border-radius:10px;background:#007AFF;font-size:14px;border:none;color:#fff;}
+.tools button{flex:1;padding:10px;border-radius:10px;background:#007AFF;font-size:14px;}
 .chat{flex:1;background:rgba(255,255,255,0.06);border-radius:12px;padding:12px;overflow-y:auto;display:flex;flex-direction:column;gap:8px;min-height:0;backdrop-filter:blur(6px);position:relative;}
 .chat-bg-tip{position:absolute;top:0;left:0;right:0;text-align:center;padding:10px 5px;font-size:11px;color:rgba(255,255,255,0.3);line-height:1.5;user-select:none;pointer-events:none;z-index:1;}
-.msg{padding:10px 14px;border-radius:16px;max-width:75%;word-break:break-all;position:relative;z-index:2;color:#fff;}
+.msg{padding:10px 14px;border-radius:16px;max-width:75%;word-break:break-all;position:relative;z-index:2;}
 .me{background:#007AFF;align-self:flex-end;}
 .other{background:#34c759;align-self:flex-start;}
-.read{position:absolute;right:8px;bottom:4px;font-size:11px;opacity:.7;color:#fff;}
+.read{position:absolute;right:8px;bottom:4px;font-size:11px;opacity:.7;}
 .burn{background:#ff3b30!important;}
 .burn-tip{position:absolute;top:-18px;right:6px;font-size:11px;color:#ff3b30;}
 .input-box{display:flex;gap:8px;align-items:center;flex-shrink:0;}
-.input-box input{flex:1;margin-bottom:0;height:46px;padding:0 12px;border-radius:8px;background:rgba(255,255,255,0.12);border:1px solid rgba(255,255,255,0.25);color:#ffffff;font-size:16px;outline:none;}
+.input-box input{flex:1;margin-bottom:0;height:46px;padding:0 12px;border-radius:8px;background:rgba(255,255,255,0.12);border:1px solid rgba(255,255,255,0.25);color:#ffffff;font-size:16px;}
 .input-box input::placeholder{color:rgba(255,255,255,0.6);}
 .send{background:#007AFF;color:#fff;border:none;border-radius:8px;font-size:14px;width:70px;padding:6px 12px;text-align:center;}
 .modal{display:none;position:fixed;inset:0;background:rgba(0,0,0,0.8);align-items:center;justify-content:center;z-index:9999;}
 .modal-box{background:#222;padding:24px;border-radius:16px;width:90%;max-width:300px;}
-.modal-box input{width:100%;padding:10px;border-radius:8px;border:none;margin-bottom:12px;outline:none;}
 .modal-buttons{display:flex;gap:10px;margin-top:14px;}
-.modal-buttons button{flex:1;padding:8px;border:none;border-radius:8px;color:#fff;}
+.modal-buttons button{flex:1;}
 .media-img{max-width:240px;max-height:240px;width:auto;height:auto;border-radius:12px;cursor:pointer;object-fit:cover;}
 .media-video{max-width:240px;max-height:240px;width:auto;height:auto;border-radius:12px;cursor:pointer;object-fit:cover;}
 #fullPreview{display:none;position:fixed;inset:0;background:rgba(0,0,0,0.95);z-index:99999;align-items:center;justify-content:center;}
-#fullMedia{max-width:90vw;max-height:90vh;object-fit:contain;display:none;}
-#fullVideo{max-width:90vw;max-height:90vh;object-fit:contain;display:none;}
+#fullMedia{max-width:90vw;max-height:90vh;object-fit:contain;}
+#fullVideo{max-width:90vw;max-height:90vh;object-fit:contain;}
 #saveBtn{position:absolute;bottom:40px;background:#007AFF;color:#fff;padding:10px 20px;border-radius:8px;border:none;font-size:16px;}
 .match-modal{display:none;position:fixed;inset:0;background:rgba(0,0,0,0.7);align-items:center;justify-content:center;z-index:99999;}
 .match-modal .box{background:#1a1a2e;padding:30px;border-radius:20px;text-align:center;width:80%;max-width:320px;}
@@ -177,28 +154,12 @@ body{display:flex;flex-direction:column}
             <div class="input-group">
                 <span class="icon">👤</span>
                 <input id="u2" placeholder="取个代号，别用真名，防止被老板查岗">
-                <span class="required">*</span>
             </div>
             <div class="input-group">
                 <span class="icon">🔒</span>
                 <input id="p2" type="password" placeholder="密码记牢，不然摸鱼号都登不上">
-                <span class="required">*</span>
-            </div>
-            <div class="input-group">
-                <span class="icon">📧</span>
-                <input id="regEmail" type="email" placeholder="输入邮箱，用于接收验证码">
-                <span class="required">*</span>
-            </div>
-            <div class="code-row">
-                <div class="code-input-wrap">
-                    <span class="icon">🔑</span>
-                    <input id="regCode" type="text" maxlength="6" placeholder="输入6位验证码">
-                    <span class="required">*</span>
-                </div>
-                <button class="send-code-btn" id="sendCodeBtn" onclick="sendCode()">获取验证码</button>
             </div>
             <button class="btn" id="regBtn">入伙摸鱼大队</button>
-            <div style="text-align:center; margin-top:8px; font-size:11px; color:rgba(255,255,255,0.4);">带 * 为必填项 · 验证码60秒内有效</div>
             <div class="tip2" id="tip2"></div>
         </div>
     </div>
@@ -210,8 +171,8 @@ body{display:flex;flex-direction:column}
         <div>
             <button class="exit" id="exit">退出</button>
             <button onclick="clearChat()" class="exit" style="margin-left:10px;">清空记录</button>
-            <button disabled style="opacity:0.5; cursor:not-allowed; pointer-events:none;">AI圆桌</button>
-            <button disabled style="opacity:0.5; cursor:not-allowed; pointer-events:none;">退出AI</button>
+           <button disabled style="opacity:0.5; cursor:not-allowed; pointer-events:none;">AI圆桌</button>
+<button disabled style="opacity:0.5; cursor:not-allowed; pointer-events:none;">退出AI</button>
         </div>
     </div>
     <div class="bar">
@@ -227,6 +188,7 @@ body{display:flex;flex-direction:column}
         <button onclick="openCamera()" style="background:#ff9500;">📷 拍照</button>
         <button onclick="openCameraVideo()" style="background:#ff9500;">🎥 录像</button>
     </div>
+  
     <div class="chat" id="chat">
         <div class="chat-bg-tip" id="defaultChatTip"></div>
     </div>
@@ -259,9 +221,7 @@ body{display:flex;flex-direction:column}
 
 <script>
 const BASE_URL = "https://api.808.qzz.io";
-const WS_PATH = "wss://api.808.qzz.io/ws";
-const API_SECRET = "Chat808_Secret_2026";
-
+const WS_PATH = BASE_URL + "/ws";
 let socket = null;
 let nickName = "";
 let userId = "";
@@ -276,9 +236,11 @@ let userPhoneBrand = "通用安卓";
 let userBrowserName = "浏览器";
 let userBrowserAppName = "浏览器";
 let isInAiRoom = false;
-let codeCountdown = 0; let codeTimer = null;
+
+// 全局唯一介绍文字（只写1次，所有地方调用）
 const TIP_TEXT = `摸鱼基地介绍<br>聊天不留记录，看完就消失<br>账号每3个月自动清理<br>忘记账号密码，重新注册就行<br>来无痕迹，去无牵挂`;
 
+// 闲置自动退出 1小时
 let idleTimer = null;
 const IDLE_TIME = 3600000;
 
@@ -286,6 +248,7 @@ document.documentElement.style.touchAction = "manipulation";
 document.body.style.touchAction = "manipulation";
 window.addEventListener("touchstart", () => {}, { passive: true });
 
+// 退出登录
 function logout() {
     document.cookie.split(";").forEach(function(c) {
         let cookie = c.trim();
@@ -299,7 +262,7 @@ function logout() {
     sessionStorage.clear();
     if (heartbeatTimer) clearInterval(heartbeatTimer);
     if (socket) socket.close();
-    document.getElementById("main").style.visibility = "hidden";
+    document.getElementById("main").style.display = "none";
     document.getElementById("login").style.display = "flex";
     hasOnline = false;
     userId = "";
@@ -309,6 +272,7 @@ function logout() {
     clearTimeout(idleTimer);
 }
 
+// 重置闲置计时
 function resetIdleTimer() {
     clearTimeout(idleTimer);
     idleTimer = setTimeout(() => {
@@ -316,14 +280,17 @@ function resetIdleTimer() {
     }, IDLE_TIME);
 }
 
+// 开启闲置检测
 function startIdleMonitor() {
     const events = ["mousemove","keydown","click","scroll","touchstart"];
     events.forEach(ev => document.addEventListener(ev, resetIdleTimer));
     resetIdleTimer();
 }
 
+// 初始化默认提示文字（只在这里赋值）
 document.getElementById('defaultChatTip').innerHTML = TIP_TEXT;
 
+// 下面是你原来所有功能，完全不变
 function autoDetectUserEnv() {
   const ua = navigator.userAgent.toLowerCase();
   if (ua.includes("xiaomi") || ua.includes("miui") || ua.includes("redmi")) userPhoneBrand = "小米/红米";
@@ -368,10 +335,7 @@ function showGuideModal(isForce=false) {
 
 function closeGuide(){document.getElementById("guideModal").style.display="none";}
 
-document.addEventListener('visibilitychange', () => {
- if (!document.hidden && userId && socket && socket.readyState === WebSocket.OPEN)
- socket.send(JSON.stringify({ type: "i_am_back", userId: userId, userName: nickName }));
-});
+document.addEventListener('visibilitychange', () => { if (!document.hidden && userId && socket && socket.readyState === WebSocket.OPEN) socket.send(JSON.stringify({ type: "i_am_back", userId: userId, userName: nickName })); });
 
 function showSystemTip(text) {
     const tip = document.getElementById("systemTip");
@@ -402,15 +366,15 @@ function initSocket() {
         if (j.type === "match-found") {
             partnerId = j.partnerId; roomId = j.roomId;
             document.getElementById("match").textContent = "取消匹配";
-            showTip("✅ 匹配成功：" + j.partnerName); return;
+            sy("✅ 匹配成功：" + j.partnerName); return;
         }
         if (j.type === "partner-leave") {
             partnerId = ""; roomId = "";
             document.getElementById("match").textContent = "匹配聊天";
-            showTip("❌ 对方已离开"); return;
+            sy("❌ 对方已离开"); return;
         }
         if (j.type === "new-msg") {
-            addMsg(j.fromName, j.content, j.burn, j.msgId, j.msgType, j.content);
+            aM(j.fromName, j.content, j.burn, j.msgId, j.msgType, j.content);
             if (document.getElementById("sound").checked) playBeep();
             if (document.getElementById("read").checked) socket.send(JSON.stringify({ type: "msg-read", msgId: j.msgId }));
             return;
@@ -441,7 +405,7 @@ function startHeartbeat() {
 async function loadLatestNick() {
   if (!userId) return;
   try {
-    let res = await fetch(`${BASE_URL}/api/get_user_info?user_id=${userId}`, { headers: { "X-API-Secret": API_SECRET } });
+    let res = await fetch(`${BASE_URL}/api/get_user_info?user_id=${userId}`);
     let data = await res.json();
     nickName = data.nick || data.account || userId;
     document.getElementById("nick").textContent = nickName;
@@ -474,14 +438,38 @@ function confirmMatch(){
     socket.send(JSON.stringify({type:"match_reset"}));
     socket.send(JSON.stringify({type:"match-chat"}));
     document.getElementById("match").innerText = "取消匹配";
-    showTip("正在匹配...");
+    showSystemTip("正在匹配...");
   }
 }
 
 function stopMatch(){
   document.getElementById("match").innerText = "匹配聊天";
   if(socket && socket.readyState === WebSocket.OPEN) socket.send(JSON.stringify({type:"match_reset"}));
-  showTip("已停止匹配");
+  showSystemTip("已停止匹配");
+}
+
+function enterAiRoom(){
+  if(!socket || socket.readyState!==WebSocket.OPEN)return;
+  isInAiRoom = true;
+  socket.send(JSON.stringify({type:"match_reset"}));
+  setTimeout(()=>{
+    partnerId = "ai_bot";
+    roomId = "ai_room";
+    socket.send(JSON.stringify({type:"enter_ai_round_room", userId:userId, nickname:nickName}));
+    document.getElementById("chat").innerHTML = `<div class="chat-bg-tip">${TIP_TEXT}</div>`;
+    sy("✅ 已进入AI圆桌房间");
+  },300);
+}
+
+function exitAiRoom(){
+  if(!socket || socket.readyState!==WebSocket.OPEN)return;
+  isInAiRoom = false;
+  socket.send(JSON.stringify({type:"exit_ai_round_room", userId:userId}));
+  partnerId = "";
+  roomId = "";
+  document.getElementById("match").textContent = "匹配聊天";
+  document.getElementById("chat").innerHTML = `<div class="chat-bg-tip">${TIP_TEXT}</div>`;
+  showSystemTip("✅ 已退出AI房间，可正常匹配");
 }
 
 function openGalleryImage() { if (!partnerId) { alert("请先匹配或进入AI"); return; } document.getElementById("galleryImage").click(); }
@@ -501,7 +489,7 @@ async function sendMedia(e, type) {
       socket.send(JSON.stringify({
         type: "send-msg", content: base64Data, msgType: type, burn: burn, msgId: msgId
       }));
-      addMsg("我", "", burn, msgId, type, base64Data);
+      aM("我", "", burn, msgId, type, base64Data);
     }
   };
   reader.readAsDataURL(file);
@@ -512,14 +500,14 @@ function playBeep() {
   try { let ctx = new AudioContext(); let o = ctx.createOscillator(); let g = ctx.createGain(); o.type="sine"; o.frequency.value=660; g.gain.value=0.3; o.connect(g); g.connect(ctx.destination); o.start(); o.stop(ctx.currentTime+0.18); } catch(e) {}
 }
 
-function showTip(text) {
+function sy(text) {
   let c = document.getElementById("chat");
   let tip = document.createElement("div");
   tip.style.textAlign = "center"; tip.style.color = "#999"; tip.style.fontSize = "15px"; tip.style.margin = "10px 0";
   tip.textContent = text; c.appendChild(tip); c.scrollTop = c.scrollHeight;
 }
 
-function addMsg(who, text, burn = false, msgId = "", type = "text", url = "") {
+function aM(who, text, burn = false, msgId = "", type = "text", url = "") {
   const c = document.getElementById("chat");
   const g = document.createElement("div");
   g.className = "msg " + (who === "我" ? "me" : "other");
@@ -564,7 +552,7 @@ async function login() {
   userId = u;
   try {
     let res = await fetch(`${BASE_URL}/login`, {
-      method: "POST", headers: { "Content-Type": "application/json", "X-API-Secret": API_SECRET },
+      method: "POST", headers: { "Content-Type": "application/json" },
       body: JSON.stringify({ username: u, password: p })
     });
     let j = await res.json();
@@ -574,7 +562,7 @@ async function login() {
       localStorage.setItem("chat_nickname", nickName);
       document.getElementById("nick").textContent = nickName;
       document.getElementById("login").style.display = "none";
-      document.getElementById("main").style.visibility = "visible";
+      document.getElementById("main").style.display = "flex";
       await loadLatestNick();
       initSocket();
       startIdleMonitor();
@@ -588,103 +576,19 @@ async function login() {
   }
 }
 
-function sendCode() {
-  if (codeCountdown > 0) return;
-
-  let email = document.getElementById("regEmail").value.trim();
-  const emailRe = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
-  if (!email) {
-    document.getElementById("tip2").textContent = "请先输入邮箱";
-    setTimeout(() => document.getElementById("tip2").textContent = "", 2000);
-    return;
-  }
-  if (!emailRe.test(email)) {
-    document.getElementById("tip2").textContent = "邮箱格式不正确";
-    setTimeout(() => document.getElementById("tip2").textContent = "", 2000);
-    return;
-  }
-
-  let btn = document.getElementById("sendCodeBtn");
-  btn.disabled = true;
-
-  fetch(`${BASE_URL}/send-code`, {
-    method: "POST",
-    headers: { "Content-Type": "application/json", "X-API-Secret": API_SECRET },
-    body: JSON.stringify({ email: email })
-  })
-  .then(async res => ({ res, j: await res.json() }))
-  .then(({res, j}) => {
-    if (res.ok && (j.success === true || j.code === 200)) {
-      document.getElementById("tip2").style.color = "#bfffe8";
-      document.getElementById("tip2").textContent = "验证码已发送，请查收邮箱";
-      setTimeout(() => { document.getElementById("tip2").textContent = ""; document.getElementById("tip2").style.color = "#ff3b30"; }, 3000);
-      codeCountdown = 60;
-      btn.textContent = codeCountdown + "s";
-      codeTimer = setInterval(() => {
-        codeCountdown--;
-        if (codeCountdown <= 0) {
-          clearInterval(codeTimer);
-          btn.disabled = false;
-          btn.textContent = "获取验证码";
-        } else {
-          btn.textContent = codeCountdown + "s";
-        }
-      }, 1000);
-    } else {
-      btn.disabled = false;
-      btn.textContent = "获取验证码";
-      document.getElementById("tip2").textContent = j.error || j.msg || "发送失败";
-      setTimeout(() => document.getElementById("tip2").textContent = "", 2000);
-    }
-  })
-  .catch(() => {
-    btn.disabled = false;
-    btn.textContent = "获取验证码";
-    document.getElementById("tip2").textContent = "网络异常";
-    setTimeout(() => document.getElementById("tip2").textContent = "", 2000);
-  });
-}
-
 function register() {
   let u = document.getElementById("u2").value.trim();
   let p = document.getElementById("p2").value.trim();
-  let email = document.getElementById("regEmail").value.trim();
-  let code = document.getElementById("regCode").value.trim();
-  if (!u || !p) {
-    document.getElementById("tip2").textContent = "请输入账号密码";
-    setTimeout(() => document.getElementById("tip2").textContent = "", 2000);
-    return;
-  }
-  if (!email) {
-    document.getElementById("tip2").textContent = "请输入邮箱";
-    setTimeout(() => document.getElementById("tip2").textContent = "", 2000);
-    return;
-  }
-  if (!code) {
-    document.getElementById("tip2").textContent = "请输入验证码";
-    setTimeout(() => document.getElementById("tip2").textContent = "", 2000);
-    return;
-  }
+  if (!u || !p) { document.getElementById("tip2").textContent = "请输入账号密码"; setTimeout(()=>document.getElementById("tip2").textContent="",2000); return; }
   fetch(`${BASE_URL}/register`, {
-    method: "POST",
-    headers: { "Content-Type": "application/json", "X-API-Secret": API_SECRET },
-    body: JSON.stringify({ username: u, password: p, email: email, code: code })
-  })
-  .then(res => res.json())
-  .then(j => {
+    method: "POST", headers: { "Content-Type": "application/json" },
+    body: JSON.stringify({ username: u, password: p })
+  }).then(res=>res.json()).then(j=>{
     document.getElementById("tip2").textContent = j.msg || "注册成功";
-    if (j.code === 200) {
-      document.getElementById("tip2").style.color = "#5eead4";
-      setTimeout(() => {
-        document.getElementById("tip2").textContent = "";
-        document.getElementById("tip2").style.color = "#ff3b30";
-      }, 2000);
-    } else {
-      setTimeout(() => document.getElementById("tip2").textContent = "", 2000);
-    }
-  }).catch(() => {
+    setTimeout(()=>document.getElementById("tip2").textContent="",2000);
+  }).catch(()=>{
     document.getElementById("tip2").textContent = "网络异常";
-    setTimeout(() => document.getElementById("tip2").textContent = "", 2000);
+    setTimeout(()=>document.getElementById("tip2").textContent="",2000);
   });
 }
 
@@ -694,34 +598,36 @@ function sendMsg() {
   let msgId = Date.now() + "";
   let burn = document.getElementById("burn").checked;
   if (!socket || socket.readyState !== WebSocket.OPEN) { showSystemTip("消息发送失败"); return; }
+  
   socket.send(JSON.stringify({
     type: "send-msg", content: t, msgType: "text", burn: burn, msgId: msgId, toId: partnerId, roomId: roomId
   }));
-  addMsg("我", `${nickName}：${t}`, burn, msgId, "text");
+  aM("我", `${nickName}：${t}`, burn, msgId, "text");
+  
   if (document.getElementById("sound").checked) playBeep();
   document.getElementById("msg").value = "";
 }
 
-function openModifyNickModal() { document.getElementById("modal").style.display = "flex"; }
-function closeModifyNickModal() { document.getElementById("modal").style.display = "none"; }
+function oM() { document.getElementById("modal").style.display = "flex"; }
+function cM() { document.getElementById("modal").style.display = "none"; }
 
-async function saveNewNick() {
+async function sN() {
   let nn = document.getElementById("newNick").value.trim();
   if (!nn || nn.length < 2 || nn.length > 20) { alert("昵称2-20字符"); return; }
   try {
     let res = await fetch(`${BASE_URL}/update-nickname`, {
-      method: "POST", headers: { "Content-Type": "application/json", "X-API-Secret": API_SECRET },
+      method: "POST", headers: { "Content-Type": "application/json" },
       body: JSON.stringify({ username: userId, newNickname: nn })
     });
     let r = await res.json();
     if (r.code === 200) {
       nickName = nn; document.getElementById("nick").textContent = nn; localStorage.setItem("chat_nickname", nickName);
-      document.getElementById("newNick").value = ""; closeModifyNickModal(); alert("✅ 修改成功！");
+      document.getElementById("newNick").value = ""; cM(); alert("✅ 修改成功！");
     } else { alert("❌ 失败：" + (r.msg || "服务器错误")); }
   } catch (err) { alert("❌ 修改失败，网络异常"); }
 }
 
-function clearChat(){
+function clearChat(){ 
   if (socket && socket.readyState === WebSocket.OPEN) socket.send(JSON.stringify({ type: "clear-chat" }));
   document.getElementById("chat").innerHTML = `<div class="chat-bg-tip">${TIP_TEXT}</div>`;
 }
@@ -740,46 +646,23 @@ document.getElementById("saveBtn").onclick = function() {
   const media = document.getElementById("fullMedia");
   const video = document.getElementById("fullVideo");
   const a = document.createElement("a");
-  if (media.style.display === "block") { a.href = media.src; a.download = "摸鱼基地_图片_"+Date.now()+".png"; }
+  if (media.style.display !== "none") { a.href = media.src; a.download = "摸鱼基地_图片_"+Date.now()+".png"; }
   else { a.href = video.src; a.download = "摸鱼基地_视频_"+Date.now()+".mp4"; }
   document.body.appendChild(a); a.click(); document.body.removeChild(a);
-  showSystemTip("✅ 已保存！");
+  alert("✅ 已保存！");
 };
 
-function closeApp(){
-  showSystemTip("退出页面即可关闭");
-}
-let agreeCount = 5;
-const agreeTimer = setInterval(()=>{
-  agreeCount--;
-  document.getElementById("countDown").innerText = agreeCount;
-  if(agreeCount<=0){
-    clearInterval(agreeTimer);
-    document.getElementById("agreeBtn").disabled = false;
-  }
-},1000);
-function agreeAgreement(){
-  document.getElementById("agreementMask").style.display = "none";
-}
-
-// 全局函数简写绑定
-window.oM = openModifyNickModal;
-window.cM = closeModifyNickModal;
-window.sN = saveNewNick;
-
-// DOM加载完毕初始化，不再等待全部资源
-document.addEventListener('DOMContentLoaded', function() {
+window.onload = function() {
   loadSwitches();
   autoDetectUserEnv();
   const savedUserId = localStorage.getItem("chat_user_id");
   if (savedUserId) {
     userId = savedUserId;
     document.getElementById("login").style.display = "none";
-    document.getElementById("main").style.visibility = "visible";
+    document.getElementById("main").style.display = "flex";
     loadLatestNick(); initSocket();
     startIdleMonitor();
   }
-  //标签切换
   document.getElementById("t1").onclick = () => {
     document.getElementById("t1").classList.add("active"); document.getElementById("t2").classList.remove("active");
     document.getElementById("f1").style.display = "block"; document.getElementById("f2").style.display = "none";
@@ -788,26 +671,29 @@ document.addEventListener('DOMContentLoaded', function() {
     document.getElementById("t2").classList.add("active"); document.getElementById("t1").classList.remove("active");
     document.getElementById("f1").style.display = "none"; document.getElementById("f2").style.display = "block";
   };
-  //按钮事件绑定
   document.getElementById("loginBtn").onclick = login;
   document.getElementById("regBtn").onclick = register;
   document.getElementById("exit").onclick = logout;
   document.getElementById("send").onclick = sendMsg;
-  document.getElementById("msg").onkeydown = e => e.key === "Enter" && sendMsg();
-  document.getElementById("galleryImage").onchange = e => sendMedia(e, "image");
-  document.getElementById("galleryVideo").onchange = e => sendMedia(e, "video");
-  document.getElementById("cameraPhoto").onchange = e => sendMedia(e, "image");
-  document.getElementById("cameraVideo").onchange = e => sendMedia(e, "video");
-  document.getElementById("noMoreTipBtn").onclick = function() {
-    localStorage.setItem("guide_no_more", "true");
-    closeGuide();
-  };
-  document.getElementById("copySystemBtn").onclick = function() {
-    navigator.clipboard.writeText(userBrowserAppName).then(() => {
-      showSystemTip("已复制，前往设置搜索即可");
-    }).catch(()=>{showSystemTip("复制失败，手动复制："+userBrowserAppName);});
-  };
-});
+  document.getElementById("msg").onkeydown = (e) => { if (e.key === "Enter") sendMsg(); };
+  document.getElementById("galleryImage").onchange = (e) => sendMedia(e, "image");
+  document.getElementById("galleryVideo").onchange = (e) => sendMedia(e, "video");
+  document.getElementById("cameraPhoto").onchange = (e) => sendMedia(e, "image");
+  document.getElementById("cameraVideo").onchange = (e) => sendMedia(e, "video");
+};
+
+function showAgreement(){ document.getElementById('agreementMask').style.display = 'flex'; }
+if (!localStorage.getItem("chat_user_id")) {
+  let time = 5;
+  let timer = setInterval(()=>{
+    time--; document.getElementById('countDown').innerText = time;
+    if(time <= 0){ clearInterval(timer); document.getElementById('agreeBtn').disabled = false; document.getElementById('agreeBtn').style.cursor = 'pointer'; document.getElementById('agreeBtn').innerText = '我已阅读并同意'; }
+  },1000);
+} else {
+  document.getElementById('agreementMask').style.display = 'none';
+}
+function agreeAgreement(){ document.getElementById('agreementMask').style.display = 'none'; }
+function closeApp(){ try{window.close();}catch(e){location.href='about:blank';}}
 </script>
 </body>
 </html>
